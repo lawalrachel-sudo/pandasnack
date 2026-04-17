@@ -17,6 +17,7 @@ function AuthForm() {
   const [tel, setTel] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [successMsg, setSuccessMsg] = useState<string | null>(null)
   const searchParams = useSearchParams()
   const router = useRouter()
 
@@ -99,54 +100,21 @@ function AuthForm() {
       return
     }
 
-    if (!authData.user) {
-      setError("Erreur lors de la création du compte.")
-      setLoading(false)
-      return
+    // Family, wallet & beneficiary are auto-created by DB trigger (handle_new_user)
+
+    // Check if we got a session (email confirmation OFF) or not (email confirmation ON)
+    if (authData.session) {
+      // Fully authenticated — go to commander
+      router.push("/commander")
+    } else {
+      // Email confirmation required — show success message
+      setError(null)
+      setSuccessMsg("Compte créé ! Vérifie ta boîte mail pour confirmer, puis connecte-toi.")
+      setMode("login")
+      setEmail(email) // keep email for easy login
+      setPassword("")
+      setConfirmPassword("")
     }
-
-    // 2. Create family record
-    const displayName = `Famille ${nom.trim()}`
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: family, error: familyError } = await (supabase as any)
-      .from("families")
-      .insert({
-        display_name: displayName,
-        primary_email: email,
-        primary_phone: fullPhone || null,
-        auth_user_id: authData.user.id,
-      })
-      .select()
-      .single()
-
-    if (familyError) {
-      setError("Compte créé mais erreur famille. Contacte-nous.")
-      setLoading(false)
-      return
-    }
-
-    // 3. Create wallet
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
-      .from("wallets")
-      .insert({
-        family_id: family.id,
-        balance_cents: 0,
-        total_credited_cents: 0,
-        total_debited_cents: 0,
-      })
-
-    // 4. Create first beneficiary (the child — can be edited later)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
-      .from("beneficiaries")
-      .insert({
-        family_id: family.id,
-        first_name: "Enfant",
-        dietary_flags: [],
-      })
-
-    router.push("/commander")
     setLoading(false)
   }
 
@@ -163,6 +131,12 @@ function AuthForm() {
           <p className="text-center text-sm mb-5" style={{ color: 'var(--ink-soft)' }}>
             Crée ton espace famille en 30 secondes
           </p>
+
+          {successMsg && (
+            <p className="text-sm mb-3 p-3 rounded-xl text-center" style={{ background: '#E8F5E9', color: '#2E7D32' }}>
+              {successMsg}
+            </p>
+          )}
 
           {error && (
             <p className="text-sm mb-3 p-3 rounded-xl text-center" style={{ background: '#FFF3F0', color: 'var(--accent)' }}>
@@ -288,7 +262,7 @@ function AuthForm() {
 
           <p className="text-center text-sm mt-4" style={{ color: 'var(--ink-soft)' }}>
             Déjà inscrit ?{" "}
-            <button type="button" onClick={() => { setMode("login"); setError(null) }} className="underline font-medium" style={{ color: 'var(--accent)' }}>
+            <button type="button" onClick={() => { setMode("login"); setError(null); setSuccessMsg(null) }} className="underline font-medium" style={{ color: 'var(--accent)' }}>
               Se connecter
             </button>
           </p>
@@ -299,6 +273,12 @@ function AuthForm() {
           <p className="text-center text-sm mb-5" style={{ color: 'var(--ink-soft)' }}>
             Entre ton email et mot de passe
           </p>
+
+          {successMsg && (
+            <p className="text-sm mb-3 p-3 rounded-xl text-center" style={{ background: '#E8F5E9', color: '#2E7D32' }}>
+              {successMsg}
+            </p>
+          )}
 
           {error && (
             <p className="text-sm mb-3 p-3 rounded-xl text-center" style={{ background: '#FFF3F0', color: 'var(--accent)' }}>
@@ -352,7 +332,7 @@ function AuthForm() {
 
           <p className="text-center text-sm mt-4" style={{ color: 'var(--ink-soft)' }}>
             Pas encore de compte ?{" "}
-            <button type="button" onClick={() => { setMode("signup"); setError(null) }} className="underline font-medium" style={{ color: 'var(--accent)' }}>
+            <button type="button" onClick={() => { setMode("signup"); setError(null); setSuccessMsg(null) }} className="underline font-medium" style={{ color: 'var(--accent)' }}>
               S&apos;inscrire
             </button>
           </p>
