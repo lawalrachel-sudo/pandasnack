@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 
-export default function AuthPage() {
+function AuthForm() {
   const [email, setEmail] = useState("")
   const [step, setStep] = useState<"email" | "otp">("email")
   const [otp, setOtp] = useState(["", "", "", "", "", ""])
@@ -21,7 +21,6 @@ export default function AuthPage() {
     }
   }, [searchParams])
 
-  // Auto-focus first OTP input when step changes
   useEffect(() => {
     if (step === "otp") {
       inputRefs.current[0]?.focus()
@@ -71,18 +70,16 @@ export default function AuthPage() {
   }
 
   function handleOtpChange(index: number, value: string) {
-    if (!/^\d*$/.test(value)) return // Only digits
+    if (!/^\d*$/.test(value)) return
 
     const newOtp = [...otp]
-    newOtp[index] = value.slice(-1) // Only last digit
+    newOtp[index] = value.slice(-1)
     setOtp(newOtp)
 
-    // Auto-advance to next input
     if (value && index < 5) {
       inputRefs.current[index + 1]?.focus()
     }
 
-    // Auto-submit when all 6 digits entered
     const fullCode = newOtp.join("")
     if (fullCode.length === 6) {
       handleVerifyOtp(fullCode)
@@ -106,13 +103,7 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="flex flex-col flex-1 items-center justify-center px-6 py-16">
-      <img
-        src="https://res.cloudinary.com/dbkpvp9ts/image/upload/w_200,q_auto,f_auto/v1776343210/tete_panda_panda_snack.png"
-        alt="Panda"
-        className="w-28 h-28 mb-6 object-contain"
-      />
-
+    <>
       {step === "otp" ? (
         <div className="text-center max-w-sm w-full">
           <h1 className="text-xl font-bold mb-2">Entre ton code</h1>
@@ -197,6 +188,21 @@ export default function AuthPage() {
           </button>
         </form>
       )}
+    </>
+  )
+}
+
+export default function AuthPage() {
+  return (
+    <div className="flex flex-col flex-1 items-center justify-center px-6 py-16">
+      <img
+        src="https://res.cloudinary.com/dbkpvp9ts/image/upload/w_200,q_auto,f_auto/v1776343210/tete_panda_panda_snack.png"
+        alt="Panda"
+        className="w-28 h-28 mb-6 object-contain"
+      />
+      <Suspense fallback={<p className="text-sm" style={{ color: 'var(--ink-soft)' }}>Chargement...</p>}>
+        <AuthForm />
+      </Suspense>
     </div>
   )
 }
