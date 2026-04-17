@@ -458,6 +458,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: '#3A2A20',
     outline: 'none',
     fontFamily: 'inherit',
+    width: '100%',
+    boxSizing: 'border-box',
   },
   passwordWrap: { position: 'relative' },
   eyeBtn: {
