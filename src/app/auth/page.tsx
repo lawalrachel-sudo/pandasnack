@@ -13,6 +13,7 @@ function AuthForm() {
   const [showConfirm, setShowConfirm] = useState(false)
   const [nom, setNom] = useState("")
   const [prenom, setPrenom] = useState("")
+  const [telPrefix, setTelPrefix] = useState("+596")
   const [tel, setTel] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -73,6 +74,7 @@ function AuthForm() {
     }
 
     const supabase = createClient()
+    const fullPhone = tel.trim() ? `${telPrefix}${tel.trim().replace(/^0+/, '')}` : ""
 
     // 1. Create auth user
     const { data: authData, error: signupError } = await supabase.auth.signUp({
@@ -81,7 +83,7 @@ function AuthForm() {
       options: {
         data: {
           display_name: `${prenom.trim()} ${nom.trim()}`,
-          phone: tel.trim(),
+          phone: fullPhone,
         },
       },
     })
@@ -111,7 +113,7 @@ function AuthForm() {
       .insert({
         display_name: displayName,
         primary_email: email,
-        primary_phone: tel.trim() || null,
+        primary_phone: fullPhone || null,
         auth_user_id: authData.user.id,
       })
       .select()
@@ -189,14 +191,29 @@ function AuthForm() {
             />
           </div>
 
-          <input
-            type="tel"
-            value={tel}
-            onChange={(e) => setTel(e.target.value)}
-            placeholder="Téléphone (0696...)"
-            className="w-full h-12 px-4 rounded-xl border text-base mb-3 outline-none focus:ring-2"
-            style={inputStyle}
-          />
+          <div className="flex gap-2 mb-3">
+            <select
+              value={telPrefix}
+              onChange={(e) => setTelPrefix(e.target.value)}
+              className="h-12 px-2 rounded-xl border text-sm outline-none focus:ring-2"
+              style={inputStyle}
+            >
+              <option value="+596">+596 MQ</option>
+              <option value="+590">+590 GP</option>
+              <option value="+33">+33 FR</option>
+              <option value="+594">+594 GF</option>
+              <option value="+262">+262 RE</option>
+              <option value="+1">+1 US/CA</option>
+            </select>
+            <input
+              type="tel"
+              value={tel}
+              onChange={(e) => setTel(e.target.value)}
+              placeholder="696 XX XX XX"
+              className="flex-1 h-12 px-4 rounded-xl border text-base outline-none focus:ring-2"
+              style={inputStyle}
+            />
+          </div>
 
           <input
             type="email"
