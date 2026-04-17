@@ -103,7 +103,8 @@ function AuthForm() {
 
     // 2. Create family record
     const displayName = `Famille ${nom.trim()}`
-    const { data: family, error: familyError } = await (supabase as ReturnType<typeof createClient>)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: family, error: familyError } = await (supabase as any)
       .from("families")
       .insert({
         display_name: displayName,
@@ -121,7 +122,8 @@ function AuthForm() {
     }
 
     // 3. Create wallet
-    await (supabase as ReturnType<typeof createClient>)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any)
       .from("wallets")
       .insert({
         family_id: family.id,
@@ -131,7 +133,8 @@ function AuthForm() {
       })
 
     // 4. Create first beneficiary (the child — can be edited later)
-    await (supabase as ReturnType<typeof createClient>)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any)
       .from("beneficiaries")
       .insert({
         family_id: family.id,
