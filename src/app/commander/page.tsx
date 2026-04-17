@@ -9,22 +9,22 @@ export default async function CommanderPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/auth")
 
-  // Get family
+  // Get account (ex-family) with its profils (ex-beneficiaries)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: family } = await (supabase as any)
-    .from("families")
-    .select("*, beneficiaries(*)")
+  const { data: account } = await (supabase as any)
+    .from("accounts")
+    .select("*, profils(*)")
     .eq("auth_user_id", user.id)
     .single()
 
-  if (!family) redirect("/auth?error=no_family")
+  if (!account) redirect("/auth?error=no_account")
 
   // Get wallet
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: wallet } = await (supabase as any)
     .from("wallets")
     .select("*")
-    .eq("family_id", family.id)
+    .eq("account_id", account.id)
     .single()
 
   // Get catalog (active items only, sorted)
@@ -47,8 +47,8 @@ export default async function CommanderPage() {
 
   return (
     <CommanderClient
-      family={family}
-      beneficiaries={family.beneficiaries || []}
+      family={account}
+      beneficiaries={account.profils || []}
       wallet={wallet}
       categories={categories || []}
       slots={slots || []}
