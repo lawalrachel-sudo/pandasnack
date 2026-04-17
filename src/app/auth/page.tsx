@@ -1,358 +1,545 @@
-"use client"
+'use client';
 
-import { useState, useEffect, Suspense } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
+import { useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
+import Link from 'next/link';
 
-function AuthForm() {
-  const [mode, setMode] = useState<"login" | "signup">("login")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirm, setShowConfirm] = useState(false)
-  const [nom, setNom] = useState("")
-  const [prenom, setPrenom] = useState("")
-  const [telPrefix, setTelPrefix] = useState("+596")
-  const [tel, setTel] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [successMsg, setSuccessMsg] = useState<string | null>(null)
-  const searchParams = useSearchParams()
-  const router = useRouter()
+function AuthContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const supabase = createClient();
 
-  useEffect(() => {
-    const urlError = searchParams.get("error")
-    if (urlError === "no_family") {
-      setError("Compte incomplet. Inscris-toi pour créer ton espace famille.")
-      setMode("signup")
-    } else if (urlError) {
-      setError("Erreur de connexion. Réessaie ci-dessous.")
-    }
-  }, [searchParams])
+  // Modes : login | signup | forgot
+  const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
 
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
+  // Champs
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [passwordConfirm, setPasswordConfirm] = useState('');
+  const [prenom, setPrenom] = useState('');
+  const [nom, setNom] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
-    const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+  // Etats UI
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
 
-    if (error) {
-      if (error.message.includes("Invalid login")) {
-        setError("Email ou mot de passe incorrect.")
-      } else {
-        setError(error.message)
-      }
-    } else {
-      router.push("/commander")
-    }
-    setLoading(false)
-  }
+  // Gestion des erreurs dans l'URL (ex: ?error=no_account)
+  const urlError = searchParams.get('error');
+
+  // ================ HANDLERS ================
 
   async function handleSignup(e: React.FormEvent) {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
+    e.preventDefault();
+    setError(null);
+    setInfo(null);
 
-    if (!nom.trim() || !prenom.trim()) {
-      setError("Nom et prénom sont obligatoires.")
-      setLoading(false)
-      return
+    if (!prenom.trim() || !nom.trim()) {
+      setError('Merci de renseigner ton prénom et ton nom.');
+      return;
+    }
+    if (password.length < 8) {
+      setError('Le mot de passe doit faire au moins 8 caractères.');
+      return;
+    }
+    if (password !== passwordConfirm) {
+      setError('Les mots de passe ne correspondent pas.');
+      return;
     }
 
-    if (password.length < 6) {
-      setError("Le mot de passe doit faire au moins 6 caractères.")
-      setLoading(false)
-      return
-    }
+    setLoading(true);
 
-    if (password !== confirmPassword) {
-      setError("Les mots de passe ne correspondent pas.")
-      setLoading(false)
-      return
-    }
-
-    const supabase = createClient()
-    const fullPhone = tel.trim() ? `${telPrefix}${tel.trim().replace(/^0+/, '')}` : ""
-
-    // 1. Create auth user
-    const { data: authData, error: signupError } = await supabase.auth.signUp({
-      email,
+    const { error: signupError } = await supabase.auth.signUp({
+      email: email.trim().toLowerCase(),
       password,
       options: {
         data: {
-          display_name: `${prenom.trim()} ${nom.trim()}`,
-          phone: fullPhone,
+          prenom: prenom.trim(),
+          nom: nom.trim(),
         },
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=/commander`,
       },
-    })
+    });
+
+    setLoading(false);
 
     if (signupError) {
-      if (signupError.message.includes("already registered")) {
-        setError("Cet email est déjà utilisé. Connecte-toi plutôt.")
-        setMode("login")
+      setError(signupError.message);
+      return;
+    }
+
+    setInfo(
+      "✉️ Un email de confirmation vient de t'être envoyé. Clique sur le lien pour activer ton compte."
+    );
+    // On vide les champs sensibles
+    setPassword('');
+    setPasswordConfirm('');
+  }
+
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setInfo(null);
+    setLoading(true);
+
+    const { error: loginError } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    });
+
+    setLoading(false);
+
+    if (loginError) {
+      if (loginError.message.includes('Email not confirmed')) {
+        setError(
+          "Ton email n'est pas encore confirmé. Vérifie ta boîte mail (et les spams)."
+        );
+      } else if (loginError.message.includes('Invalid login credentials')) {
+        setError('Email ou mot de passe incorrect.');
       } else {
-        setError(signupError.message)
+        setError(loginError.message);
       }
-      setLoading(false)
-      return
+      return;
     }
 
-    // Family, wallet & beneficiary are auto-created by DB trigger (handle_new_user)
+    router.push('/commander');
+    router.refresh();
+  }
 
-    // Check if we got a session (email confirmation OFF) or not (email confirmation ON)
-    if (authData.session) {
-      // Fully authenticated — go to commander
-      router.push("/commander")
-    } else {
-      // Email confirmation required — show success message
-      setError(null)
-      setSuccessMsg("Compte créé ! Vérifie ta boîte mail pour confirmer, puis connecte-toi.")
-      setMode("login")
-      setEmail(email) // keep email for easy login
-      setPassword("")
-      setConfirmPassword("")
+  async function handleForgot(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setInfo(null);
+    setLoading(true);
+
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+      email.trim().toLowerCase(),
+      {
+        redirectTo: `${window.location.origin}/auth/reset`,
+      }
+    );
+
+    setLoading(false);
+
+    if (resetError) {
+      setError(resetError.message);
+      return;
     }
-    setLoading(false)
+
+    setInfo(
+      '✉️ Si un compte existe pour cet email, un lien de réinitialisation vient de partir.'
+    );
   }
 
-  const inputStyle = {
-    borderColor: 'var(--border)',
-    background: 'var(--card)',
-  }
+  // ================ RENDU ================
 
   return (
-    <>
-      {mode === "signup" ? (
-        <form onSubmit={handleSignup} className="w-full max-w-sm">
-          <h1 className="text-xl font-bold text-center mb-2">Inscription</h1>
-          <p className="text-center text-sm mb-5" style={{ color: 'var(--ink-soft)' }}>
-            Crée ton espace famille en 30 secondes
-          </p>
-
-          {successMsg && (
-            <p className="text-sm mb-3 p-3 rounded-xl text-center" style={{ background: '#E8F5E9', color: '#2E7D32' }}>
-              {successMsg}
-            </p>
-          )}
-
-          {error && (
-            <p className="text-sm mb-3 p-3 rounded-xl text-center" style={{ background: '#FFF3F0', color: 'var(--accent)' }}>
-              {error}
-            </p>
-          )}
-
-          <div className="flex gap-2 mb-3">
-            <input
-              type="text"
-              value={prenom}
-              onChange={(e) => setPrenom(e.target.value)}
-              placeholder="Prénom"
-              required
-              className="w-1/2 h-12 px-4 rounded-xl border text-base outline-none focus:ring-2"
-              style={inputStyle}
-            />
-            <input
-              type="text"
-              value={nom}
-              onChange={(e) => setNom(e.target.value)}
-              placeholder="Nom"
-              required
-              className="w-1/2 h-12 px-4 rounded-xl border text-base outline-none focus:ring-2"
-              style={inputStyle}
-            />
-          </div>
-
-          <div className="flex gap-2 mb-3">
-            <select
-              value={telPrefix}
-              onChange={(e) => setTelPrefix(e.target.value)}
-              className="h-12 px-2 rounded-xl border text-sm outline-none focus:ring-2"
-              style={inputStyle}
-            >
-              <option value="+596">+596 MQ</option>
-              <option value="+590">+590 GP</option>
-              <option value="+33">+33 FR</option>
-              <option value="+594">+594 GF</option>
-              <option value="+262">+262 RE</option>
-              <option value="+1">+1 US/CA</option>
-            </select>
-            <input
-              type="tel"
-              value={tel}
-              onChange={(e) => setTel(e.target.value)}
-              placeholder="696 XX XX XX"
-              className="flex-1 h-12 px-4 rounded-xl border text-base outline-none focus:ring-2"
-              style={inputStyle}
-            />
-          </div>
-
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email"
-            required
-            className="w-full h-12 px-4 rounded-xl border text-base mb-3 outline-none focus:ring-2"
-            style={inputStyle}
+    <div style={styles.page}>
+      <div style={styles.card}>
+        <div style={styles.logoRow}>
+          <img
+            src="https://res.cloudinary.com/dbkpvp9ts/image/upload/c_fit,w_80,q_auto,f_auto/v1776343210/tete_panda_panda_snack.png"
+            alt="Panda Snack"
+            style={styles.logo}
           />
+          <h1 style={styles.brand}>Panda Snack</h1>
+        </div>
 
-          <div className="relative mb-3">
-            <input
-              type={showPassword ? "text" : "password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Mot de passe (min. 6 car.)"
-              required
-              minLength={6}
-              className="w-full h-12 px-4 pr-12 rounded-xl border text-base outline-none focus:ring-2"
-              style={inputStyle}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1"
-              style={{ color: 'var(--ink-soft)' }}
-              tabIndex={-1}
-            >
-              {showPassword ? (
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              )}
-            </button>
-          </div>
+        <h2 style={styles.title}>
+          {mode === 'login' && 'Connexion'}
+          {mode === 'signup' && 'Créer un compte'}
+          {mode === 'forgot' && 'Mot de passe oublié'}
+        </h2>
 
-          <div className="relative mb-4">
-            <input
-              type={showConfirm ? "text" : "password"}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Confirmer le mot de passe"
-              required
-              minLength={6}
-              className="w-full h-12 px-4 pr-12 rounded-xl border text-base outline-none focus:ring-2"
-              style={inputStyle}
-            />
-            <button
-              type="button"
-              onClick={() => setShowConfirm(!showConfirm)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1"
-              style={{ color: 'var(--ink-soft)' }}
-              tabIndex={-1}
-            >
-              {showConfirm ? (
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              )}
-            </button>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full h-12 rounded-xl font-semibold text-white transition-transform hover:scale-[1.02] disabled:opacity-50"
-            style={{ background: 'var(--accent)' }}
-          >
-            {loading ? "Création..." : "Créer mon compte"}
-          </button>
-
-          <p className="text-center text-sm mt-4" style={{ color: 'var(--ink-soft)' }}>
-            Déjà inscrit ?{" "}
-            <button type="button" onClick={() => { setMode("login"); setError(null); setSuccessMsg(null) }} className="underline font-medium" style={{ color: 'var(--accent)' }}>
-              Se connecter
-            </button>
+        {mode !== 'forgot' && (
+          <p style={styles.subtitle}>
+            {mode === 'login'
+              ? 'Retrouve ton wallet et commande en quelques clics.'
+              : 'Commande tes repas en ligne. Ton wallet te facilite la vie.'}
           </p>
-        </form>
-      ) : (
-        <form onSubmit={handleLogin} className="w-full max-w-sm">
-          <h1 className="text-xl font-bold text-center mb-2">Connexion</h1>
-          <p className="text-center text-sm mb-5" style={{ color: 'var(--ink-soft)' }}>
-            Entre ton email et mot de passe
-          </p>
+        )}
 
-          {successMsg && (
-            <p className="text-sm mb-3 p-3 rounded-xl text-center" style={{ background: '#E8F5E9', color: '#2E7D32' }}>
-              {successMsg}
+        {urlError === 'no_account' && (
+          <div style={styles.errorBox}>
+            Ton compte n'a pas été trouvé. Merci de te reconnecter ou de créer un compte.
+          </div>
+        )}
+        {error && <div style={styles.errorBox}>{error}</div>}
+        {info && <div style={styles.infoBox}>{info}</div>}
+
+        {/* FORMULAIRE LOGIN */}
+        {mode === 'login' && (
+          <form onSubmit={handleLogin} style={styles.form}>
+            <label style={styles.label}>
+              Email
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={styles.input}
+                autoComplete="email"
+              />
+            </label>
+
+            <label style={styles.label}>
+              Mot de passe
+              <div style={styles.passwordWrap}>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  style={{ ...styles.input, paddingRight: 44 }}
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={styles.eyeBtn}
+                  aria-label={showPassword ? 'Masquer' : 'Afficher'}
+                >
+                  {showPassword ? '🙈' : '👁'}
+                </button>
+              </div>
+            </label>
+
+            <button type="submit" disabled={loading} style={styles.btnPrimary}>
+              {loading ? 'Connexion…' : 'Se connecter'}
+            </button>
+
+            <div style={styles.links}>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('forgot');
+                  setError(null);
+                  setInfo(null);
+                }}
+                style={styles.linkBtn}
+              >
+                Mot de passe oublié ?
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('signup');
+                  setError(null);
+                  setInfo(null);
+                }}
+                style={styles.linkBtn}
+              >
+                Créer un compte
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* FORMULAIRE SIGNUP */}
+        {mode === 'signup' && (
+          <form onSubmit={handleSignup} style={styles.form}>
+            <div style={styles.row}>
+              <label style={{ ...styles.label, flex: 1 }}>
+                Prénom
+                <input
+                  type="text"
+                  required
+                  value={prenom}
+                  onChange={(e) => setPrenom(e.target.value)}
+                  style={styles.input}
+                  autoComplete="given-name"
+                />
+              </label>
+              <label style={{ ...styles.label, flex: 1 }}>
+                Nom
+                <input
+                  type="text"
+                  required
+                  value={nom}
+                  onChange={(e) => setNom(e.target.value)}
+                  style={styles.input}
+                  autoComplete="family-name"
+                />
+              </label>
+            </div>
+
+            <label style={styles.label}>
+              Email
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={styles.input}
+                autoComplete="email"
+              />
+            </label>
+
+            <label style={styles.label}>
+              Mot de passe <small style={styles.hint}>(min. 8 caractères)</small>
+              <div style={styles.passwordWrap}>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  minLength={8}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  style={{ ...styles.input, paddingRight: 44 }}
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={styles.eyeBtn}
+                  aria-label={showPassword ? 'Masquer' : 'Afficher'}
+                >
+                  {showPassword ? '🙈' : '👁'}
+                </button>
+              </div>
+            </label>
+
+            <label style={styles.label}>
+              Confirmer le mot de passe
+              <input
+                type={showPassword ? 'text' : 'password'}
+                required
+                minLength={8}
+                value={passwordConfirm}
+                onChange={(e) => setPasswordConfirm(e.target.value)}
+                style={styles.input}
+                autoComplete="new-password"
+              />
+            </label>
+
+            <button type="submit" disabled={loading} style={styles.btnPrimary}>
+              {loading ? 'Inscription…' : 'Créer mon compte'}
+            </button>
+
+            <div style={styles.links}>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('login');
+                  setError(null);
+                  setInfo(null);
+                }}
+                style={styles.linkBtn}
+              >
+                J'ai déjà un compte
+              </button>
+            </div>
+
+            <p style={styles.legal}>
+              En créant un compte, tu acceptes nos{' '}
+              <Link href="/cgv" style={styles.legalLink}>
+                CGV
+              </Link>{' '}
+              et notre{' '}
+              <Link href="/cgu" style={styles.legalLink}>
+                politique de confidentialité
+              </Link>
+              .
             </p>
-          )}
+          </form>
+        )}
 
-          {error && (
-            <p className="text-sm mb-3 p-3 rounded-xl text-center" style={{ background: '#FFF3F0', color: 'var(--accent)' }}>
-              {error}
+        {/* FORMULAIRE FORGOT */}
+        {mode === 'forgot' && (
+          <form onSubmit={handleForgot} style={styles.form}>
+            <p style={styles.subtitle}>
+              Indique ton email, on t'envoie un lien de réinitialisation.
             </p>
-          )}
+            <label style={styles.label}>
+              Email
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={styles.input}
+                autoComplete="email"
+              />
+            </label>
 
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email"
-            required
-            className="w-full h-12 px-4 rounded-xl border text-base mb-3 outline-none focus:ring-2"
-            style={inputStyle}
-          />
-
-          <div className="relative mb-4">
-            <input
-              type={showPassword ? "text" : "password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Mot de passe"
-              required
-              className="w-full h-12 px-4 pr-12 rounded-xl border text-base outline-none focus:ring-2"
-              style={inputStyle}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1"
-              style={{ color: 'var(--ink-soft)' }}
-              tabIndex={-1}
-            >
-              {showPassword ? (
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              )}
+            <button type="submit" disabled={loading} style={styles.btnPrimary}>
+              {loading ? 'Envoi…' : 'Envoyer le lien'}
             </button>
-          </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full h-12 rounded-xl font-semibold text-white transition-transform hover:scale-[1.02] disabled:opacity-50"
-            style={{ background: 'var(--accent)' }}
-          >
-            {loading ? "Connexion..." : "Se connecter"}
-          </button>
-
-          <p className="text-center text-sm mt-4" style={{ color: 'var(--ink-soft)' }}>
-            Pas encore de compte ?{" "}
-            <button type="button" onClick={() => { setMode("signup"); setError(null); setSuccessMsg(null) }} className="underline font-medium" style={{ color: 'var(--accent)' }}>
-              S&apos;inscrire
-            </button>
-          </p>
-        </form>
-      )}
-    </>
-  )
+            <div style={styles.links}>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('login');
+                  setError(null);
+                  setInfo(null);
+                }}
+                style={styles.linkBtn}
+              >
+                Retour à la connexion
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
 }
+
+// ================ STYLES ================
+
+const styles: { [key: string]: React.CSSProperties } = {
+  page: {
+    minHeight: '100vh',
+    background: 'linear-gradient(135deg, #FBF5EC 0%, #F0E6D6 100%)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '20px',
+    fontFamily:
+      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  },
+  card: {
+    background: '#fff',
+    borderRadius: 18,
+    padding: '32px 28px',
+    maxWidth: 440,
+    width: '100%',
+    boxShadow: '0 20px 60px rgba(200, 90, 60, 0.12)',
+    border: '1px solid #E8D6BF',
+  },
+  logoRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 20,
+    justifyContent: 'center',
+  },
+  logo: { width: 48, height: 48, objectFit: 'contain' },
+  brand: {
+    fontSize: 22,
+    fontWeight: 800,
+    color: '#3A2A20',
+    margin: 0,
+    letterSpacing: '-0.5px',
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: 800,
+    color: '#3A2A20',
+    margin: '0 0 6px',
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#6B5742',
+    margin: '0 0 20px',
+    textAlign: 'center',
+    lineHeight: 1.5,
+  },
+  form: { display: 'flex', flexDirection: 'column', gap: 14 },
+  row: { display: 'flex', gap: 10 },
+  label: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 6,
+    fontSize: 13,
+    fontWeight: 600,
+    color: '#3A2A20',
+  },
+  hint: { fontWeight: 400, color: '#9B8A75', fontSize: 11 },
+  input: {
+    padding: '11px 14px',
+    borderRadius: 10,
+    border: '1.5px solid #E8D6BF',
+    background: '#FBF5EC',
+    fontSize: 15,
+    color: '#3A2A20',
+    outline: 'none',
+    fontFamily: 'inherit',
+  },
+  passwordWrap: { position: 'relative' },
+  eyeBtn: {
+    position: 'absolute',
+    right: 10,
+    top: '50%',
+    transform: 'translateY(-50%)',
+    background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: 18,
+    padding: 4,
+  },
+  btnPrimary: {
+    background: '#C85A3C',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 12,
+    padding: '14px 20px',
+    fontSize: 15,
+    fontWeight: 700,
+    cursor: 'pointer',
+    marginTop: 6,
+    transition: 'background 0.2s',
+  },
+  links: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 6,
+  },
+  linkBtn: {
+    background: 'transparent',
+    border: 'none',
+    color: '#C85A3C',
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: 'pointer',
+    padding: 4,
+    textDecoration: 'underline',
+    textUnderlineOffset: 3,
+  },
+  errorBox: {
+    background: '#FEF2F0',
+    border: '1px solid #F5B5A8',
+    color: '#B84A2E',
+    padding: '10px 14px',
+    borderRadius: 10,
+    fontSize: 13,
+    marginBottom: 16,
+  },
+  infoBox: {
+    background: '#F0F7EC',
+    border: '1px solid #B8D4A5',
+    color: '#3E7D4A',
+    padding: '10px 14px',
+    borderRadius: 10,
+    fontSize: 13,
+    marginBottom: 16,
+    lineHeight: 1.5,
+  },
+  legal: {
+    fontSize: 11,
+    color: '#9B8A75',
+    textAlign: 'center',
+    margin: '8px 0 0',
+    lineHeight: 1.5,
+  },
+  legalLink: { color: '#C85A3C', textDecoration: 'underline' },
+};
 
 export default function AuthPage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center px-6 py-16">
-      <img
-        src="https://res.cloudinary.com/dbkpvp9ts/image/upload/w_200,q_auto,f_auto/v1776343210/tete_panda_panda_snack.png"
-        alt="Panda"
-        className="w-28 h-28 mb-6 object-contain"
-      />
-      <Suspense fallback={<p className="text-sm" style={{ color: 'var(--ink-soft)' }}>Chargement...</p>}>
-        <AuthForm />
-      </Suspense>
-    </div>
-  )
+    <Suspense
+      fallback={
+        <div style={styles.page}>
+          <div style={styles.card}>Chargement…</div>
+        </div>
+      }
+    >
+      <AuthContent />
+    </Suspense>
+  );
 }
