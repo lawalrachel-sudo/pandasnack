@@ -33,9 +33,9 @@ export default function AuthPage() {
   return (
     <div className="flex flex-col flex-1 items-center justify-center px-6 py-16">
       <img
-        src="https://res.cloudinary.com/dbkpvp9ts/image/upload/w_100,q_auto,f_auto/v1776343210/tete_panda_panda_snack.png"
+        src="https://res.cloudinary.com/dbkpvp9ts/image/upload/w_200,q_auto,f_auto/v1776343210/tete_panda_panda_snack.png"
         alt="Panda"
-        className="w-16 h-16 mb-6"
+        className="w-28 h-28 mb-6 object-contain"
       />
 
       {sent ? (

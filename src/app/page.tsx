@@ -15,7 +15,6 @@ export default function Home() {
       </h1>
       <p className="text-center mb-8 max-w-sm" style={{ color: 'var(--ink-soft)' }}>
         Sandwichs, croques, pasta box, salades et boissons maison.
-        Commande pour tes enfants en quelques clics.
       </p>
 
       <div className="flex flex-col gap-3 w-full max-w-xs">
