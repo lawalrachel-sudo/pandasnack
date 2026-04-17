@@ -122,7 +122,6 @@ export function CommanderClient({ family, beneficiaries, wallet, categories, slo
           alt="Panda Snack"
           className="mx-auto max-w-[280px] mb-3"
         />
-        <p className="text-white/90 text-sm">Commande le repas de tes enfants</p>
       </div>
 
       {/* Slot selector */}
