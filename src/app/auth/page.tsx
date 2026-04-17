@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client"
 function AuthForm() {
   const [email, setEmail] = useState("")
   const [step, setStep] = useState<"email" | "otp">("email")
-  const [otp, setOtp] = useState(["", "", "", "", "", ""])
+  const [otp, setOtp] = useState(["", "", "", "", "", "", "", ""])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const searchParams = useSearchParams()
@@ -61,7 +61,7 @@ function AuthForm() {
 
     if (error) {
       setError("Code invalide ou expiré. Réessaie.")
-      setOtp(["", "", "", "", "", ""])
+      setOtp(["", "", "", "", "", "", "", ""])
       inputRefs.current[0]?.focus()
     } else {
       router.push("/commander")
@@ -76,12 +76,12 @@ function AuthForm() {
     newOtp[index] = value.slice(-1)
     setOtp(newOtp)
 
-    if (value && index < 5) {
+    if (value && index < 7) {
       inputRefs.current[index + 1]?.focus()
     }
 
     const fullCode = newOtp.join("")
-    if (fullCode.length === 6) {
+    if (fullCode.length === 8) {
       handleVerifyOtp(fullCode)
     }
   }
@@ -94,8 +94,8 @@ function AuthForm() {
 
   function handleOtpPaste(e: React.ClipboardEvent) {
     e.preventDefault()
-    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6)
-    if (pasted.length === 6) {
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 8)
+    if (pasted.length === 8) {
       const newOtp = pasted.split("")
       setOtp(newOtp)
       handleVerifyOtp(pasted)
@@ -128,7 +128,7 @@ function AuthForm() {
                 value={digit}
                 onChange={(e) => handleOtpChange(i, e.target.value)}
                 onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                className="w-12 h-14 text-center text-2xl font-bold rounded-xl border outline-none focus:ring-2"
+                className="w-10 h-12 text-center text-xl font-bold rounded-lg border outline-none focus:ring-2"
                 style={{
                   borderColor: 'var(--border)',
                   background: 'var(--card)',
@@ -145,7 +145,7 @@ function AuthForm() {
           )}
 
           <button
-            onClick={() => { setStep("email"); setOtp(["", "", "", "", "", ""]); setError(null) }}
+            onClick={() => { setStep("email"); setOtp(["", "", "", "", "", "", "", ""]); setError(null) }}
             className="text-sm underline"
             style={{ color: 'var(--ink-soft)' }}
           >
