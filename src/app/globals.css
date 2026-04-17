@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+:root {
+  /* Palette B — Terracotta Caraïbe */
+  --bg: #FBF5EC;
+  --bg-alt: #F0E6D6;
+  --ink: #3A2A20;
+  --ink-soft: #6B5742;
+  --accent: #C85A3C;
+  --accent-2: #5A7F42;
+  --accent-3: #E8A040;
+  --card: #FFFFFF;
+  --border: #E8D6BF;
+  --shadow: rgba(200, 90, 60, 0.08);
+
+  /* Menu Panda gradient (Palette C) */
+  --menu-panda-start: #8B5E3C;
+  --menu-panda-end: #6B8E4E;
+}
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--ink);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-accent-3: var(--accent-3);
+  --color-card: var(--card);
+  --color-border-panda: var(--border);
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}

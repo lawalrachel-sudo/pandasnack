@@ -1,0 +1,22 @@
+{
+  "name": "Panda Snack",
+  "short_name": "PandaSnack",
+  "description": "Commande en ligne Panda Snack — sandwichs, croques, pasta box, salades",
+  "start_url": "/commander",
+  "display": "standalone",
+  "background_color": "#FBF5EC",
+  "theme_color": "#C85A3C",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
