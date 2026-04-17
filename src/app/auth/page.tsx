@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 
 export default function AuthPage() {
@@ -8,6 +9,22 @@ export default function AuthPage() {
   const [sent, setSent] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    const urlError = searchParams.get("error")
+    if (urlError) {
+      // Read hash fragment for Supabase error details
+      const hash = window.location.hash
+      if (hash.includes("otp_expired")) {
+        setError("Le lien a expiré. Demande un nouveau lien ci-dessous.")
+      } else if (hash.includes("access_denied")) {
+        setError("Accès refusé. Demande un nouveau lien ci-dessous.")
+      } else {
+        setError("Erreur de connexion. Réessaie ci-dessous.")
+      }
+    }
+  }, [searchParams])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -45,6 +62,9 @@ export default function AuthPage() {
             Un lien de connexion a été envoyé à <strong>{email}</strong>.
             Clique dessus pour accéder à ton espace.
           </p>
+          <p className="text-xs mt-4" style={{ color: 'var(--ink-soft)' }}>
+            Le lien expire dans 1 heure. Clique-le rapidement.
+          </p>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="w-full max-w-sm">
@@ -52,6 +72,12 @@ export default function AuthPage() {
           <p className="text-center text-sm mb-6" style={{ color: 'var(--ink-soft)' }}>
             Entre ton email pour recevoir un lien magique
           </p>
+
+          {error && (
+            <p className="text-sm mb-3 p-3 rounded-xl text-center" style={{ background: '#FFF3F0', color: 'var(--accent)' }}>
+              {error}
+            </p>
+          )}
 
           <input
             type="email"
@@ -65,12 +91,6 @@ export default function AuthPage() {
               background: 'var(--card)',
             }}
           />
-
-          {error && (
-            <p className="text-sm mb-3" style={{ color: 'var(--accent)' }}>
-              {error}
-            </p>
-          )}
 
           <button
             type="submit"
