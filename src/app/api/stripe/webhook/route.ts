@@ -1,15 +1,23 @@
 import { NextResponse } from "next/server"
-import { stripe } from "@/lib/stripe"
+import { getStripe } from "@/lib/stripe"
 import { createClient } from "@supabase/supabase-js"
 import type Stripe from "stripe"
 
-// Use service role for webhook (no user context)
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+function getSupabaseAdmin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key || key === 'xxx') return null
+  return createClient(url, key)
+}
 
 export async function POST(request: Request) {
+  const stripe = getStripe()
+  const supabaseAdmin = getSupabaseAdmin()
+
+  if (!stripe || !supabaseAdmin) {
+    return NextResponse.json({ error: "Service non configuré" }, { status: 503 })
+  }
+
   const body = await request.text()
   const sig = request.headers.get("stripe-signature")
 
@@ -42,7 +50,6 @@ export async function POST(request: Request) {
       const familyId = session.metadata.family_id
       const amountCents = session.amount_total || 0
 
-      // Get or create wallet
       let { data: wallet } = await supabaseAdmin
         .from("wallets")
         .select("id, balance_cents")
@@ -63,13 +70,11 @@ export async function POST(request: Request) {
       }
 
       if (wallet) {
-        // Credit wallet
         await supabaseAdmin
           .from("wallets")
           .update({ balance_cents: wallet.balance_cents + amountCents })
           .eq("id", wallet.id)
 
-        // Record transaction
         await supabaseAdmin
           .from("wallet_transactions")
           .insert({

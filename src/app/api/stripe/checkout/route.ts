@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server"
-import { stripe } from "@/lib/stripe"
+import { getStripe } from "@/lib/stripe"
 import { createServerSupabase } from "@/lib/supabase/server"
 
 export async function POST(request: Request) {
   try {
+    const stripe = getStripe()
+    if (!stripe) {
+      return NextResponse.json({ error: "Stripe non configuré" }, { status: 503 })
+    }
+
     const supabase = await createServerSupabase()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
