@@ -1,114 +1,153 @@
 "use client"
 
-import { useState, useEffect, useRef, Suspense } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 
 function AuthForm() {
+  const [mode, setMode] = useState<"login" | "signup">("login")
   const [email, setEmail] = useState("")
-  const [step, setStep] = useState<"email" | "otp">("email")
-  const [otp, setOtp] = useState(["", "", "", "", "", "", "", ""])
+  const [password, setPassword] = useState("")
+  const [nom, setNom] = useState("")
+  const [prenom, setPrenom] = useState("")
+  const [tel, setTel] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const searchParams = useSearchParams()
   const router = useRouter()
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([])
 
   useEffect(() => {
     const urlError = searchParams.get("error")
-    if (urlError) {
+    if (urlError === "no_family") {
+      setError("Compte incomplet. Inscris-toi pour créer ton espace famille.")
+      setMode("signup")
+    } else if (urlError) {
       setError("Erreur de connexion. Réessaie ci-dessous.")
     }
   }, [searchParams])
 
-  useEffect(() => {
-    if (step === "otp") {
-      inputRefs.current[0]?.focus()
-    }
-  }, [step])
-
-  async function handleSendOtp(e: React.FormEvent) {
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError(null)
 
     const supabase = createClient()
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        shouldCreateUser: true,
-      },
-    })
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
-      setError(error.message)
-    } else {
-      setStep("otp")
-    }
-    setLoading(false)
-  }
-
-  async function handleVerifyOtp(code: string) {
-    setLoading(true)
-    setError(null)
-
-    const supabase = createClient()
-    const { error } = await supabase.auth.verifyOtp({
-      email,
-      token: code,
-      type: "email",
-    })
-
-    if (error) {
-      setError("Code invalide ou expiré. Réessaie.")
-      setOtp(["", "", "", "", "", "", "", ""])
-      inputRefs.current[0]?.focus()
+      if (error.message.includes("Invalid login")) {
+        setError("Email ou mot de passe incorrect.")
+      } else {
+        setError(error.message)
+      }
     } else {
       router.push("/commander")
     }
     setLoading(false)
   }
 
-  function handleOtpChange(index: number, value: string) {
-    if (!/^\d*$/.test(value)) return
-
-    const newOtp = [...otp]
-    newOtp[index] = value.slice(-1)
-    setOtp(newOtp)
-
-    if (value && index < 7) {
-      inputRefs.current[index + 1]?.focus()
-    }
-
-    const fullCode = newOtp.join("")
-    if (fullCode.length === 8) {
-      handleVerifyOtp(fullCode)
-    }
-  }
-
-  function handleOtpKeyDown(index: number, e: React.KeyboardEvent) {
-    if (e.key === "Backspace" && !otp[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus()
-    }
-  }
-
-  function handleOtpPaste(e: React.ClipboardEvent) {
+  async function handleSignup(e: React.FormEvent) {
     e.preventDefault()
-    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 8)
-    if (pasted.length === 8) {
-      const newOtp = pasted.split("")
-      setOtp(newOtp)
-      handleVerifyOtp(pasted)
+    setLoading(true)
+    setError(null)
+
+    if (!nom.trim() || !prenom.trim()) {
+      setError("Nom et prénom sont obligatoires.")
+      setLoading(false)
+      return
     }
+
+    if (password.length < 6) {
+      setError("Le mot de passe doit faire au moins 6 caractères.")
+      setLoading(false)
+      return
+    }
+
+    const supabase = createClient()
+
+    // 1. Create auth user
+    const { data: authData, error: signupError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          display_name: `${prenom.trim()} ${nom.trim()}`,
+          phone: tel.trim(),
+        },
+      },
+    })
+
+    if (signupError) {
+      if (signupError.message.includes("already registered")) {
+        setError("Cet email est déjà utilisé. Connecte-toi plutôt.")
+        setMode("login")
+      } else {
+        setError(signupError.message)
+      }
+      setLoading(false)
+      return
+    }
+
+    if (!authData.user) {
+      setError("Erreur lors de la création du compte.")
+      setLoading(false)
+      return
+    }
+
+    // 2. Create family record
+    const displayName = `Famille ${nom.trim()}`
+    const { data: family, error: familyError } = await (supabase as ReturnType<typeof createClient>)
+      .from("families")
+      .insert({
+        display_name: displayName,
+        primary_email: email,
+        primary_phone: tel.trim() || null,
+        auth_user_id: authData.user.id,
+      })
+      .select()
+      .single()
+
+    if (familyError) {
+      setError("Compte créé mais erreur famille. Contacte-nous.")
+      setLoading(false)
+      return
+    }
+
+    // 3. Create wallet
+    await (supabase as ReturnType<typeof createClient>)
+      .from("wallets")
+      .insert({
+        family_id: family.id,
+        balance_cents: 0,
+        total_credited_cents: 0,
+        total_debited_cents: 0,
+      })
+
+    // 4. Create first beneficiary (the child — can be edited later)
+    await (supabase as ReturnType<typeof createClient>)
+      .from("beneficiaries")
+      .insert({
+        family_id: family.id,
+        first_name: "Enfant",
+        dietary_flags: [],
+      })
+
+    router.push("/commander")
+    setLoading(false)
+  }
+
+  const inputStyle = {
+    borderColor: 'var(--border)',
+    background: 'var(--card)',
   }
 
   return (
     <>
-      {step === "otp" ? (
-        <div className="text-center max-w-sm w-full">
-          <h1 className="text-xl font-bold mb-2">Entre ton code</h1>
-          <p className="text-sm mb-6" style={{ color: 'var(--ink-soft)' }}>
-            Un code à 6 chiffres a été envoyé à <strong>{email}</strong>
+      {mode === "signup" ? (
+        <form onSubmit={handleSignup} className="w-full max-w-sm">
+          <h1 className="text-xl font-bold text-center mb-2">Inscription</h1>
+          <p className="text-center text-sm mb-5" style={{ color: 'var(--ink-soft)' }}>
+            Crée ton espace famille en 30 secondes
           </p>
 
           {error && (
@@ -117,46 +156,78 @@ function AuthForm() {
             </p>
           )}
 
-          <div className="flex gap-2 justify-center mb-6" onPaste={handleOtpPaste}>
-            {otp.map((digit, i) => (
-              <input
-                key={i}
-                ref={(el) => { inputRefs.current[i] = el }}
-                type="text"
-                inputMode="numeric"
-                maxLength={1}
-                value={digit}
-                onChange={(e) => handleOtpChange(i, e.target.value)}
-                onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                className="w-10 h-12 text-center text-xl font-bold rounded-lg border outline-none focus:ring-2"
-                style={{
-                  borderColor: 'var(--border)',
-                  background: 'var(--card)',
-                }}
-                disabled={loading}
-              />
-            ))}
+          <div className="flex gap-2 mb-3">
+            <input
+              type="text"
+              value={prenom}
+              onChange={(e) => setPrenom(e.target.value)}
+              placeholder="Prénom"
+              required
+              className="w-1/2 h-12 px-4 rounded-xl border text-base outline-none focus:ring-2"
+              style={inputStyle}
+            />
+            <input
+              type="text"
+              value={nom}
+              onChange={(e) => setNom(e.target.value)}
+              placeholder="Nom"
+              required
+              className="w-1/2 h-12 px-4 rounded-xl border text-base outline-none focus:ring-2"
+              style={inputStyle}
+            />
           </div>
 
-          {loading && (
-            <p className="text-sm mb-4" style={{ color: 'var(--ink-soft)' }}>
-              Vérification...
-            </p>
-          )}
+          <input
+            type="tel"
+            value={tel}
+            onChange={(e) => setTel(e.target.value)}
+            placeholder="Téléphone (0696...)"
+            className="w-full h-12 px-4 rounded-xl border text-base mb-3 outline-none focus:ring-2"
+            style={inputStyle}
+          />
+
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Email"
+            required
+            className="w-full h-12 px-4 rounded-xl border text-base mb-3 outline-none focus:ring-2"
+            style={inputStyle}
+          />
+
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Mot de passe (min. 6 car.)"
+            required
+            minLength={6}
+            className="w-full h-12 px-4 rounded-xl border text-base mb-4 outline-none focus:ring-2"
+            style={inputStyle}
+          />
 
           <button
-            onClick={() => { setStep("email"); setOtp(["", "", "", "", "", "", "", ""]); setError(null) }}
-            className="text-sm underline"
-            style={{ color: 'var(--ink-soft)' }}
+            type="submit"
+            disabled={loading}
+            className="w-full h-12 rounded-xl font-semibold text-white transition-transform hover:scale-[1.02] disabled:opacity-50"
+            style={{ background: 'var(--accent)' }}
           >
-            Changer d&apos;email ou renvoyer le code
+            {loading ? "Création..." : "Créer mon compte"}
           </button>
-        </div>
+
+          <p className="text-center text-sm mt-4" style={{ color: 'var(--ink-soft)' }}>
+            Déjà inscrit ?{" "}
+            <button type="button" onClick={() => { setMode("login"); setError(null) }} className="underline font-medium" style={{ color: 'var(--accent)' }}>
+              Se connecter
+            </button>
+          </p>
+        </form>
       ) : (
-        <form onSubmit={handleSendOtp} className="w-full max-w-sm">
+        <form onSubmit={handleLogin} className="w-full max-w-sm">
           <h1 className="text-xl font-bold text-center mb-2">Connexion</h1>
-          <p className="text-center text-sm mb-6" style={{ color: 'var(--ink-soft)' }}>
-            Entre ton email pour recevoir un code de connexion
+          <p className="text-center text-sm mb-5" style={{ color: 'var(--ink-soft)' }}>
+            Entre ton email et mot de passe
           </p>
 
           {error && (
@@ -169,13 +240,20 @@ function AuthForm() {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="parent@email.com"
+            placeholder="Email"
             required
             className="w-full h-12 px-4 rounded-xl border text-base mb-3 outline-none focus:ring-2"
-            style={{
-              borderColor: 'var(--border)',
-              background: 'var(--card)',
-            }}
+            style={inputStyle}
+          />
+
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Mot de passe"
+            required
+            className="w-full h-12 px-4 rounded-xl border text-base mb-4 outline-none focus:ring-2"
+            style={inputStyle}
           />
 
           <button
@@ -184,8 +262,15 @@ function AuthForm() {
             className="w-full h-12 rounded-xl font-semibold text-white transition-transform hover:scale-[1.02] disabled:opacity-50"
             style={{ background: 'var(--accent)' }}
           >
-            {loading ? "Envoi..." : "Recevoir mon code"}
+            {loading ? "Connexion..." : "Se connecter"}
           </button>
+
+          <p className="text-center text-sm mt-4" style={{ color: 'var(--ink-soft)' }}>
+            Pas encore de compte ?{" "}
+            <button type="button" onClick={() => { setMode("signup"); setError(null) }} className="underline font-medium" style={{ color: 'var(--accent)' }}>
+              S&apos;inscrire
+            </button>
+          </p>
         </form>
       )}
     </>
