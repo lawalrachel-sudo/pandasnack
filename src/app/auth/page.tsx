@@ -8,6 +8,7 @@ function AuthForm() {
   const [mode, setMode] = useState<"login" | "signup">("login")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
   const [nom, setNom] = useState("")
   const [prenom, setPrenom] = useState("")
   const [tel, setTel] = useState("")
@@ -59,6 +60,12 @@ function AuthForm() {
 
     if (password.length < 6) {
       setError("Le mot de passe doit faire au moins 6 caractères.")
+      setLoading(false)
+      return
+    }
+
+    if (password !== confirmPassword) {
+      setError("Les mots de passe ne correspondent pas.")
       setLoading(false)
       return
     }
@@ -201,6 +208,17 @@ function AuthForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Mot de passe (min. 6 car.)"
+            required
+            minLength={6}
+            className="w-full h-12 px-4 rounded-xl border text-base mb-3 outline-none focus:ring-2"
+            style={inputStyle}
+          />
+
+          <input
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="Confirmer le mot de passe"
             required
             minLength={6}
             className="w-full h-12 px-4 rounded-xl border text-base mb-4 outline-none focus:ring-2"
