@@ -212,7 +212,7 @@ export function CommanderClient({ account, profils, wallet, categories, slots }:
   }
 
   return (
-    <div className="min-h-screen pb-20">
+    <div className="min-h-screen pb-20 max-w-lg mx-auto">
       <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} />
 
       {/* Hero banner */}
