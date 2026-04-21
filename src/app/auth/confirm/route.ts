@@ -12,6 +12,19 @@ export async function GET(request: Request) {
     const supabase = await createServerSupabase()
     const { error } = await supabase.auth.verifyOtp({ type, token_hash })
     if (!error) {
+      // Vérifier si le compte existe déjà
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: account } = await (supabase as any)
+          .from('accounts')
+          .select('id')
+          .eq('auth_user_id', user.id)
+          .single()
+
+        const dest = account ? next : '/onboarding'
+        return NextResponse.redirect(`${origin}${dest}`)
+      }
       return NextResponse.redirect(`${origin}${next}`)
     }
   }
