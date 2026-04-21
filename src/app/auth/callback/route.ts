@@ -29,6 +29,19 @@ export async function GET(request: Request) {
 
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
+      // Vérifier si le compte existe déjà
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: account } = await supabase
+          .from('accounts')
+          .select('id')
+          .eq('auth_user_id', user.id)
+          .single()
+
+        // Nouveau user → onboarding, sinon → commander
+        const dest = account ? next : '/onboarding'
+        return NextResponse.redirect(`${origin}${dest}`)
+      }
       return NextResponse.redirect(`${origin}${next}`)
     }
   }
