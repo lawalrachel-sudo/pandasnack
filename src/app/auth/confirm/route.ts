@@ -22,7 +22,7 @@ export async function GET(request: Request) {
           .eq('auth_user_id', user.id)
           .single()
 
-        const dest = account ? next : '/onboarding'
+        const dest = (account && account.source_group && account.source_group !== 'divers') ? next : '/onboarding'
         return NextResponse.redirect(`${origin}${dest}`)
       }
       return NextResponse.redirect(`${origin}${next}`)
