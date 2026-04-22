@@ -38,8 +38,8 @@ export async function GET(request: Request) {
           .eq('auth_user_id', user.id)
           .single()
 
-        // Nouveau user → onboarding, sinon → commander
-        const dest = account ? next : '/onboarding'
+        // Nouveau user (source_group pas encore choisi) → onboarding
+        const dest = (account && account.source_group && account.source_group !== 'divers') ? next : '/onboarding'
         return NextResponse.redirect(`${origin}${dest}`)
       }
       return NextResponse.redirect(`${origin}${next}`)
