@@ -9,7 +9,7 @@ import { CartBar } from "@/components/CartBar"
 // TYPES — alignés sur le schéma DB réel (post-migration v1_10)
 // ============================================================================
 
-type SourceGroup = "pandattitude" | "coffret_bureau" | "divers"
+type SourceGroup = "ecole" | "pandattitude" | "panda_guest"
 
 interface CatalogItem {
   id: string
@@ -127,12 +127,35 @@ export function CommanderClient({ account, profils, wallet, categories, slots }:
   const isMorningSlot = !!selectedSlot?.morning_delivery
   const totalCents = cart.reduce((sum, item) => sum + item.priceCents, 0)
 
-  // Filtrage items : actifs + (si créneau matin) morning_available ≠ false
-  // Règle métier : en matin, croques + bubble tea cachés (DB: morning_available=false)
+  // Filtrage items par source_group + créneau
+  // Règles SPEC VIVANTE :
+  //   ecole (fond_lahaye) : pas de croques, pas de BBL, pas de salades, pas de SAND-C
+  //   pandattitude : pas de salades
+  //   panda_guest : voit tout (sauf bentos = via menu_formulas, pas ici)
+  const sourceGroup = account.source_group
+  const sourceDetail = account.source_detail
+
   function itemVisibleForSlot(item: CatalogItem): boolean {
     if (!item.active) return false
     if (!item.sellable_alone) return false
     if (isMorningSlot && item.morning_available === false) return false
+
+    const sku = item.sku || ""
+
+    // École : masquer croques, BBL, salades
+    if (sourceGroup === "ecole") {
+      if (sku.startsWith("CROQ-")) return false
+      if (sku === "DRINK-BBL") return false
+      if (sku.startsWith("SAL-")) return false
+      // Fond Lahaye spécifique : pas de SAND-C (Omelette-Jambon)
+      if (sourceDetail === "fond_lahaye" && sku === "SAND-C") return false
+    }
+
+    // Pandattitude : masquer salades
+    if (sourceGroup === "pandattitude") {
+      if (sku.startsWith("SAL-")) return false
+    }
+
     return true
   }
 
