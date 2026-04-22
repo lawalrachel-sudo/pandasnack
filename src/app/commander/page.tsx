@@ -38,6 +38,14 @@ export default async function CommanderPage() {
     .select("*, catalog_items(*)")
     .order("sort_order")
 
+  // Menu formulas (bentos, menus, coffrets)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: menuFormulas } = await (supabase as any)
+    .from("menu_formulas")
+    .select("*")
+    .eq("active", true)
+    .order("sort_order")
+
   // Service slots ouverts à venir, filtrés par source_group du compte
   // Règle : un slot est proposé si target_source_group IS NULL (tous) OU = account.source_group
   const today = new Date().toISOString().split("T")[0]
@@ -62,6 +70,7 @@ export default async function CommanderPage() {
       profils={account.profils || []}
       wallet={wallet}
       categories={categories || []}
+      menuFormulas={menuFormulas || []}
       slots={slots}
     />
   )
