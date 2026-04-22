@@ -46,6 +46,14 @@ export default async function CommanderPage() {
     .eq("active", true)
     .order("sort_order")
 
+  // Toppings (garnitures/sauces)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: toppings } = await (supabase as any)
+    .from("toppings")
+    .select("*")
+    .eq("active", true)
+    .order("sort_order")
+
   // Service slots ouverts à venir, filtrés par source_group du compte
   // Règle : un slot est proposé si target_source_group IS NULL (tous) OU = account.source_group
   const today = new Date().toISOString().split("T")[0]
@@ -71,6 +79,7 @@ export default async function CommanderPage() {
       wallet={wallet}
       categories={categories || []}
       menuFormulas={menuFormulas || []}
+      toppings={toppings || []}
       slots={slots}
     />
   )
