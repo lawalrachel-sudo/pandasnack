@@ -34,7 +34,7 @@ export async function GET(request: Request) {
       if (user) {
         const { data: account } = await supabase
           .from('accounts')
-          .select('id')
+          .select('id, source_group')
           .eq('auth_user_id', user.id)
           .single()
 
