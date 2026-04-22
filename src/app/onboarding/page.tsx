@@ -17,11 +17,11 @@ export default async function OnboardingPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: account } = await (supabase as any)
     .from("accounts")
-    .select("id")
+    .select("id, source_group")
     .eq("auth_user_id", user.id)
     .single()
 
-  if (account) redirect("/commander")
+  if (account && account.source_group && account.source_group !== 'divers') redirect("/commander")
 
   // Données user pour pré-remplir
   const prenom = user.user_metadata?.prenom || ""
