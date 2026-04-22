@@ -115,14 +115,13 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: account, error: accErr } = await (supabase as any)
         .from('accounts')
-        .insert({
+        .update({
           nom_compte: nomCompte,
-          email,
           telephone: telephone.trim(),
-          auth_user_id: userId,
           source_group: sourceGroup,
           source_detail: sourceDetail,
         })
+        .eq('auth_user_id', userId)
         .select('id')
         .single()
 
@@ -144,13 +143,7 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
 
       if (profErr) throw profErr
 
-      // 3. Créer le wallet (solde 0)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: walErr } = await (supabase as any)
-        .from('wallets')
-        .insert({ account_id: account.id })
-
-      if (walErr) throw walErr
+      // 3. Wallet déjà créé par le trigger DB — pas besoin d'insert
 
       // Tout bon → commander
       router.push('/commander')
