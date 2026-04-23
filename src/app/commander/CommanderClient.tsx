@@ -93,6 +93,8 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   const [mfPlat, setMfPlat] = useState<CatalogItem | null>(null)
   const [mfToppings, setMfToppings] = useState<string[]>([])
   const [checkoutLoading, setCheckoutLoading] = useState(false)
+  const [orderNote, setOrderNote] = useState("")
+  const [savingDraft, setSavingDraft] = useState(false)
 
   // --- À la carte topping modal state ---
   const [alcTopOpen, setAlcTopOpen] = useState(false)
@@ -317,6 +319,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
             quantity: 1,
           })),
           paymentMethod,
+          specialRequest: orderNote.trim() || undefined,
         }),
       })
 
@@ -334,6 +337,34 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       alert("Erreur réseau. Réessaie.")
     }
     setCheckoutLoading(false)
+  }
+
+  async function handleSaveDraft() {
+    if (cart.length === 0 || !selectedSlotId) return
+    setSavingDraft(true)
+    try {
+      const res = await fetch("/api/save-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slotId: selectedSlotId,
+          items: cart.map(item => ({ ...item, quantity: 1 })),
+          specialRequest: orderNote.trim() || undefined,
+        }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setCart([])
+        setOrderNote("")
+        showToast("Commande enregistrée")
+        router.push("/mes-commandes")
+      } else {
+        alert(data.error || "Erreur lors de la sauvegarde")
+      }
+    } catch {
+      alert("Erreur réseau. Réessaie.")
+    }
+    setSavingDraft(false)
   }
 
   const wb = wallet?.balance_cents ?? 0
@@ -667,7 +698,6 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
               <h3 className="font-bold text-lg">Mon panier</h3>
               <button onClick={() => setShowCart(false)} className="text-2xl leading-none" aria-label="Fermer">&times;</button>
             </div>
-            {selectedSlot && <p className="text-xs mb-3" style={{ color: "var(--ink-soft)" }}>{dateLabel}</p>}
 
             {cart.length === 0 ? (
               <p style={{ color: "var(--ink-soft)" }}>Ton panier est vide.</p>
@@ -675,6 +705,10 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
               <div className="space-y-3">
                 {cart.map((item, idx) => (
                   <div key={idx} className="p-3 rounded-xl border" style={{ borderColor: "var(--border)" }}>
+                    {/* PT6: rappel jour + nom en haut de chaque ligne */}
+                    <p className="text-[11px] mb-1.5 font-medium" style={{ color: "var(--ink-soft)" }}>
+                      {dateLabel} — {item.profilPrenom}
+                    </p>
                     <div className="flex justify-between items-start gap-3">
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-sm">{item.itemName}</p>
@@ -683,9 +717,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
                             className="mt-1 text-xs rounded-md border px-2 py-1 w-full" style={{ borderColor: "var(--border)", background: "var(--bg-alt)" }}>
                             {activeProfils.map((p) => (<option key={p.id} value={p.id}>Pour {p.prenom}</option>))}
                           </select>
-                        ) : (
-                          <p className="text-xs mt-0.5" style={{ color: "var(--ink-soft)" }}>Pour : {item.profilPrenom}</p>
-                        )}
+                        ) : null}
                         <label className="flex items-center gap-2 mt-2 text-xs">
                           <input type="checkbox" checked={item.isTakeaway} onChange={() => toggleTake(idx)} />
                           A emporter — hors établissement
@@ -693,7 +725,11 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
                       </div>
                       <div className="text-right shrink-0">
                         <p className="font-bold text-sm">{fmtPrice(item.priceCents)}</p>
-                        <button onClick={() => removeCart(idx)} className="text-xs underline mt-1" style={{ color: "var(--accent)" }}>Retirer</button>
+                        {/* PT6: bouton Modifier + Retirer */}
+                        <div className="flex gap-2 mt-1 justify-end">
+                          <button onClick={() => { removeCart(idx); setShowCart(false) }} className="text-[11px] underline" style={{ color: "var(--ink-soft)" }}>Modifier</button>
+                          <button onClick={() => removeCart(idx)} className="text-[11px] underline" style={{ color: "var(--accent)" }}>Retirer</button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -703,29 +739,48 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
 
             {cart.length > 0 && (
               <div className="mt-4 space-y-3">
+                {/* PT14: champ note */}
+                <div>
+                  <label className="text-xs font-medium" style={{ color: "var(--ink-soft)" }}>Note pour le préparateur</label>
+                  <textarea value={orderNote} onChange={(e) => setOrderNote(e.target.value)}
+                    placeholder="Ex: allergie noisette pour Lyv, pas de sauce pour Tya..."
+                    className="w-full mt-1 p-3 rounded-xl border text-sm resize-none" rows={2}
+                    style={{ borderColor: "var(--border)", background: "var(--bg)" }} />
+                </div>
+
                 <div className="flex justify-between font-bold text-lg">
                   <span>Total</span><span>{fmtPrice(totalCents)}</span>
                 </div>
 
-                {checkoutLoading ? (
+                {(checkoutLoading || savingDraft) ? (
                   <div className="w-full h-14 rounded-xl flex items-center justify-center font-semibold" style={{ background: "var(--bg-alt)", color: "var(--ink-soft)" }}>
                     Traitement en cours...
                   </div>
-                ) : wCovers ? (
-                  <button onClick={() => handleCheckout("wallet")} className="w-full h-14 rounded-xl font-semibold text-white flex items-center justify-center gap-3" style={{ background: "var(--accent-2)" }}>
-                    <img src={WALLET_IMG} alt="Panda Wallet" className="w-8 h-8 rounded-full object-cover" />
-                    Payer avec mon Panda Wallet ({fmtPrice(wb)})
-                  </button>
-                ) : wPartial ? (
-                  <div className="space-y-2">
-                    <button onClick={() => handleCheckout("wallet_card")} className="w-full h-14 rounded-xl font-semibold text-white flex items-center justify-center gap-3" style={{ background: "var(--accent-2)" }}>
-                      <img src={WALLET_IMG} alt="Panda Wallet" className="w-8 h-8 rounded-full object-cover" />
-                      Wallet ({fmtPrice(wb)}) + CB ({fmtPrice(totalCents - wb)})
-                    </button>
-                    <button onClick={() => handleCheckout("card")} className="w-full h-12 rounded-xl font-semibold text-white" style={{ background: "var(--accent)" }}>Entièrement par carte</button>
-                  </div>
                 ) : (
-                  <button onClick={() => handleCheckout("card")} className="w-full h-12 rounded-xl font-semibold text-white" style={{ background: "var(--accent)" }}>Payer par carte</button>
+                  <>
+                    {/* PT7: bouton Valider = sauvegarder brouillon */}
+                    <button onClick={handleSaveDraft} className="w-full h-12 rounded-xl font-semibold border text-sm"
+                      style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>
+                      Valider (enregistrer sans payer)
+                    </button>
+
+                    {wCovers ? (
+                      <button onClick={() => handleCheckout("wallet")} className="w-full h-14 rounded-xl font-semibold text-white flex items-center justify-center gap-3" style={{ background: "var(--accent-2)" }}>
+                        <img src={WALLET_IMG} alt="Panda Wallet" className="w-8 h-8 rounded-full object-cover" />
+                        Payer avec mon Panda Wallet ({fmtPrice(wb)})
+                      </button>
+                    ) : wPartial ? (
+                      <div className="space-y-2">
+                        <button onClick={() => handleCheckout("wallet_card")} className="w-full h-14 rounded-xl font-semibold text-white flex items-center justify-center gap-3" style={{ background: "var(--accent-2)" }}>
+                          <img src={WALLET_IMG} alt="Panda Wallet" className="w-8 h-8 rounded-full object-cover" />
+                          Wallet ({fmtPrice(wb)}) + CB ({fmtPrice(totalCents - wb)})
+                        </button>
+                        <button onClick={() => handleCheckout("card")} className="w-full h-12 rounded-xl font-semibold text-white" style={{ background: "var(--accent)" }}>Entièrement par carte</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => handleCheckout("card")} className="w-full h-12 rounded-xl font-semibold text-white" style={{ background: "var(--accent)" }}>Payer par carte</button>
+                    )}
+                  </>
                 )}
               </div>
             )}

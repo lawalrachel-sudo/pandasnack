@@ -29,7 +29,7 @@ export default async function MesCommandesPage() {
   const { data: orders } = await supabase
     .from("orders")
     .select(`
-      id, order_number, status, total_cents, payment_method, created_at, paid_at,
+      id, order_number, status, total_cents, payment_method, created_at, paid_at, special_request,
       service_slots!inner(service_date, day_type, delivery_points(name)),
       order_items(id, notes, quantity, unit_price_cents, line_total_cents, takeaway, profil_id, prenom_libre, profils(prenom))
     `)

@@ -12,10 +12,11 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { slotId, items, paymentMethod } = body as {
+    const { slotId, items, paymentMethod, specialRequest } = body as {
       slotId: string
       items: CheckoutItem[]
       paymentMethod: "wallet" | "card" | "wallet_card"
+      specialRequest?: string
     }
 
     if (!slotId || !items?.length) {
@@ -78,6 +79,7 @@ export async function POST(req: NextRequest) {
       vat_cents: vatCents,
       total_cents: totalCents,
       payment_method: paymentMethod,
+      special_request: specialRequest || null,
       paid_at: cardChargeCents === 0 ? new Date().toISOString() : null,
     }
 
