@@ -3,7 +3,7 @@ import { redirect } from "next/navigation"
 import { MonEspaceClient } from "./MonEspaceClient"
 
 export default async function MonEspacePage() {
-  const supabase = await createClient()
+  const supabase: any = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/connexion")
 

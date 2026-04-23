@@ -11,7 +11,7 @@ export default async function ConfirmationPage({
   const orderId = params.order
   if (!orderId) redirect("/commander")
 
-  const supabase = await createClient()
+  const supabase: any = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/connexion")
 
