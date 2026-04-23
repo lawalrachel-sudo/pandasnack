@@ -1,54 +1,52 @@
-import { createServerSupabase } from "@/lib/supabase/server"
+import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { MonEspaceClient } from "./MonEspaceClient"
 
 export default async function MonEspacePage() {
-  const supabase = await createServerSupabase()
-
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect("/auth")
+  if (!user) redirect("/connexion")
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sb = supabase as any
-
-  const { data: family } = await sb
-    .from("families")
-    .select("*, beneficiaries(*)")
+  const { data: account } = await supabase
+    .from("accounts")
+    .select("id, nom_compte, email, source_group, source_detail")
     .eq("auth_user_id", user.id)
     .single()
+  if (!account) redirect("/onboarding")
 
-  if (!family) redirect("/auth?error=no_family")
+  const { data: profils } = await supabase
+    .from("profils")
+    .select("id, prenom, classe, is_default, active, notes_allergies")
+    .eq("account_id", account.id)
+    .order("is_default", { ascending: false })
+    .order("created_at")
 
-  const { data: wallet } = await sb
+  const { data: wallet } = await supabase
     .from("wallets")
-    .select("*")
-    .eq("family_id", family.id)
+    .select("id, balance_cents, total_credited_cents, total_debited_cents")
+    .eq("account_id", account.id)
     .single()
 
-  // Recent transactions
-  const { data: transactions } = wallet
-    ? await sb
-        .from("wallet_transactions")
-        .select("*")
-        .eq("wallet_id", wallet.id)
-        .order("created_at", { ascending: false })
-        .limit(20)
-    : { data: [] }
-
-  // Recent orders
-  const { data: orders } = await sb
-    .from("orders")
-    .select("*, order_items(*, catalog_items(name))")
-    .eq("family_id", family.id)
+  const { data: walletTx } = await supabase
+    .from("wallet_transactions")
+    .select("id, type, amount_cents, balance_after_cents, description, created_at")
+    .eq("wallet_id", wallet?.id || "00000000-0000-0000-0000-000000000000")
     .order("created_at", { ascending: false })
-    .limit(10)
+    .limit(20)
+
+  const { count: orderCount } = await supabase
+    .from("orders")
+    .select("id", { count: "exact", head: true })
+    .eq("account_id", account.id)
+    .eq("status", "paid")
 
   return (
     <MonEspaceClient
-      family={family}
-      wallet={wallet}
-      transactions={transactions || []}
-      orders={orders || []}
+      account={account as any}
+      profils={(profils || []) as any[]}
+      wallet={wallet as any}
+      walletTransactions={(walletTx || []) as any[]}
+      orderCount={orderCount || 0}
     />
   )
 }
