@@ -47,6 +47,7 @@ export default async function MonEspacePage() {
       wallet={wallet as any}
       walletTransactions={(walletTx || []) as any[]}
       orderCount={orderCount || 0}
+      userEmail={user.email || ""}
     />
   )
 }
