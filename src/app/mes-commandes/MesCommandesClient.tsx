@@ -251,18 +251,27 @@ export function MesCommandesClient({ account, profils, orders, wallet, upcomingS
                       {isExpanded && (
                         <div className="px-3 pb-3 border-t" style={{ borderColor: "var(--border)" }}>
                           <div className="space-y-2 mt-2">
-                            {order.order_items?.map(item => (
-                              <div key={item.id} className="flex justify-between text-sm">
-                                <div>
-                                  <p>{item.notes}</p>
-                                  <p className="text-xs" style={{ color: "var(--ink-soft)" }}>
-                                    {item.profils?.prenom || item.prenom_libre}
-                                    {item.takeaway ? " · A emporter" : ""}
-                                  </p>
+                            {order.order_items?.map(item => {
+                              const lineModifiable = canModify
+                              return (
+                                <div key={item.id} className="flex justify-between items-start text-sm gap-2">
+                                  <div className="flex-1 min-w-0">
+                                    <p>{item.notes}</p>
+                                    <p className="text-xs" style={{ color: "var(--ink-soft)" }}>
+                                      {item.profils?.prenom || item.prenom_libre}
+                                      {item.takeaway ? " · A emporter" : ""}
+                                    </p>
+                                    {lineModifiable && (
+                                      <div className="flex gap-3 mt-1">
+                                        <Link href="/commander" className="text-[11px] underline" style={{ color: "var(--accent)" }}>Modifier</Link>
+                                        <button onClick={() => handleDeleteItem(item.id)} className="text-[11px] underline" style={{ color: "#DC2626" }}>Supprimer</button>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <span className="font-medium shrink-0">{fmtPrice(item.line_total_cents)}</span>
                                 </div>
-                                <span className="font-medium shrink-0">{fmtPrice(item.line_total_cents)}</span>
-                              </div>
-                            ))}
+                              )
+                            })}
                           </div>
 
                           {order.special_request && (
@@ -271,20 +280,12 @@ export function MesCommandesClient({ account, profils, orders, wallet, upcomingS
                             </div>
                           )}
 
-                          {(canModify || canCancel) && (
+                          {canCancel && (
                             <div className="flex gap-2 mt-3 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
-                              {canModify && (
-                                <Link href={`/commander?edit=${order.id}`} className="flex-1 h-9 rounded-lg text-xs font-semibold border flex items-center justify-center"
-                                  style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>
-                                  Modifier
-                                </Link>
-                              )}
-                              {canCancel && (
-                                <button className="flex-1 h-9 rounded-lg text-xs font-semibold text-white" style={{ background: "#DC2626" }}
-                                  onClick={() => handleCancel(order.id)}>
-                                  Annuler
-                                </button>
-                              )}
+                              <button className="flex-1 h-9 rounded-lg text-xs font-semibold text-white" style={{ background: "#DC2626" }}
+                                onClick={() => handleCancel(order.id)}>
+                                Annuler toute la commande
+                              </button>
                             </div>
                           )}
                         </div>
@@ -347,6 +348,21 @@ function isBeforeCutoff(serviceDate?: string): boolean {
   cutoff.setTime(cutoff.getTime() - 4 * 3600000)
   const now = new Date()
   return now < cutoff
+}
+
+async function handleDeleteItem(itemId: string) {
+  if (!confirm("Supprimer cet article de la commande ?")) return
+  try {
+    const res = await fetch(`/api/order-item?itemId=${itemId}`, { method: "DELETE" })
+    const data = await res.json()
+    if (data.success) {
+      window.location.reload()
+    } else {
+      alert(data.error || "Impossible de supprimer cet article.")
+    }
+  } catch {
+    alert("Erreur reseau.")
+  }
 }
 
 async function handleCancel(orderId: string) {
