@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { Navbar } from "@/components/Navbar"
 import { ProductCard } from "@/components/ProductCard"
 import { CartBar } from "@/components/CartBar"
@@ -71,6 +72,7 @@ const WALLET_IMG = "https://res.cloudinary.com/dbkpvp9ts/image/upload/v177671472
 // ============================================================================
 
 export function CommanderClient({ account, profils, wallet, categories, menuFormulas, toppings, slots }: Props) {
+  const router = useRouter()
   const [selectedSlotId, setSelectedSlotId] = useState<string>(slots[0]?.id || "")
   const [selectedProfilId, setSelectedProfilId] = useState<string>("")
   const [cart, setCart] = useState<CartItem[]>([])
@@ -81,6 +83,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   const [mfStep, setMfStep] = useState<"plat" | "garnitures">("plat")
   const [mfPlat, setMfPlat] = useState<CatalogItem | null>(null)
   const [mfToppings, setMfToppings] = useState<string[]>([])
+  const [checkoutLoading, setCheckoutLoading] = useState(false)
 
   const selectedSlot = useMemo(() => slots.find((s) => s.id === selectedSlotId) || null, [slots, selectedSlotId])
   const totalCents = cart.reduce((s, i) => s + i.priceCents, 0)
@@ -98,7 +101,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   const showToast = useCallback((n: string) => { setAddedToast(n); setTimeout(() => setAddedToast(null), 2000) }, [])
 
   // ============================================================================
-  // FILTERING
+  // FILTERING (unchanged)
   // ============================================================================
 
   function visForSource(item: CatalogItem): boolean {
@@ -163,7 +166,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   }, [mfPlat, toppings])
 
   // ============================================================================
-  // MENU FLOW
+  // MENU FLOW (unchanged)
   // ============================================================================
 
   function openMenuFlow(formula: MenuFormula) {
@@ -231,6 +234,45 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
     const t = activeProfils.find((p) => p.id === pid)
     if (!t) return
     setCart((p) => p.map((x, j) => j === i ? { ...x, profilId: t.id, profilPrenom: t.prenom } : x))
+  }
+
+  // ============================================================================
+  // CHECKOUT
+  // ============================================================================
+
+  async function handleCheckout(paymentMethod: "wallet" | "card" | "wallet_card") {
+    if (cart.length === 0 || !selectedSlotId) return
+    setCheckoutLoading(true)
+
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slotId: selectedSlotId,
+          items: cart.map(item => ({
+            ...item,
+            quantity: 1,
+          })),
+          paymentMethod,
+        }),
+      })
+
+      const data = await res.json()
+      if (data.success && data.redirect) {
+        if (data.redirect.startsWith("http")) {
+          // Stripe redirect
+          window.location.href = data.redirect
+        } else {
+          router.push(data.redirect)
+        }
+      } else {
+        alert(data.error || "Erreur lors du paiement")
+      }
+    } catch {
+      alert("Erreur réseau. Réessaie.")
+    }
+    setCheckoutLoading(false)
   }
 
   const wb = wallet?.balance_cents ?? 0
@@ -560,21 +602,26 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
                 <div className="flex justify-between font-bold text-lg">
                   <span>Total</span><span>{fmtPrice(totalCents)}</span>
                 </div>
-                {wCovers ? (
-                  <button className="w-full h-14 rounded-xl font-semibold text-white flex items-center justify-center gap-3" style={{ background: "var(--accent-2)" }}>
+
+                {checkoutLoading ? (
+                  <div className="w-full h-14 rounded-xl flex items-center justify-center font-semibold" style={{ background: "var(--bg-alt)", color: "var(--ink-soft)" }}>
+                    Traitement en cours...
+                  </div>
+                ) : wCovers ? (
+                  <button onClick={() => handleCheckout("wallet")} className="w-full h-14 rounded-xl font-semibold text-white flex items-center justify-center gap-3" style={{ background: "var(--accent-2)" }}>
                     <img src={WALLET_IMG} alt="Panda Wallet" className="w-8 h-8 rounded-full object-cover" />
                     Payer avec mon Panda Wallet ({fmtPrice(wb)})
                   </button>
                 ) : wPartial ? (
                   <div className="space-y-2">
-                    <button className="w-full h-14 rounded-xl font-semibold text-white flex items-center justify-center gap-3" style={{ background: "var(--accent-2)" }}>
+                    <button onClick={() => handleCheckout("wallet_card")} className="w-full h-14 rounded-xl font-semibold text-white flex items-center justify-center gap-3" style={{ background: "var(--accent-2)" }}>
                       <img src={WALLET_IMG} alt="Panda Wallet" className="w-8 h-8 rounded-full object-cover" />
                       Wallet ({fmtPrice(wb)}) + CB ({fmtPrice(totalCents - wb)})
                     </button>
-                    <button className="w-full h-12 rounded-xl font-semibold text-white" style={{ background: "var(--accent)" }}>Entièrement par carte</button>
+                    <button onClick={() => handleCheckout("card")} className="w-full h-12 rounded-xl font-semibold text-white" style={{ background: "var(--accent)" }}>Entièrement par carte</button>
                   </div>
                 ) : (
-                  <button className="w-full h-12 rounded-xl font-semibold text-white" style={{ background: "var(--accent)" }}>Payer par carte</button>
+                  <button onClick={() => handleCheckout("card")} className="w-full h-12 rounded-xl font-semibold text-white" style={{ background: "var(--accent)" }}>Payer par carte</button>
                 )}
               </div>
             )}
