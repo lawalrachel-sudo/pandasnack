@@ -11,12 +11,12 @@ export async function POST(req: NextRequest) {
     if (!orderId) return NextResponse.json({ error: "orderId manquant" }, { status: 400 })
 
     // Récupérer le compte
-    const { data: account } = await supabase
+    const { data: account } = await (supabase as any)
       .from("accounts").select("id").eq("auth_user_id", user.id).single()
     if (!account) return NextResponse.json({ error: "Compte introuvable" }, { status: 404 })
 
     // Récupérer la commande + vérifier propriétaire
-    const { data: order } = await supabase
+    const { data: order } = await (supabase as any)
       .from("orders")
       .select("id, account_id, status, total_cents, payment_method, wallet_transaction_id")
       .eq("id", orderId)
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Récupérer le slot pour le cutoff
-    const { data: orderWithSlot } = await supabase
+    const { data: orderWithSlot } = await (supabase as any)
       .from("orders").select("service_slot_id").eq("id", orderId).single()
     let serviceDate: string | null = null
     if (orderWithSlot?.service_slot_id) {
@@ -51,18 +51,18 @@ export async function POST(req: NextRequest) {
     }
 
     // Annuler la commande
-    await supabase.from("orders").update({ status: "cancelled" }).eq("id", orderId)
+    await (supabase as any).from("orders").update({ status: "cancelled" }).eq("id", orderId)
 
     // Recrédit wallet si payé par wallet
     if (order.status === "paid" && order.total_cents > 0) {
-      const { data: wallet } = await supabase
+      const { data: wallet } = await (supabase as any)
         .from("wallets").select("id, balance_cents").eq("account_id", account.id).single()
 
       if (wallet) {
         const newBalance = wallet.balance_cents + order.total_cents
 
         // Créer transaction de recrédit
-        await supabase.from("wallet_transactions").insert({
+        await (supabase as any).from("wallet_transactions").insert({
           wallet_id: wallet.id,
           type: "refund",
           amount_cents: order.total_cents,
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
         })
 
         // Mettre à jour le solde
-        await supabase.from("wallets").update({
+        await (supabase as any).from("wallets").update({
           balance_cents: newBalance,
           total_credited_cents: wallet.balance_cents + order.total_cents, // approximation
         }).eq("id", wallet.id)
