@@ -522,7 +522,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
                 </div>
                 <div className="p-3">
                   <h4 className="font-semibold text-sm">{bentoToupitiFormula.name}</h4>
-                  <p className="text-xs mt-0.5" style={{ color: "var(--ink-soft)" }}>Portion réduite maternelle</p>
+                  <p className="text-xs mt-0.5" style={{ color: "var(--ink-soft)" }}>Portion réduite "petits mangeurs". Sans dessert, boisson</p>
                   <div className="flex items-center justify-between mt-2">
                     <span className="font-bold text-base">{fmtPrice(bentoToupitiFormula.price_cents)}</span>
                     <span className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white" style={{ background: "var(--accent)" }}>
@@ -547,7 +547,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       {/* Snacks */}
       {snackItems.length > 0 && (
         <div className="px-4 mt-8">
-          <h2 className="font-bold text-lg mb-1">Un petit en-cas en plus ?</h2>
+          <h2 className="font-bold text-lg mb-1 text-center">Un petit en-cas en plus ?</h2>
           <p className="text-xs mb-3" style={{ color: "var(--ink-soft)" }}>Pour {selectedProfil?.prenom ?? "toi"}</p>
           <div className="grid grid-cols-2 gap-3">
             {snackItems.map((item) => (
