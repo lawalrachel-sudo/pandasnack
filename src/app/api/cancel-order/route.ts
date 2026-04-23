@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     // Récupérer la commande + vérifier propriétaire
     const { data: order } = await supabase
       .from("orders")
-      .select("id, account_id, status, total_cents, payment_method, wallet_transaction_id, service_slots!inner(service_date)")
+      .select("id, account_id, status, total_cents, payment_method, wallet_transaction_id")
       .eq("id", orderId)
       .eq("account_id", account.id)
       .single()
@@ -29,8 +29,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Commande non annulable" }, { status: 400 })
     }
 
+    // Récupérer le slot pour le cutoff
+    const { data: orderWithSlot } = await supabase
+      .from("orders").select("service_slot_id").eq("id", orderId).single()
+    let serviceDate: string | null = null
+    if (orderWithSlot?.service_slot_id) {
+      const { data: slot } = await supabase
+        .from("service_slots").select("service_date").eq("id", orderWithSlot.service_slot_id).single()
+      serviceDate = slot?.service_date ?? null
+    }
     // Vérifier cutoff (veille 20h Martinique = UTC-4)
-    const serviceDate = (order.service_slots as any)?.service_date
     if (serviceDate) {
       const cutoff = new Date(serviceDate + "T00:00:00Z") // UTC midnight du jour de service
       cutoff.setUTCHours(0, 0, 0, 0) // début du jour UTC
