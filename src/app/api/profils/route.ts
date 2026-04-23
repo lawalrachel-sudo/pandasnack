@@ -3,7 +3,7 @@ import { createServerSupabase as createClient } from "@/lib/supabase/server"
 
 // POST — Ajouter un profil
 export async function POST(req: NextRequest) {
-  const supabase = await createClient()
+  const supabase: any = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 })
 
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
 
 // PATCH — Modifier un profil (activer/désactiver, modifier infos)
 export async function PATCH(req: NextRequest) {
-  const supabase = await createClient()
+  const supabase: any = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 })
 

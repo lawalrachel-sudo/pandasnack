@@ -5,7 +5,7 @@ import { createServerSupabase as createClient } from "@/lib/supabase/server"
 // Body: { slotId, items: CartItem[], paymentMethod: "wallet" | "card" | "wallet_card" }
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient()
+    const supabase: any = await createClient()
     const { data: { user }, error: authErr } = await supabase.auth.getUser()
     if (authErr || !user) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 })
