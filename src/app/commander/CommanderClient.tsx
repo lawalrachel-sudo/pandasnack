@@ -67,6 +67,15 @@ const CL: Record<string, string> = { maternelle: "Mat.", primaire: "Prim.", coll
 const CLF: Record<string, string> = { maternelle: "Maternelle", primaire: "Primaire", college: "Collège", lycee: "Lycée", prof: "Prof/Équipe" }
 const WALLET_IMG = "https://res.cloudinary.com/dbkpvp9ts/image/upload/v1776714727/PANDA_WALLET.jpg"
 
+// Crop Cloudinary pour retirer watermark Gemini
+const CLOUDINARY_CROP = "c_crop,g_north_west,w_0.93,h_0.88/c_fill,ar_4:3,w_400,q_auto,f_auto"
+function buildImgUrl(url: string): string {
+  if (url.includes("res.cloudinary.com") && !url.includes("tea_maison")) {
+    return url.replace("/upload/", `/upload/${CLOUDINARY_CROP}/`)
+  }
+  return url
+}
+
 // ============================================================================
 // COMPONENT
 // ============================================================================
@@ -85,6 +94,11 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   const [mfToppings, setMfToppings] = useState<string[]>([])
   const [checkoutLoading, setCheckoutLoading] = useState(false)
 
+  // --- À la carte topping modal state ---
+  const [alcTopOpen, setAlcTopOpen] = useState(false)
+  const [alcItem, setAlcItem] = useState<CatalogItem | null>(null)
+  const [alcToppings, setAlcToppings] = useState<string[]>([])
+
   const selectedSlot = useMemo(() => slots.find((s) => s.id === selectedSlotId) || null, [slots, selectedSlotId])
   const totalCents = cart.reduce((s, i) => s + i.priceCents, 0)
   const activeProfils = useMemo(() => profils.filter((p) => p.active), [profils])
@@ -101,7 +115,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   const showToast = useCallback((n: string) => { setAddedToast(n); setTimeout(() => setAddedToast(null), 2000) }, [])
 
   // ============================================================================
-  // FILTERING (unchanged)
+  // FILTERING
   // ============================================================================
 
   function visForSource(item: CatalogItem): boolean {
@@ -132,19 +146,20 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categories, sg, sd])
 
-  const { aLaCarteCategories, snackItems } = useMemo(() => {
+  // Flatten all à-la-carte items (no category titles) + snacks separate
+  const { aLaCarteItems, snackItems } = useMemo(() => {
     const snacks: CatalogItem[] = []
-    const alc: Category[] = []
+    const alcItems: CatalogItem[] = []
     for (const cat of categories) {
       const vis = (cat.catalog_items || []).filter(visForSlot)
       const inSnack = vis.filter((i) => i.ui_group === "snack_gourmand")
       const notSnack = vis.filter((i) => i.ui_group !== "snack_gourmand")
       snacks.push(...inSnack)
-      if (notSnack.length > 0) alc.push({ ...cat, catalog_items: notSnack })
+      alcItems.push(...notSnack)
     }
-    alc.sort((a, b) => a.sort_order - b.sort_order)
+    alcItems.sort((a, b) => a.sort_order - b.sort_order)
     snacks.sort((a, b) => a.sort_order - b.sort_order)
-    return { aLaCarteCategories: alc, snackItems: snacks }
+    return { aLaCarteItems: alcItems, snackItems: snacks }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categories, sg, sd])
 
@@ -165,8 +180,16 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
     return toppings.filter((t) => !t.applies_to_category_ids || t.applies_to_category_ids.includes(c))
   }, [mfPlat, toppings])
 
+  // Toppings for à-la-carte item
+  const topsForAlcItem = useMemo(() => {
+    if (!alcItem) return []
+    const c = skuCat(alcItem.sku || "")
+    if (!c) return []
+    return toppings.filter((t) => !t.applies_to_category_ids || t.applies_to_category_ids.includes(c))
+  }, [alcItem, toppings])
+
   // ============================================================================
-  // MENU FLOW (unchanged)
+  // MENU FLOW
   // ============================================================================
 
   function openMenuFlow(formula: MenuFormula) {
@@ -216,9 +239,25 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
     showToast(f.name)
   }
 
+  // ============================================================================
+  // À LA CARTE — with topping modal (PT4)
+  // ============================================================================
+
   function addItem(itemId: string) {
     const item = categories.flatMap((c) => c.catalog_items).find((i) => i.id === itemId)
     if (!item || !item.sellable_alone || item.price_alone_cents == null) return
+
+    // Check if this item has toppings → open modal
+    const c = skuCat(item.sku || "")
+    const hasTops = c && toppings.some((t) => t.applies_to_category_ids?.includes(c))
+    if (hasTops) {
+      setAlcItem(item)
+      setAlcToppings([])
+      setAlcTopOpen(true)
+      return
+    }
+
+    // No toppings → add directly
     const pr = selectedProfil
     setCart((p) => [...p, {
       itemId: item.id, itemName: item.name, priceCents: item.price_alone_cents!,
@@ -226,6 +265,29 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       isTakeaway: false, isFormula: false, formulaCode: null, selectedPlat: null, selectedToppings: [],
     }])
     showToast(item.name)
+  }
+
+  function toggleAlcTop(id: string) {
+    const rien = toppings.find((t) => t.name.startsWith("RIEN"))
+    if (rien && id === rien.id) { setAlcToppings([id]); return }
+    setAlcToppings((p) => {
+      const w = p.filter((x) => x !== rien?.id)
+      return w.includes(id) ? w.filter((x) => x !== id) : [...w, id]
+    })
+  }
+
+  function finishAlcItem() {
+    if (!alcItem || alcItem.price_alone_cents == null) return
+    const pr = selectedProfil
+    const tn = alcToppings.map((id) => toppings.find((t) => t.id === id)?.name).filter(Boolean)
+    const label = `${alcItem.name}${tn.length > 0 ? ` (${tn.join(", ")})` : ""}`
+    setCart((p) => [...p, {
+      itemId: alcItem.id, itemName: label, priceCents: alcItem.price_alone_cents!,
+      profilId: pr?.id ?? null, profilPrenom: pr?.prenom ?? account.nom_compte,
+      isTakeaway: false, isFormula: false, formulaCode: null, selectedPlat: null, selectedToppings: alcToppings,
+    }])
+    setAlcTopOpen(false)
+    showToast(label)
   }
 
   function removeCart(i: number) { setCart((p) => p.filter((_, j) => j !== i)) }
@@ -261,7 +323,6 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       const data = await res.json()
       if (data.success && data.redirect) {
         if (data.redirect.startsWith("http")) {
-          // Stripe redirect
           window.location.href = data.redirect
         } else {
           router.push(data.redirect)
@@ -418,7 +479,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
                 style={{ background: "var(--card)", boxShadow: "0 2px 12px var(--shadow)" }} onClick={() => openMenuFlow(f)}>
                 <div className="aspect-[4/3] overflow-hidden">
                   {f.image_url && !f.image_url.includes("etiquette_emballage") ? (
-                    <img src={f.image_url} alt={f.name} className="w-full h-full object-cover" loading="lazy" />
+                    <img src={buildImgUrl(f.image_url)} alt={f.name} className="w-full h-full object-cover" loading="lazy" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-5xl" style={{ background: "var(--bg-alt)" }}>{f.emoji || "🐼"}</div>
                   )}
@@ -440,45 +501,46 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       )}
 
       {/* ================================================================ */}
-      {/* A LA CARTE                                                        */}
+      {/* À LA CARTE — PT2: Bento Toupiti as card, PT3: single title       */}
       {/* ================================================================ */}
       {showALC && (
-        <div className="px-4 space-y-6">
-          <h2 className="font-bold text-lg">A la carte</h2>
+        <div className="px-4 space-y-4">
+          <h2 className="font-bold text-lg text-center">À la carte</h2>
 
-          {bentoToupitiFormula && (
-            <div className="rounded-2xl overflow-hidden border cursor-pointer transition-transform hover:scale-[1.01]"
-              style={{ borderColor: "var(--border)", background: "var(--card)" }} onClick={() => addFormulaDirect(bentoToupitiFormula)}>
-              <div className="flex items-center gap-3 p-3">
-                <span className="text-3xl">{bentoToupitiFormula.emoji || "🐼"}</span>
-                <div className="flex-1">
+          {/* PT2: Bento Toupiti as visual card in grid alongside other items */}
+          <div className="grid grid-cols-2 gap-3">
+            {bentoToupitiFormula && (
+              <div className="rounded-2xl overflow-hidden cursor-pointer transition-transform hover:scale-[1.02]"
+                style={{ background: "var(--card)", boxShadow: "0 2px 12px var(--shadow)" }}
+                onClick={() => addFormulaDirect(bentoToupitiFormula)}>
+                <div className="aspect-[4/3] overflow-hidden">
+                  {bentoToupitiFormula.image_url && !bentoToupitiFormula.image_url.includes("etiquette_emballage") ? (
+                    <img src={buildImgUrl(bentoToupitiFormula.image_url)} alt={bentoToupitiFormula.name} className="w-full h-full object-cover" loading="lazy" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-5xl" style={{ background: "var(--bg-alt)" }}>{bentoToupitiFormula.emoji || "🍱"}</div>
+                  )}
+                </div>
+                <div className="p-3">
                   <h4 className="font-semibold text-sm">{bentoToupitiFormula.name}</h4>
-                  <p className="text-xs" style={{ color: "var(--ink-soft)" }}>Même composition que le Bento du jour + infusion offerte</p>
-                </div>
-                <div className="text-right">
-                  <span className="font-bold">{fmtPrice(bentoToupitiFormula.price_cents)}</span>
-                  <div className="text-xs font-semibold px-2 py-1 rounded-lg text-white mt-1" style={{ background: "var(--accent)" }}>Ajouter +</div>
+                  <p className="text-xs mt-0.5" style={{ color: "var(--ink-soft)" }}>Portion réduite maternelle</p>
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="font-bold text-base">{fmtPrice(bentoToupitiFormula.price_cents)}</span>
+                    <span className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white" style={{ background: "var(--accent)" }}>
+                      Ajouter +
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {aLaCarteCategories.map((cat) => (
-            <section key={cat.id}>
-              <div className="flex items-center gap-2 mb-3">
-                {cat.emoji && <span className="text-xl">{cat.emoji}</span>}
-                <h3 className="font-bold text-base">{cat.name}</h3>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                {cat.catalog_items.sort((a, b) => a.sort_order - b.sort_order).map((item) => (
-                  <ProductCard key={item.id} id={item.id} name={item.name} description={item.description}
-                    priceCents={item.price_alone_cents} imageUrl={item.image_url} emoji={item.emoji}
-                    isMenuOnly={!item.sellable_alone && item.sellable_in_menu} allergens={item.allergens}
-                    onSelect={addItem} />
-                ))}
-              </div>
-            </section>
-          ))}
+            {/* PT3: All à-la-carte items in single flat grid — no category subtitles */}
+            {aLaCarteItems.map((item) => (
+              <ProductCard key={item.id} id={item.id} name={item.name} description={item.description}
+                priceCents={item.price_alone_cents} imageUrl={item.image_url} emoji={item.emoji}
+                isMenuOnly={!item.sellable_alone && item.sellable_in_menu} allergens={item.allergens}
+                onSelect={addItem} />
+            ))}
+          </div>
         </div>
       )}
 
@@ -520,7 +582,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
                     <div key={item.id} className="rounded-2xl overflow-hidden cursor-pointer transition-transform hover:scale-[1.02]"
                       style={{ background: "var(--card)", boxShadow: "0 2px 12px var(--shadow)" }} onClick={() => selectPlat(item)}>
                       <div className="aspect-[4/3] overflow-hidden">
-                        {item.image_url ? (<img src={item.image_url} alt={item.name} className="w-full h-full object-cover" loading="lazy" />)
+                        {item.image_url ? (<img src={buildImgUrl(item.image_url)} alt={item.name} className="w-full h-full object-cover" loading="lazy" />)
                         : (<div className="w-full h-full flex items-center justify-center text-4xl" style={{ background: "var(--bg-alt)" }}>{item.emoji || "🐼"}</div>)}
                       </div>
                       <div className="p-2"><h4 className="font-semibold text-sm text-center">{item.name}</h4></div>
@@ -548,6 +610,48 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================================================================ */}
+      {/* À LA CARTE TOPPING MODAL (PT4)                                    */}
+      {/* ================================================================ */}
+      {alcTopOpen && alcItem && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-end justify-center">
+          <div className="w-full max-w-lg rounded-t-2xl max-h-[85vh] overflow-y-auto" style={{ background: "var(--card)" }}>
+            <div className="sticky top-0 z-10 flex justify-between items-center px-5 py-4 border-b" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
+              <div>
+                <h3 className="font-bold text-lg">{alcItem.name}</h3>
+                <p className="text-xs" style={{ color: "var(--ink-soft)" }}>
+                  {fmtPrice(alcItem.price_alone_cents!)} — Choisis tes garnitures
+                </p>
+              </div>
+              <button onClick={() => setAlcTopOpen(false)} className="text-2xl leading-none" aria-label="Fermer">&times;</button>
+            </div>
+            <div className="p-5">
+              {alcItem.image_url && (
+                <div className="rounded-xl overflow-hidden mb-4 aspect-[16/9]">
+                  <img src={buildImgUrl(alcItem.image_url)} alt={alcItem.name} className="w-full h-full object-cover" />
+                </div>
+              )}
+              <div className="space-y-2 mb-4">
+                {topsForAlcItem.map((t) => {
+                  const chk = alcToppings.includes(t.id)
+                  return (
+                    <label key={t.id} className="flex items-center gap-3 p-3 rounded-xl border cursor-pointer"
+                      style={{ borderColor: chk ? "var(--accent)" : "var(--border)", background: chk ? "#FEF3E2" : "transparent" }}>
+                      <input type="checkbox" checked={chk} onChange={() => toggleAlcTop(t.id)} className="w-5 h-5" style={{ accentColor: "var(--accent)" }} />
+                      <span className="text-lg">{t.emoji}</span>
+                      <span className="text-sm font-medium">{t.name}</span>
+                    </label>
+                  )
+                })}
+              </div>
+              <button onClick={finishAlcItem} className="w-full h-12 rounded-xl font-semibold text-white" style={{ background: "var(--accent)" }}>
+                {alcToppings.length === 0 ? "Sans garniture — Ajouter au panier" : "Valider et ajouter au panier"}
+              </button>
             </div>
           </div>
         </div>
