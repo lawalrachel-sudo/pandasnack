@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 
-const WALLET_IMG = "https://res.cloudinary.com/dbkpvp9ts/image/upload/w_32,q_auto,f_auto/v1776714727/PANDA_WALLET.jpg"
+const WALLET_IMG = "https://res.cloudinary.com/dbkpvp9ts/image/upload/w_40,q_auto,f_auto/v1776714727/PANDA_WALLET.jpg"
 
 interface NavbarProps {
   walletBalance?: number
@@ -30,10 +30,10 @@ export function Navbar({ walletBalance, familyName }: NavbarProps) {
 
       <Link
         href="/mon-espace?tab=wallet"
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white"
+        className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold text-white"
         style={{ background: 'var(--accent-2)' }}
       >
-        <img src={WALLET_IMG} alt="" className="w-5 h-5 rounded-full object-cover" />
+        <img src={WALLET_IMG} alt="" className="w-6 h-6 rounded-full object-cover" />
         {balanceDisplay || "0,00 €"}
       </Link>
     </header>

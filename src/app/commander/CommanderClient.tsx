@@ -68,7 +68,7 @@ const CLF: Record<string, string> = { maternelle: "Maternelle", primaire: "Prima
 const WALLET_IMG = "https://res.cloudinary.com/dbkpvp9ts/image/upload/v1776714727/PANDA_WALLET.jpg"
 
 // Crop Cloudinary pour retirer watermark Gemini
-const CLOUDINARY_CROP = "c_crop,g_north_west,w_0.93,h_0.88/c_fill,ar_4:3,w_400,q_auto,f_auto"
+const CLOUDINARY_CROP = "c_crop,g_north_west,w_0.93,h_0.88/c_fill,ar_4:3,w_600,q_auto,f_auto"
 function buildImgUrl(url: string): string {
   if (url.includes("res.cloudinary.com") && !url.includes("tea_maison")) {
     return url.replace("/upload/", `/upload/${CLOUDINARY_CROP}/`)
@@ -388,8 +388,8 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
         </div>
       )}
 
-      <div className="px-4 py-6 text-center" style={{ background: "linear-gradient(135deg, var(--menu-panda-start), var(--menu-panda-end))" }}>
-        <img src="https://res.cloudinary.com/dbkpvp9ts/image/upload/w_400,q_auto,f_auto/v1776298625/BANNIERE_panda_snack_logo.png" alt="Panda Snack" className="mx-auto max-w-[280px] mb-3" />
+      <div className="px-4 py-4 text-center" style={{ background: "linear-gradient(135deg, var(--menu-panda-start), var(--menu-panda-end))" }}>
+        <img src="https://res.cloudinary.com/dbkpvp9ts/image/upload/w_600,q_auto,f_auto/v1776298625/BANNIERE_panda_snack_logo.png" alt="Panda Snack" className="mx-auto w-full max-w-[360px] mb-3" />
       </div>
 
       {/* Profil */}
@@ -521,7 +521,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
                   <div className="flex items-center justify-between mt-2">
                     <span className="font-bold text-base">{fmtPrice(f.price_cents)}</span>
                     <span className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white" style={{ background: "var(--accent)" }}>
-                      {f.code.startsWith("BENTO") ? "Ajouter +" : "Composer"}
+                      "Ajouter +"
                     </span>
                   </div>
                 </div>

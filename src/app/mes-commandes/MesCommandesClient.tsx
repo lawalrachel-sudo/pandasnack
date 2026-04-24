@@ -69,8 +69,9 @@ export function MesCommandesClient({ account, profils, orders, wallet, upcomingS
   }, [upcomingSlots, orders, profils, selectedProfilId])
 
   const filteredOrders = useMemo(() => {
-    if (selectedProfilId === "all") return orders
-    return orders.filter(o => o.order_items?.some(item => item.profil_id === selectedProfilId))
+    const visible = orders.filter(o => o.status !== "cancelled" && o.status !== "refunded")
+    if (selectedProfilId === "all") return visible
+    return visible.filter(o => o.order_items?.some(item => item.profil_id === selectedProfilId))
   }, [orders, selectedProfilId])
 
   const groupedOrders = useMemo(() => {
