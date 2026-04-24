@@ -1,4 +1,4 @@
-import base64, os, pathlib
+import base64, pathlib
 
 FILES = {
   "src/app/globals.css": "QGltcG9ydCAidGFpbHdpbmRjc3MiOwoKOnJvb3QgewogIC8qIFBhbGV0dGUgQiDigJQgVGVycmFjb3R0YSBDYXJhw69iZSAqLwogIC0tYmc6ICNGQkY1RUM7CiAgLS1iZy1hbHQ6ICNGMEU2RDY7CiAgLS1pbms6ICMzQTJBMjA7CiAgLS1pbmstc29mdDogIzZCNTc0MjsKICAtLWFjY2VudDogI0M4NUEzQzsKICAtLWFjY2VudC0yOiAjNUE3RjQyOwogIC0tYWNjZW50LTM6ICNFOEEwNDA7CiAgLS1jYXJkOiAjRkZGRkZGOwogIC0tYm9yZGVyOiAjRThENkJGOwogIC0tc2hhZG93OiByZ2JhKDIwMCwgOTAsIDYwLCAwLjA4KTsKCiAgLyogTWVudSBQYW5kYSBncmFkaWVudCAoUGFsZXR0ZSBDKSAqLwogIC0tbWVudS1wYW5kYS1zdGFydDogIzhCNUUzQzsKICAtLW1lbnUtcGFuZGEtZW5kOiAjNkI4RTRFOwp9CgpAdGhlbWUgaW5saW5lIHsKICAtLWNvbG9yLWJhY2tncm91bmQ6IHZhcigtLWJnKTsKICAtLWNvbG9yLWZvcmVncm91bmQ6IHZhcigtLWluayk7CiAgLS1jb2xvci1hY2NlbnQ6IHZhcigtLWFjY2VudCk7CiAgLS1jb2xvci1hY2NlbnQtMjogdmFyKC0tYWNjZW50LTIpOwogIC0tY29sb3ItYWNjZW50LTM6IHZhcigtLWFjY2VudC0zKTsKICAtLWNvbG9yLWNhcmQ6IHZhcigtLWNhcmQpOwogIC0tY29sb3ItYm9yZGVyLXBhbmRhOiB2YXIoLS1ib3JkZXIpOwp9Cgpib2R5IHsKICBiYWNrZ3JvdW5kOiB2YXIoLS1iZyk7CiAgY29sb3I6IHZhcigtLWluayk7CiAgZm9udC1mYW1pbHk6IC1hcHBsZS1zeXN0ZW0sIEJsaW5rTWFjU3lzdGVtRm9udCwgIlNlZ29lIFVJIiwgUm9ib3RvLCAiSGVsdmV0aWNhIE5ldWUiLCBBcmlhbCwgc2Fucy1zZXJpZjsKfQoKaHRtbCwgYm9keSB7CiAgb3ZlcmZsb3cteDogaGlkZGVuOwogIC13ZWJraXQtdGV4dC1zaXplLWFkanVzdDogMTAwJTsKfQoKQGtleWZyYW1lcyBmYWRlLWluIHsKICBmcm9tIHsgb3BhY2l0eTogMDsgdHJhbnNmb3JtOiB0cmFuc2xhdGVYKC01MCUpIHRyYW5zbGF0ZVkoLTEwcHgpOyB9CiAgdG8geyBvcGFjaXR5OiAxOyB0cmFuc2Zvcm06IHRyYW5zbGF0ZVgoLTUwJSkgdHJhbnNsYXRlWSgwKTsgfQp9Ci5hbmltYXRlLWZhZGUtaW4geyBhbmltYXRpb246IGZhZGUtaW4gMC4zcyBlYXNlLW91dDsgfQo=",
@@ -9,6 +9,6 @@ for path, data in FILES.items():
     p = pathlib.Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_bytes(base64.b64decode(data))
-    print(f"✅ {path} ({len(base64.b64decode(data))} bytes)")
+    print(f"  {path} ({len(base64.b64decode(data))} bytes)")
 
-print("\n🎉 2 fichiers écrits. Fais:\ngit add . && git commit -m \"fix: viewport zoom mobile\" && git push")
+print("\n2 fichiers ecrits.\ngit add . && git commit -m \"fix: viewport zoom mobile\" && git push")
