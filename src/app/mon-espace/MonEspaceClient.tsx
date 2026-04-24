@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { Navbar } from "@/components/Navbar"
@@ -8,12 +8,12 @@ import { Navbar } from "@/components/Navbar"
 const WALLET_IMG = "https://res.cloudinary.com/dbkpvp9ts/image/upload/v1776714727/PANDA_WALLET.jpg"
 const CL: Record<string, string> = { maternelle: "Maternelle", primaire: "Primaire", college: "Collège", lycee: "Lycée", prof: "Prof/Équipe" }
 const SG_LABELS: Record<string, string> = { ecole: "École", pandattitude: "Pandattitude", panda_guest: "Panda Guest" }
-const TX_LABELS: Record<string, { label: string; sign: string; color: string }> = {
-  credit_purchase: { label: "Recharge", sign: "+", color: "#166534" },
-  credit_stripe: { label: "Recharge CB", sign: "+", color: "#166534" },
-  debit_order: { label: "Commande", sign: "-", color: "#DC2626" },
-  refund: { label: "Remboursement", sign: "+", color: "#0E7490" },
-  adjustment: { label: "Ajustement", sign: "", color: "#6B7280" },
+const TX_LABELS: Record<string, { label: string; color: string }> = {
+  credit_purchase: { label: "Recharge", color: "#166534" },
+  credit_stripe: { label: "Recharge CB", color: "#166534" },
+  debit_order: { label: "Commande", color: "#DC2626" },
+  refund: { label: "Remboursement", color: "#0E7490" },
+  adjustment: { label: "Ajustement", color: "#6B7280" },
 }
 
 function fmtPrice(c: number): string { return `${(Math.abs(c) / 100).toFixed(2).replace(".", ",")} €` }
@@ -21,20 +21,16 @@ function fmtDateShort(d: string): string {
   return new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" })
 }
 
-// Eye icon SVG inline
 function EyeIcon({ open }: { open: boolean }) {
-  if (open) {
-    return (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-        <circle cx="12" cy="12" r="3" />
-      </svg>
-    )
-  }
+  if (open) return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+    </svg>
+  )
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" />
-      <line x1="1" y1="1" x2="23" y2="23" />
+      <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/>
+      <line x1="1" y1="1" x2="23" y2="23"/>
     </svg>
   )
 }
@@ -55,7 +51,6 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
   const searchParams = useSearchParams()
   const initialTab = searchParams.get("tab") === "wallet" ? "wallet" : searchParams.get("tab") === "compte" ? "compte" : "profils"
   const [tab, setTab] = useState<"profils" | "wallet" | "compte">(initialTab)
-  const [editingProfil, setEditingProfil] = useState<string | null>(null)
   const [showAddProfil, setShowAddProfil] = useState(false)
   const [newPrenom, setNewPrenom] = useState("")
   const [newClasse, setNewClasse] = useState("")
@@ -63,6 +58,8 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
   const [saving, setSaving] = useState(false)
 
   // Mon Compte state
+  const [nomCompte, setNomCompte] = useState(account.nom_compte)
+  const [nomSaved, setNomSaved] = useState(false)
   const [phone, setPhone] = useState(account.telephone || "")
   const [phoneSaved, setPhoneSaved] = useState(false)
   const [oldPwd, setOldPwd] = useState("")
@@ -82,37 +79,29 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
     setSaving(true)
     try {
       const res = await fetch("/api/profils", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prenom: newPrenom.trim(), classe: newClasse || null, notes_allergies: newAllergies.trim() || null }),
       })
-      if (res.ok) { window.location.reload() }
-      else { alert("Erreur lors de l'ajout") }
+      if (res.ok) window.location.reload()
+      else alert("Erreur lors de l'ajout")
     } catch { alert("Erreur réseau") }
     setSaving(false)
   }
 
   async function toggleProfil(profilId: string, active: boolean) {
-    const res = await fetch("/api/profils", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profilId, active }),
-    })
+    const res = await fetch("/api/profils", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ profilId, active }) })
     if (res.ok) window.location.reload()
   }
 
-  async function savePhone() {
+  async function saveField(field: "phone" | "nom_compte") {
     setSaving(true)
     try {
-      const res = await fetch("/api/account", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: phone.trim() }),
-      })
+      const body = field === "phone" ? { phone: phone.trim() } : { nom_compte: nomCompte.trim() }
+      const res = await fetch("/api/account", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
       if (res.ok) {
-        setPhoneSaved(true)
-        setTimeout(() => setPhoneSaved(false), 2000)
-      } else { alert("Erreur sauvegarde") }
+        if (field === "phone") { setPhoneSaved(true); setTimeout(() => setPhoneSaved(false), 2000) }
+        else { setNomSaved(true); setTimeout(() => setNomSaved(false), 2000) }
+      } else alert("Erreur sauvegarde")
     } catch { alert("Erreur réseau") }
     setSaving(false)
   }
@@ -124,23 +113,20 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
     setPwdSaving(true)
     try {
       const res = await fetch("/api/account", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ oldPassword: oldPwd, newPassword: newPwd }),
       })
       const data = await res.json()
-      if (res.ok) {
-        setPwdMsg({ type: "ok", text: "Mot de passe modifié" })
-        setOldPwd(""); setNewPwd(""); setConfirmPwd("")
-      } else {
-        setPwdMsg({ type: "err", text: data.error || "Erreur" })
-      }
+      if (res.ok) { setPwdMsg({ type: "ok", text: "Mot de passe modifié" }); setOldPwd(""); setNewPwd(""); setConfirmPwd("") }
+      else setPwdMsg({ type: "err", text: data.error || "Erreur" })
     } catch { setPwdMsg({ type: "err", text: "Erreur réseau" }) }
     setPwdSaving(false)
   }
 
+  const TAB_LABELS = { profils: "Profils", wallet: "Panda Wallet", compte: "Mon compte" } as const
+
   return (
-    <div className="min-h-screen pb-20 max-w-lg mx-auto">
+    <div className="min-h-screen pb-16 max-w-lg mx-auto">
       <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} />
 
       {/* Header profil parent */}
@@ -169,8 +155,9 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
             <p className="text-2xl font-bold text-white">{activeProfils.length}</p>
             <p className="text-xs text-white/70">profils actifs</p>
           </div>
-          <div className="flex-1 rounded-xl p-3 text-center" style={{ background: "rgba(255,255,255,0.15)" }}>
-            <p className="text-2xl font-bold text-white">{wallet ? fmtPrice(wallet.balance_cents) : "—"}</p>
+          <div className="flex-1 rounded-xl p-3 text-center flex flex-col items-center justify-center" style={{ background: "rgba(255,255,255,0.15)" }}>
+            <img src={WALLET_IMG} alt="" className="w-8 h-8 rounded-full object-cover mb-1" />
+            <p className="text-lg font-bold text-white">{wallet ? fmtPrice(wallet.balance_cents) : "—"}</p>
             <p className="text-xs text-white/70">wallet</p>
           </div>
         </div>
@@ -178,19 +165,16 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
 
       {/* Tabs — 3 onglets */}
       <div className="flex border-b" style={{ borderColor: "var(--border)" }}>
-        {(["profils", "wallet", "compte"] as const).map(t => {
-          const labels = { profils: "Profils", wallet: "Wallet", compte: "Mon compte" }
-          return (
-            <button key={t} onClick={() => setTab(t)}
-              className={`flex-1 py-3 text-sm font-semibold text-center border-b-2 transition-colors ${tab === t ? "" : "border-transparent"}`}
-              style={tab === t ? { borderColor: "var(--accent)", color: "var(--accent)" } : { color: "var(--ink-soft)" }}>
-              {labels[t]}
-            </button>
-          )
-        })}
+        {(["profils", "wallet", "compte"] as const).map(t => (
+          <button key={t} onClick={() => setTab(t)}
+            className={`flex-1 py-3 text-sm font-semibold text-center border-b-2 transition-colors ${tab === t ? "" : "border-transparent"}`}
+            style={tab === t ? { borderColor: "var(--accent)", color: "var(--accent)" } : { color: "var(--ink-soft)" }}>
+            {TAB_LABELS[t]}
+          </button>
+        ))}
       </div>
 
-      {/* Tab: Profils */}
+      {/* ═══════ Tab: Profils ═══════ */}
       {tab === "profils" && (
         <div className="px-4 py-4 space-y-3">
           {activeProfils.map(p => (
@@ -221,7 +205,6 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
             </div>
           )}
 
-          {/* Ajouter profil */}
           {!showAddProfil ? (
             <button onClick={() => setShowAddProfil(true)} className="w-full h-12 rounded-xl font-semibold border border-dashed text-sm"
               style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>
@@ -266,12 +249,11 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
         </div>
       )}
 
-      {/* Tab: Wallet */}
+      {/* ═══════ Tab: Panda Wallet ═══════ */}
       {tab === "wallet" && (
         <div className="px-4 py-4">
-          {/* Solde */}
           <div className="rounded-xl p-5 mb-4 text-center" style={{ background: "var(--bg-alt)" }}>
-            <img src={WALLET_IMG} alt="Panda Wallet" className="w-16 h-16 rounded-full object-cover mx-auto mb-3" />
+            <img src={WALLET_IMG} alt="Panda Wallet" className="w-20 h-20 rounded-full object-cover mx-auto mb-3" />
             <p className="text-3xl font-bold" style={{ color: "var(--accent-2)" }}>
               {wallet ? fmtPrice(wallet.balance_cents) : "0,00 €"}
             </p>
@@ -284,13 +266,16 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
             )}
           </div>
 
-          {/* Recharger */}
           <Link href="/recharger" className="block w-full h-12 rounded-xl font-semibold text-white text-center leading-[3rem] mb-4"
             style={{ background: "var(--accent-2)" }}>
-            Recharger mon wallet
+            Recharger mon Panda Wallet
           </Link>
 
-          {/* Historique transactions */}
+          <p className="text-sm text-center mb-4" style={{ color: "var(--ink-soft)" }}>
+            Tu peux aussi recharger en espèces ou virement —{" "}
+            <Link href="/contact" className="font-bold underline" style={{ color: "var(--accent)" }}>contacte-nous</Link>
+          </p>
+
           <h2 className="font-bold text-sm mb-2" style={{ color: "var(--ink)" }}>Historique</h2>
           {walletTransactions.length === 0 ? (
             <p className="text-sm py-4 text-center" style={{ color: "var(--ink-soft)" }}>Aucune transaction.</p>
@@ -317,7 +302,7 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
         </div>
       )}
 
-      {/* Tab: Mon Compte */}
+      {/* ═══════ Tab: Mon Compte ═══════ */}
       {tab === "compte" && (
         <div className="px-4 py-4 space-y-6">
           {/* Coordonnées */}
@@ -334,22 +319,26 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
             </div>
 
             <div>
-              <label className="text-xs font-medium" style={{ color: "var(--ink-soft)" }}>Téléphone <span style={{ color: "var(--accent)" }}>*</span></label>
+              <label className="text-xs font-medium" style={{ color: "var(--ink-soft)" }}>Nom du compte</label>
               <div className="flex gap-2 mt-1">
-                <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+596 696 ..."
+                <input type="text" value={nomCompte} onChange={e => setNomCompte(e.target.value)}
                   className="flex-1 h-10 px-3 rounded-lg border text-sm" style={{ borderColor: "var(--border)" }} />
-                <button onClick={savePhone} disabled={saving || !phone.trim()}
+                <button onClick={() => saveField("nom_compte")} disabled={saving || !nomCompte.trim() || nomCompte === account.nom_compte}
                   className="h-10 px-4 rounded-lg font-semibold text-white text-sm disabled:opacity-50" style={{ background: "var(--accent-2)" }}>
-                  {phoneSaved ? "✓" : "Enregistrer"}
+                  {nomSaved ? "✓" : "OK"}
                 </button>
               </div>
             </div>
 
             <div>
-              <label className="text-xs font-medium" style={{ color: "var(--ink-soft)" }}>Nom du compte</label>
-              <div className="w-full mt-1 h-10 px-3 rounded-lg border text-sm flex items-center"
-                style={{ borderColor: "var(--border)", background: "var(--bg-alt)", color: "var(--ink)" }}>
-                {account.nom_compte}
+              <label className="text-xs font-medium" style={{ color: "var(--ink-soft)" }}>Téléphone <span style={{ color: "var(--accent)" }}>*</span></label>
+              <div className="flex gap-2 mt-1">
+                <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+596 696 ..."
+                  className="flex-1 h-10 px-3 rounded-lg border text-sm" style={{ borderColor: "var(--border)" }} />
+                <button onClick={() => saveField("phone")} disabled={saving || !phone.trim()}
+                  className="h-10 px-4 rounded-lg font-semibold text-white text-sm disabled:opacity-50" style={{ background: "var(--accent-2)" }}>
+                  {phoneSaved ? "✓" : "OK"}
+                </button>
               </div>
             </div>
           </div>
@@ -383,7 +372,7 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
             </div>
 
             <div>
-              <label className="text-xs font-medium" style={{ color: "var(--ink-soft)" }}>Confirmer le nouveau mot de passe</label>
+              <label className="text-xs font-medium" style={{ color: "var(--ink-soft)" }}>Confirmer</label>
               <div className="relative mt-1">
                 <input type={showConfirmPwd ? "text" : "password"} value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)}
                   className="w-full h-10 px-3 pr-10 rounded-lg border text-sm" style={{ borderColor: "var(--border)" }} />
@@ -395,9 +384,7 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
             </div>
 
             {pwdMsg && (
-              <p className="text-xs font-medium" style={{ color: pwdMsg.type === "ok" ? "#166534" : "#DC2626" }}>
-                {pwdMsg.text}
-              </p>
+              <p className="text-xs font-medium" style={{ color: pwdMsg.type === "ok" ? "#166534" : "#DC2626" }}>{pwdMsg.text}</p>
             )}
 
             <button onClick={changePassword} disabled={pwdSaving || !oldPwd || !newPwd}
@@ -415,7 +402,6 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
           </button>
         </div>
       )}
-
     </div>
   )
 }

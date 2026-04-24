@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { Navbar } from "@/components/Navbar"
 
 const WALLET_IMG = "https://res.cloudinary.com/dbkpvp9ts/image/upload/v1776714727/PANDA_WALLET.jpg"
@@ -28,50 +29,28 @@ export function RechargerClient({ accountId, familyName, walletBalance, configs 
   const canPay = (selectedConfig || isCustom) && !loading
 
   async function handleRecharge() {
-    setLoading(true)
-    setError(null)
-
+    setLoading(true); setError(null)
     const amountCents = selectedPill ? selectedPill.amount_cents : customCents
     const bonusCents = selectedPill ? selectedPill.bonus_cents : 0
-
-    if (amountCents > 20000) {
-      setError("Pour un montant supérieur à 200 €, contactez team@pandasnack.online")
-      setLoading(false)
-      return
-    }
-
-    if (amountCents < 500) {
-      setError("Montant minimum : 5 €")
-      setLoading(false)
-      return
-    }
-
+    if (amountCents > 20000) { setError("Pour un montant supérieur à 200 €, contactez team@pandasnack.online"); setLoading(false); return }
+    if (amountCents < 500) { setError("Montant minimum : 5 €"); setLoading(false); return }
     try {
-      const res = await fetch("/api/recharger", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amountCents, bonusCents }),
-      })
+      const res = await fetch("/api/recharger", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ amountCents, bonusCents }) })
       const data = await res.json()
-      if (data.url) {
-        window.location.href = data.url
-      } else {
-        setError(data.error || "Erreur lors de la création du paiement")
-      }
-    } catch {
-      setError("Erreur réseau")
-    }
+      if (data.url) window.location.href = data.url
+      else setError(data.error || "Erreur lors de la création du paiement")
+    } catch { setError("Erreur réseau") }
     setLoading(false)
   }
 
   return (
-    <div className="min-h-screen pb-20 max-w-lg mx-auto">
+    <div className="min-h-screen pb-16 max-w-lg mx-auto">
       <Navbar walletBalance={walletBalance} familyName={familyName} />
 
       <div className="px-4 pt-6">
         {/* Solde actuel */}
         <div className="rounded-xl p-5 mb-6 text-center" style={{ background: "var(--bg-alt)" }}>
-          <img src={WALLET_IMG} alt="Panda Wallet" className="w-14 h-14 rounded-full object-cover mx-auto mb-2" />
+          <img src={WALLET_IMG} alt="Panda Wallet" className="w-16 h-16 rounded-full object-cover mx-auto mb-2" />
           <p className="text-sm" style={{ color: "var(--ink-soft)" }}>Solde actuel</p>
           <p className="text-2xl font-bold" style={{ color: "var(--accent-2)" }}>{fmtPrice(walletBalance)}</p>
         </div>
@@ -105,11 +84,7 @@ export function RechargerClient({ accountId, familyName, walletBalance, configs 
                     {isSelected && <div className="w-3 h-3 rounded-full" style={{ background: "var(--accent-2)" }} />}
                   </div>
                 </div>
-                {c.bonus_cents > 0 && (
-                  <p className="text-xs mt-1" style={{ color: "var(--ink-soft)" }}>
-                    Crédit total : {fmtPrice(c.amount_cents + c.bonus_cents)}
-                  </p>
-                )}
+                {c.bonus_cents > 0 && <p className="text-xs mt-1" style={{ color: "var(--ink-soft)" }}>Crédit total : {fmtPrice(c.amount_cents + c.bonus_cents)}</p>}
               </button>
             )
           })}
@@ -119,43 +94,26 @@ export function RechargerClient({ accountId, familyName, walletBalance, configs 
         <div className="rounded-xl border p-4 mb-6" style={{ borderColor: isCustom ? "var(--accent)" : "var(--border)", background: "var(--card)" }}>
           <label className="text-sm font-semibold" style={{ color: "var(--ink)" }}>Montant libre (sans bonus)</label>
           <div className="flex items-center gap-2 mt-2">
-            <input
-              type="text"
-              inputMode="decimal"
-              value={customAmount}
+            <input type="text" inputMode="decimal" value={customAmount}
               onChange={e => { setCustomAmount(e.target.value); setSelectedConfig(null) }}
-              placeholder="Ex: 75"
-              className="flex-1 h-10 px-3 rounded-lg border text-sm"
-              style={{ borderColor: "var(--border)" }}
-            />
+              placeholder="Ex: 75" className="flex-1 h-10 px-3 rounded-lg border text-sm" style={{ borderColor: "var(--border)" }} />
             <span className="text-sm font-semibold" style={{ color: "var(--ink-soft)" }}>€</span>
           </div>
-          <p className="text-[10px] mt-1" style={{ color: "var(--ink-soft)" }}>
-            Min. 5 € · Max. 200 € · Au-delà, contactez team@pandasnack.online
-          </p>
+          <p className="text-[10px] mt-1" style={{ color: "var(--ink-soft)" }}>Min. 5 € · Max. 200 €</p>
         </div>
 
-        {error && (
-          <div className="rounded-lg p-3 mb-4 text-sm" style={{ background: "#FEF2F2", color: "#DC2626" }}>
-            {error}
-          </div>
-        )}
+        {error && <div className="rounded-lg p-3 mb-4 text-sm" style={{ background: "#FEF2F2", color: "#DC2626" }}>{error}</div>}
 
-        {/* Bouton payer */}
-        <button
-          onClick={handleRecharge}
-          disabled={!canPay}
-          className="w-full h-12 rounded-xl font-semibold text-white text-center text-sm disabled:opacity-50"
-          style={{ background: "var(--accent-2)" }}
-        >
+        <button onClick={handleRecharge} disabled={!canPay}
+          className="w-full h-12 rounded-xl font-semibold text-white text-center text-sm disabled:opacity-50" style={{ background: "var(--accent-2)" }}>
           {loading ? "Redirection vers Stripe..." : `Recharger${selectedPill ? ` ${fmtPrice(selectedPill.amount_cents)}` : isCustom ? ` ${fmtPrice(customCents)}` : ""} par carte`}
         </button>
 
-        <p className="text-xs text-center mt-3" style={{ color: "var(--ink-soft)" }}>
-          Paiement sécurisé par Stripe. Tu peux aussi recharger en espèces ou virement — contacte-nous.
+        <p className="text-sm text-center mt-4 leading-relaxed" style={{ color: "var(--ink-soft)" }}>
+          Tu peux aussi recharger en espèces ou virement —{" "}
+          <Link href="/contact" className="font-bold underline" style={{ color: "var(--accent)" }}>contacte-nous</Link>
         </p>
       </div>
-
     </div>
   )
 }
