@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import { Navbar } from "@/components/Navbar"
 
 const WALLET_IMG = "https://res.cloudinary.com/dbkpvp9ts/image/upload/v1776714727/PANDA_WALLET.jpg"
@@ -9,6 +10,7 @@ const CL: Record<string, string> = { maternelle: "Maternelle", primaire: "Primai
 const SG_LABELS: Record<string, string> = { ecole: "École", pandattitude: "Pandattitude", panda_guest: "Panda Guest" }
 const TX_LABELS: Record<string, { label: string; sign: string; color: string }> = {
   credit_purchase: { label: "Recharge", sign: "+", color: "#166534" },
+  credit_stripe: { label: "Recharge CB", sign: "+", color: "#166534" },
   debit_order: { label: "Commande", sign: "-", color: "#DC2626" },
   refund: { label: "Remboursement", sign: "+", color: "#0E7490" },
   adjustment: { label: "Ajustement", sign: "", color: "#6B7280" },
@@ -19,11 +21,29 @@ function fmtDateShort(d: string): string {
   return new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" })
 }
 
+// Eye icon SVG inline
+function EyeIcon({ open }: { open: boolean }) {
+  if (open) {
+    return (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    )
+  }
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  )
+}
+
 interface Profil { id: string; prenom: string; classe: string | null; is_default: boolean; active: boolean; notes_allergies: string | null }
 interface WalletTx { id: string; type: string; amount_cents: number; balance_after_cents: number; description: string | null; created_at: string }
 
 interface Props {
-  account: { id: string; nom_compte: string; email: string; source_group: string | null; source_detail: string | null }
+  account: { id: string; nom_compte: string; email: string; telephone: string | null; source_group: string | null; source_detail: string | null }
   profils: Profil[]
   wallet: { id: string; balance_cents: number; total_credited_cents: number; total_debited_cents: number } | null
   walletTransactions: WalletTx[]
@@ -32,13 +52,27 @@ interface Props {
 }
 
 export function MonEspaceClient({ account, profils, wallet, walletTransactions, orderCount, userEmail }: Props) {
-  const [tab, setTab] = useState<"profils" | "wallet">("profils")
+  const searchParams = useSearchParams()
+  const initialTab = searchParams.get("tab") === "wallet" ? "wallet" : searchParams.get("tab") === "compte" ? "compte" : "profils"
+  const [tab, setTab] = useState<"profils" | "wallet" | "compte">(initialTab)
   const [editingProfil, setEditingProfil] = useState<string | null>(null)
   const [showAddProfil, setShowAddProfil] = useState(false)
   const [newPrenom, setNewPrenom] = useState("")
   const [newClasse, setNewClasse] = useState("")
   const [newAllergies, setNewAllergies] = useState("")
   const [saving, setSaving] = useState(false)
+
+  // Mon Compte state
+  const [phone, setPhone] = useState(account.telephone || "")
+  const [phoneSaved, setPhoneSaved] = useState(false)
+  const [oldPwd, setOldPwd] = useState("")
+  const [newPwd, setNewPwd] = useState("")
+  const [confirmPwd, setConfirmPwd] = useState("")
+  const [showOldPwd, setShowOldPwd] = useState(false)
+  const [showNewPwd, setShowNewPwd] = useState(false)
+  const [showConfirmPwd, setShowConfirmPwd] = useState(false)
+  const [pwdMsg, setPwdMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null)
+  const [pwdSaving, setPwdSaving] = useState(false)
 
   const activeProfils = profils.filter(p => p.active)
   const inactiveProfils = profils.filter(p => !p.active)
@@ -65,6 +99,44 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
       body: JSON.stringify({ profilId, active }),
     })
     if (res.ok) window.location.reload()
+  }
+
+  async function savePhone() {
+    setSaving(true)
+    try {
+      const res = await fetch("/api/account", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: phone.trim() }),
+      })
+      if (res.ok) {
+        setPhoneSaved(true)
+        setTimeout(() => setPhoneSaved(false), 2000)
+      } else { alert("Erreur sauvegarde") }
+    } catch { alert("Erreur réseau") }
+    setSaving(false)
+  }
+
+  async function changePassword() {
+    setPwdMsg(null)
+    if (newPwd.length < 6) { setPwdMsg({ type: "err", text: "Le nouveau mot de passe doit faire au moins 6 caractères" }); return }
+    if (newPwd !== confirmPwd) { setPwdMsg({ type: "err", text: "Les mots de passe ne correspondent pas" }); return }
+    setPwdSaving(true)
+    try {
+      const res = await fetch("/api/account", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ oldPassword: oldPwd, newPassword: newPwd }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setPwdMsg({ type: "ok", text: "Mot de passe modifié" })
+        setOldPwd(""); setNewPwd(""); setConfirmPwd("")
+      } else {
+        setPwdMsg({ type: "err", text: data.error || "Erreur" })
+      }
+    } catch { setPwdMsg({ type: "err", text: "Erreur réseau" }) }
+    setPwdSaving(false)
   }
 
   return (
@@ -104,18 +176,18 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs — 3 onglets */}
       <div className="flex border-b" style={{ borderColor: "var(--border)" }}>
-        <button onClick={() => setTab("profils")}
-          className={`flex-1 py-3 text-sm font-semibold text-center border-b-2 transition-colors ${tab === "profils" ? "" : "border-transparent"}`}
-          style={tab === "profils" ? { borderColor: "var(--accent)", color: "var(--accent)" } : { color: "var(--ink-soft)" }}>
-          Profils enfants
-        </button>
-        <button onClick={() => setTab("wallet")}
-          className={`flex-1 py-3 text-sm font-semibold text-center border-b-2 transition-colors ${tab === "wallet" ? "" : "border-transparent"}`}
-          style={tab === "wallet" ? { borderColor: "var(--accent)", color: "var(--accent)" } : { color: "var(--ink-soft)" }}>
-          Panda Wallet
-        </button>
+        {(["profils", "wallet", "compte"] as const).map(t => {
+          const labels = { profils: "Profils", wallet: "Wallet", compte: "Mon compte" }
+          return (
+            <button key={t} onClick={() => setTab(t)}
+              className={`flex-1 py-3 text-sm font-semibold text-center border-b-2 transition-colors ${tab === t ? "" : "border-transparent"}`}
+              style={tab === t ? { borderColor: "var(--accent)", color: "var(--accent)" } : { color: "var(--ink-soft)" }}>
+              {labels[t]}
+            </button>
+          )
+        })}
       </div>
 
       {/* Tab: Profils */}
@@ -245,17 +317,105 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
         </div>
       )}
 
-      {/* Navigation bas */}
-      <div className="px-4 mt-6 space-y-2">
-        <Link href="/mes-commandes" className="block w-full h-11 rounded-xl font-semibold text-center leading-[2.75rem] border text-sm"
-          style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>
-          Mes commandes
-        </Link>
-        <Link href="/commander" className="block w-full h-11 rounded-xl font-semibold text-white text-center leading-[2.75rem] text-sm"
-          style={{ background: "var(--accent)" }}>
-          Commander
-        </Link>
-      </div>
+      {/* Tab: Mon Compte */}
+      {tab === "compte" && (
+        <div className="px-4 py-4 space-y-6">
+          {/* Coordonnées */}
+          <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: "var(--border)", background: "var(--card)" }}>
+            <h3 className="font-bold text-sm" style={{ color: "var(--ink)" }}>Coordonnées</h3>
+
+            <div>
+              <label className="text-xs font-medium" style={{ color: "var(--ink-soft)" }}>Email (identifiant)</label>
+              <div className="w-full mt-1 h-10 px-3 rounded-lg border text-sm flex items-center"
+                style={{ borderColor: "var(--border)", background: "var(--bg-alt)", color: "var(--ink-soft)" }}>
+                {userEmail}
+              </div>
+              <p className="text-[10px] mt-1" style={{ color: "var(--ink-soft)" }}>Non modifiable — adresse email de connexion</p>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium" style={{ color: "var(--ink-soft)" }}>Téléphone <span style={{ color: "var(--accent)" }}>*</span></label>
+              <div className="flex gap-2 mt-1">
+                <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+596 696 ..."
+                  className="flex-1 h-10 px-3 rounded-lg border text-sm" style={{ borderColor: "var(--border)" }} />
+                <button onClick={savePhone} disabled={saving || !phone.trim()}
+                  className="h-10 px-4 rounded-lg font-semibold text-white text-sm disabled:opacity-50" style={{ background: "var(--accent-2)" }}>
+                  {phoneSaved ? "✓" : "Enregistrer"}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium" style={{ color: "var(--ink-soft)" }}>Nom du compte</label>
+              <div className="w-full mt-1 h-10 px-3 rounded-lg border text-sm flex items-center"
+                style={{ borderColor: "var(--border)", background: "var(--bg-alt)", color: "var(--ink)" }}>
+                {account.nom_compte}
+              </div>
+            </div>
+          </div>
+
+          {/* Mot de passe */}
+          <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: "var(--border)", background: "var(--card)" }}>
+            <h3 className="font-bold text-sm" style={{ color: "var(--ink)" }}>Modifier le mot de passe</h3>
+
+            <div>
+              <label className="text-xs font-medium" style={{ color: "var(--ink-soft)" }}>Ancien mot de passe</label>
+              <div className="relative mt-1">
+                <input type={showOldPwd ? "text" : "password"} value={oldPwd} onChange={e => setOldPwd(e.target.value)}
+                  className="w-full h-10 px-3 pr-10 rounded-lg border text-sm" style={{ borderColor: "var(--border)" }} />
+                <button type="button" onClick={() => setShowOldPwd(!showOldPwd)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded" style={{ color: "var(--ink-soft)" }}>
+                  <EyeIcon open={showOldPwd} />
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium" style={{ color: "var(--ink-soft)" }}>Nouveau mot de passe</label>
+              <div className="relative mt-1">
+                <input type={showNewPwd ? "text" : "password"} value={newPwd} onChange={e => setNewPwd(e.target.value)}
+                  className="w-full h-10 px-3 pr-10 rounded-lg border text-sm" style={{ borderColor: "var(--border)" }} />
+                <button type="button" onClick={() => setShowNewPwd(!showNewPwd)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded" style={{ color: "var(--ink-soft)" }}>
+                  <EyeIcon open={showNewPwd} />
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium" style={{ color: "var(--ink-soft)" }}>Confirmer le nouveau mot de passe</label>
+              <div className="relative mt-1">
+                <input type={showConfirmPwd ? "text" : "password"} value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)}
+                  className="w-full h-10 px-3 pr-10 rounded-lg border text-sm" style={{ borderColor: "var(--border)" }} />
+                <button type="button" onClick={() => setShowConfirmPwd(!showConfirmPwd)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded" style={{ color: "var(--ink-soft)" }}>
+                  <EyeIcon open={showConfirmPwd} />
+                </button>
+              </div>
+            </div>
+
+            {pwdMsg && (
+              <p className="text-xs font-medium" style={{ color: pwdMsg.type === "ok" ? "#166534" : "#DC2626" }}>
+                {pwdMsg.text}
+              </p>
+            )}
+
+            <button onClick={changePassword} disabled={pwdSaving || !oldPwd || !newPwd}
+              className="w-full h-10 rounded-lg font-semibold text-white text-sm disabled:opacity-50" style={{ background: "var(--accent)" }}>
+              {pwdSaving ? "..." : "Modifier le mot de passe"}
+            </button>
+          </div>
+
+          {/* Déconnexion */}
+          <button onClick={async () => {
+            await fetch("/api/account", { method: "DELETE" })
+            window.location.href = "/auth"
+          }} className="w-full h-10 rounded-lg font-semibold text-sm border" style={{ borderColor: "var(--border)", color: "var(--accent)" }}>
+            Se déconnecter
+          </button>
+        </div>
+      )}
+
     </div>
   )
 }

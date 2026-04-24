@@ -47,22 +47,24 @@ export async function POST(request: Request) {
     }
 
     if (session.metadata?.type === "wallet_recharge") {
-      const familyId = session.metadata.family_id
+      const accountId = session.metadata.account_id
       const amountCents = session.amount_total || 0
+      const bonusCents = parseInt(session.metadata.bonus_cents || "0", 10)
+      const totalCredit = amountCents + bonusCents
 
       let { data: wallet } = await supabaseAdmin
         .from("wallets")
         .select("id, balance_cents")
-        .eq("family_id", familyId)
+        .eq("account_id", accountId)
         .single()
 
       if (!wallet) {
         const { data: newWallet } = await supabaseAdmin
           .from("wallets")
           .insert({
-            family_id: familyId,
+            account_id: accountId,
             balance_cents: 0,
-            expires_at: "2026-06-30T23:59:59Z",
+            expires_at: "2026-12-31T23:59:59Z",
           })
           .select()
           .single()
@@ -70,9 +72,11 @@ export async function POST(request: Request) {
       }
 
       if (wallet) {
+        const newBalance = wallet.balance_cents + totalCredit
+
         await supabaseAdmin
           .from("wallets")
-          .update({ balance_cents: wallet.balance_cents + amountCents })
+          .update({ balance_cents: newBalance })
           .eq("id", wallet.id)
 
         await supabaseAdmin
@@ -80,8 +84,9 @@ export async function POST(request: Request) {
           .insert({
             wallet_id: wallet.id,
             type: "credit_stripe",
-            amount_cents: amountCents,
-            description: `Recharge Stripe — ${(amountCents / 100).toFixed(2)} €`,
+            amount_cents: totalCredit,
+            balance_after_cents: newBalance,
+            description: `Recharge CB ${(amountCents / 100).toFixed(2)} €${bonusCents > 0 ? ` + bonus ${(bonusCents / 100).toFixed(2)} €` : ""}`,
             stripe_payment_id: session.payment_intent as string,
           })
       }

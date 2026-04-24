@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next"
 import "./globals.css"
+import { LayoutClient } from "@/components/LayoutClient"
 
 export const metadata: Metadata = {
   title: "Panda Snack — Commande en ligne",
@@ -26,7 +27,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" className="h-full antialiased">
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <LayoutClient>{children}</LayoutClient>
+      </body>
     </html>
   )
 }
