@@ -388,7 +388,6 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
         </div>
       )}
 
-      </div>
 
       {/* Profil */}
       {activeProfils.length > 1 && (
