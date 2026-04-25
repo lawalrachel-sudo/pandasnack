@@ -379,8 +379,8 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   // ============================================================================
 
   return (
-<div className="min-h-screen pb-20 max-w-lg mx-auto overflow-x-hidden">
-<Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} />
+    <div className="min-h-screen pb-20 max-w-lg mx-auto">
+      <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} />
 
       {addedToast && (
         <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 rounded-xl text-sm font-semibold text-white shadow-lg animate-fade-in" style={{ background: "var(--accent-2)" }}>
@@ -388,6 +388,9 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
         </div>
       )}
 
+      <div className="px-4 py-4 text-center overflow-hidden" style={{ background: "linear-gradient(135deg, var(--menu-panda-start), var(--menu-panda-end))" }}>
+        <img src="https://res.cloudinary.com/dbkpvp9ts/image/upload/w_600,q_auto,f_auto/v1776298625/BANNIERE_panda_snack_logo.png" alt="Panda Snack" className="mx-auto w-full max-w-[360px] mb-3" />
+      </div>
 
       {/* Profil */}
       {activeProfils.length > 1 && (
