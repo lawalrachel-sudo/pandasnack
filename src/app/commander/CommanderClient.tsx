@@ -388,8 +388,6 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
         </div>
       )}
 
-      <div className="px-4 py-4 text-center overflow-hidden" style={{ background: "linear-gradient(135deg, var(--menu-panda-start), var(--menu-panda-end))" }}>
-        <img src="https://res.cloudinary.com/dbkpvp9ts/image/upload/w_600,q_auto,f_auto/v1776298625/BANNIERE_panda_snack_logo.png" alt="Panda Snack" className="mx-auto w-full max-w-[360px] mb-3" />
       </div>
 
       {/* Profil */}
@@ -472,7 +470,6 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
                   {bento.image_url ? (
                     <img src={bento.image_url} alt={bento.name} className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-6xl" style={{ background: "linear-gradient(135deg, var(--menu-panda-start), var(--menu-panda-end))" }}>🍱</div>
                   )}
                 </div>
                 <div className="p-4">
