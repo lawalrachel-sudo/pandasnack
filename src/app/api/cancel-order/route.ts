@@ -10,15 +10,13 @@ export async function POST(req: NextRequest) {
     const { orderId } = await req.json()
     if (!orderId) return NextResponse.json({ error: "orderId manquant" }, { status: 400 })
 
-    // Récupérer le compte
     const { data: account } = await (supabase as any)
       .from("accounts").select("id").eq("auth_user_id", user.id).single()
     if (!account) return NextResponse.json({ error: "Compte introuvable" }, { status: 404 })
 
-    // Récupérer la commande + vérifier propriétaire
     const { data: order } = await (supabase as any)
       .from("orders")
-      .select("id, account_id, status, total_cents, payment_method, wallet_transaction_id")
+      .select("id, account_id, status, total_cents, payment_method, wallet_transaction_id, service_slot_id")
       .eq("id", orderId)
       .eq("account_id", account.id)
       .single()
@@ -29,29 +27,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Commande non annulable" }, { status: 400 })
     }
 
-    // Récupérer le slot pour le cutoff
-    const { data: orderWithSlot } = await (supabase as any)
-      .from("orders").select("service_slot_id").eq("id", orderId).single()
-    let serviceDate: string | null = null
-    if (orderWithSlot?.service_slot_id) {
+    // Vérifier heure limite via orders_cutoff_at du slot (source unique de vérité)
+    if (order.service_slot_id) {
       const { data: slot } = await supabase
-        .from("service_slots").select("service_date").eq("id", orderWithSlot.service_slot_id).single()
-      serviceDate = slot?.service_date ?? null
-    }
-    // Vérifier cutoff (veille 20h Martinique = UTC-4)
-    if (serviceDate) {
-      const cutoff = new Date(serviceDate + "T00:00:00Z") // UTC midnight du jour de service
-      cutoff.setUTCHours(0, 0, 0, 0) // début du jour UTC
-      cutoff.setUTCDate(cutoff.getUTCDate() - 1) // veille
-      cutoff.setUTCHours(24, 0, 0, 0) // 20h Martinique (UTC-4) = 00h UTC J
-      
-      if (new Date() >= cutoff) {
-        return NextResponse.json({ error: "Cutoff dépassé — commande ferme" }, { status: 400 })
+        .from("service_slots").select("orders_cutoff_at").eq("id", order.service_slot_id).single()
+
+      if (slot?.orders_cutoff_at) {
+        const cutoff = new Date(slot.orders_cutoff_at)
+        if (new Date() >= cutoff) {
+          return NextResponse.json({
+            error: "L'heure limite est passée — la commande est ferme et ne peut plus être annulée."
+          }, { status: 400 })
+        }
       }
     }
 
     // Annuler la commande
-    await (supabase as any).from("orders").update({ status: "cancelled" }).eq("id", orderId)
+    await (supabase as any).from("orders").update({
+      status: "cancelled",
+      cancelled_at: new Date().toISOString(),
+    }).eq("id", orderId)
 
     // Recrédit wallet si payé par wallet
     if (order.status === "paid" && order.total_cents > 0) {
@@ -61,19 +56,22 @@ export async function POST(req: NextRequest) {
       if (wallet) {
         const newBalance = wallet.balance_cents + order.total_cents
 
-        // Créer transaction de recrédit
         await (supabase as any).from("wallet_transactions").insert({
           wallet_id: wallet.id,
           type: "refund",
           amount_cents: order.total_cents,
           balance_after_cents: newBalance,
-          description: `Remboursement commande annulée`,
+          description: "Remboursement commande annulée",
         })
 
-        // Mettre à jour le solde
+        // Récupérer total_credited_cents actuel pour incrémentation
+        const { data: w2 } = await (supabase as any)
+          .from("wallets").select("total_credited_cents").eq("id", wallet.id).single()
+
         await (supabase as any).from("wallets").update({
           balance_cents: newBalance,
-          total_credited_cents: wallet.balance_cents + order.total_cents, // approximation
+          total_credited_cents: (w2?.total_credited_cents || 0) + order.total_cents,
+          updated_at: new Date().toISOString(),
         }).eq("id", wallet.id)
       }
     }

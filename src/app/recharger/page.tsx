@@ -5,7 +5,7 @@ import { RechargerClient } from "./RechargerClient"
 export default async function RechargerPage() {
   const supabase: any = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect("/connexion")
+  if (!user) redirect("/auth")  // FIX BUG 2: était /connexion (n'existe pas)
 
   const { data: account } = await supabase
     .from("accounts")
@@ -16,16 +16,20 @@ export default async function RechargerPage() {
 
   const { data: wallet } = await supabase
     .from("wallets")
-    .select("id, balance_cents")
+    .select("id, balance_cents, last_recharge_cents")
     .eq("account_id", account.id)
     .single()
 
-  // Get active recharge configs
+  // FIX BUG 13: la table wallet_recharge_config a "recharge_cents" comme PK, pas "id" ni "amount_cents"
   const { data: configs } = await supabase
     .from("wallet_recharge_config")
-    .select("id, amount_cents, bonus_cents, label, active")
+    .select("recharge_cents, bonus_cents, total_credit_cents, label, bonus_label, active")
     .eq("active", true)
-    .order("amount_cents")
+    .order("sort_order")
+
+  // Déterminer le palier actuel pour l'affichage
+  const lastRecharge = wallet?.last_recharge_cents || 0
+  const currentMenuPrice = lastRecharge >= 10000 ? 800 : lastRecharge >= 5000 ? 900 : 1000
 
   return (
     <RechargerClient
@@ -33,6 +37,8 @@ export default async function RechargerPage() {
       familyName={account.nom_compte}
       walletBalance={wallet?.balance_cents || 0}
       configs={(configs || []) as any[]}
+      currentMenuPriceCents={currentMenuPrice}
+      lastRechargeCents={lastRecharge}
     />
   )
 }

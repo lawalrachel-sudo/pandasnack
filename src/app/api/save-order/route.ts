@@ -3,7 +3,6 @@ import { createServerSupabase as createClient } from "@/lib/supabase/server"
 
 // POST /api/save-order
 // Saves cart as a draft order (status: pending_payment, payment_method: draft)
-// Body: { slotId, items, specialRequest }
 export async function POST(req: NextRequest) {
   try {
     const supabase: any = await createClient()
@@ -30,6 +29,22 @@ export async function POST(req: NextRequest) {
       .single()
     if (accErr || !account) {
       return NextResponse.json({ error: "Compte introuvable" }, { status: 404 })
+    }
+
+    // Vérifier heure limite de commande
+    const { data: slot } = await supabase
+      .from("service_slots")
+      .select("id, orders_cutoff_at")
+      .eq("id", slotId)
+      .single()
+
+    if (slot?.orders_cutoff_at) {
+      const cutoff = new Date(slot.orders_cutoff_at)
+      if (new Date() >= cutoff) {
+        return NextResponse.json({
+          error: "L'heure limite de commande pour ce jour est passée (veille 20h). Cette commande n'est plus disponible."
+        }, { status: 400 })
+      }
     }
 
     const subtotalCents = items.reduce((sum, i) => sum + i.priceCents * (i.quantity || 1), 0)

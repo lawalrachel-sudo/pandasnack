@@ -23,7 +23,7 @@ export default async function CommanderPage() {
 
   if (!account) redirect("/auth?error=no_account")
 
-  // Wallet
+  // Wallet (* inclut last_recharge_cents pour le pricing futur)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: wallet } = await (supabase as any)
     .from("wallets")
@@ -31,7 +31,7 @@ export default async function CommanderPage() {
     .eq("account_id", account.id)
     .single()
 
-  // Catalog : catégories + items (toutes, filtrage actif fait côté client)
+  // Catalog : catégories + items
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: categories } = await (supabase as any)
     .from("catalog_categories")
@@ -55,14 +55,16 @@ export default async function CommanderPage() {
     .order("sort_order")
 
   // Service slots ouverts à venir, filtrés par source_group du compte
-  // Règle : un slot est proposé si target_source_group IS NULL (tous) OU = account.source_group
-  const today = new Date().toISOString().split("T")[0]
+  // FIX BUG 20: on filtre orders_cutoff_at > maintenant (pas juste service_date >= today)
+  const now = new Date().toISOString()
+  const today = now.split("T")[0]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: slotsAll } = await (supabase as any)
     .from("service_slots")
     .select("*, delivery_points(*)")
     .eq("active", true)
     .gte("service_date", today)
+    .gt("orders_cutoff_at", now)
     .order("service_date")
     .limit(30)
 

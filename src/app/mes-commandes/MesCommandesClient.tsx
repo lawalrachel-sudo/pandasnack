@@ -33,12 +33,12 @@ interface Order {
   id: string; order_number: string; status: string; total_cents: number
   payment_method: string; created_at: string; paid_at: string | null
   special_request: string | null
-  service_slots: { service_date: string; day_type: string; delivery_points: { name: string } | null }
+  service_slots: { service_date: string; day_type: string; orders_cutoff_at: string | null; delivery_points: { name: string } | null }
   order_items: OrderItem[]
 }
 
 interface Profil { id: string; prenom: string; classe: string | null; is_default: boolean; active: boolean }
-interface Slot { id: string; service_date: string; day_type: string }
+interface Slot { id: string; service_date: string; day_type: string; orders_cutoff_at: string | null }
 
 interface Props {
   account: { id: string; nom_compte: string }
@@ -222,7 +222,7 @@ export function MesCommandesClient({ account, profils, orders, wallet, upcomingS
                 {dateOrders.map(order => {
                   const st = STATUS_LABELS[order.status] || STATUS_LABELS.pending_payment
                   const isExpanded = expandedOrder === order.id
-                  const canModify = (order.status === "paid" || order.status === "pending_payment") && isBeforeCutoff(order.service_slots?.service_date)
+                  const canModify = (order.status === "paid" || order.status === "pending_payment") && isBeforeCutoff(order.service_slots?.orders_cutoff_at)
                   const canCancel = canModify
                   const childNames = [...new Set(order.order_items?.map(i => i.profils?.prenom || i.prenom_libre).filter(Boolean))]
 
@@ -343,12 +343,10 @@ export function MesCommandesClient({ account, profils, orders, wallet, upcomingS
   )
 }
 
-function isBeforeCutoff(serviceDate?: string): boolean {
-  if (!serviceDate) return false
-  const cutoff = new Date(serviceDate + "T00:00:00Z")
-  cutoff.setTime(cutoff.getTime() - 4 * 3600000)
-  const now = new Date()
-  return now < cutoff
+function isBeforeCutoff(cutoffAt?: string | null): boolean {
+  if (!cutoffAt) return false
+  const cutoff = new Date(cutoffAt)
+  return new Date() < cutoff
 }
 
 async function handleDeleteItem(itemId: string) {
@@ -378,7 +376,7 @@ async function handleCancel(orderId: string) {
     if (res.ok) {
       window.location.reload()
     } else {
-      alert("Impossible d'annuler cette commande. Le cutoff est peut-etre depasse.")
+      alert("Impossible d'annuler cette commande. L'heure limite de commande est passee.")
     }
   } catch {
     alert("Erreur reseau.")

@@ -12,13 +12,19 @@ export async function GET(request: Request) {
     const supabase = await createServerSupabase()
     const { error } = await supabase.auth.verifyOtp({ type, token_hash })
     if (!error) {
-      // Vérifier si le compte existe déjà
+      // CAS SPÉCIAL: récupération de mot de passe → toujours rediriger vers /auth/reset
+      // (peu importe l'état du compte)
+      if (type === "recovery") {
+        return NextResponse.redirect(`${origin}/auth/reset`)
+      }
+
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
+        // FIX BUG 3: select id ET source_group (avant: select('id') seul → source_group toujours undefined)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: account } = await (supabase as any)
           .from('accounts')
-          .select('id')
+          .select('id, source_group')
           .eq('auth_user_id', user.id)
           .single()
 

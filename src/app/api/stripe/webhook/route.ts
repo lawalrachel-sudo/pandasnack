@@ -46,7 +46,36 @@ export async function POST(request: Request) {
       return NextResponse.json({ received: true })
     }
 
+    const paymentIntentId = session.payment_intent as string
+
+    // Idempotence check (BUG 14 FIX) — différent selon le type
+    if (session.metadata?.type === "wallet_recharge" && paymentIntentId) {
+      const { data: existing } = await supabaseAdmin
+        .from("wallet_transactions")
+        .select("id")
+        .eq("stripe_payment_intent_id", paymentIntentId)
+        .limit(1)
+
+      if (existing && existing.length > 0) {
+        console.log("Webhook recharge already processed for:", paymentIntentId)
+        return NextResponse.json({ received: true, duplicate: true })
+      }
+    } else if (session.metadata?.type === "order_payment" && session.metadata?.order_id) {
+      // Idempotence par order: si déjà paid, ne rien faire
+      const { data: existing } = await supabaseAdmin
+        .from("orders")
+        .select("id, status")
+        .eq("id", session.metadata.order_id)
+        .single()
+
+      if (existing && existing.status === "paid") {
+        console.log("Webhook order already paid:", session.metadata.order_id)
+        return NextResponse.json({ received: true, duplicate: true })
+      }
+    }
+
     if (session.metadata?.type === "wallet_recharge") {
+      // ===== RECHARGE WALLET =====
       const accountId = session.metadata.account_id
       const amountCents = session.amount_total || 0
       const bonusCents = parseInt(session.metadata.bonus_cents || "0", 10)
@@ -74,21 +103,43 @@ export async function POST(request: Request) {
       if (wallet) {
         const newBalance = wallet.balance_cents + totalCredit
 
+        // FIX BUG 5: utiliser credit_purchase (existe dans l'enum) + stripe_payment_intent_id (bon nom de colonne)
+        // + mettre à jour last_recharge_cents pour le pricing wallet
         await supabaseAdmin
           .from("wallets")
-          .update({ balance_cents: newBalance })
+          .update({
+            balance_cents: newBalance,
+            last_recharge_cents: amountCents,
+            updated_at: new Date().toISOString(),
+          })
           .eq("id", wallet.id)
 
         await supabaseAdmin
           .from("wallet_transactions")
           .insert({
             wallet_id: wallet.id,
-            type: "credit_stripe",
+            type: "credit_purchase",
             amount_cents: totalCredit,
             balance_after_cents: newBalance,
             description: `Recharge CB ${(amountCents / 100).toFixed(2)} €${bonusCents > 0 ? ` + bonus ${(bonusCents / 100).toFixed(2)} €` : ""}`,
-            stripe_payment_id: session.payment_intent as string,
+            stripe_payment_intent_id: paymentIntentId,
           })
+      }
+
+    } else if (session.metadata?.type === "order_payment") {
+      // ===== FIX BUG 4: TRAITER LES COMMANDES CB =====
+      const orderId = session.metadata.order_id
+
+      if (orderId) {
+        await supabaseAdmin
+          .from("orders")
+          .update({
+            status: "paid",
+            paid_at: new Date().toISOString(),
+            stripe_checkout_session_id: session.id,
+          })
+          .eq("id", orderId)
+          .eq("status", "pending_payment")
       }
     }
   }

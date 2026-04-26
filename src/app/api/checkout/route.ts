@@ -33,6 +33,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Compte introuvable" }, { status: 404 })
     }
 
+    // 1b. Vérifier heure limite de commande (veille 20h Martinique = orders_cutoff_at en DB)
+    const { data: slot } = await supabase
+      .from("service_slots")
+      .select("id, service_date, orders_cutoff_at")
+      .eq("id", slotId)
+      .single()
+
+    if (!slot) {
+      return NextResponse.json({ error: "Créneau introuvable" }, { status: 404 })
+    }
+
+    if (slot.orders_cutoff_at) {
+      const cutoff = new Date(slot.orders_cutoff_at)
+      if (new Date() >= cutoff) {
+        return NextResponse.json({
+          error: "L'heure limite de commande pour ce jour est passée (veille 20h). Cette commande n'est plus disponible."
+        }, { status: 400 })
+      }
+    }
+
     // 2. Calculer le total
     const subtotalCents = items.reduce((sum, i) => sum + i.priceCents * (i.quantity || 1), 0)
     const vatRate = 2.10
@@ -116,7 +136,6 @@ export async function POST(req: NextRequest) {
     const { error: itemsErr } = await supabase.from("order_items").insert(orderItems)
     if (itemsErr) {
       console.error("Order items error:", itemsErr)
-      // Rollback order
       await supabase.from("orders").delete().eq("id", order.id)
       return NextResponse.json({ error: "Erreur ajout articles" }, { status: 500 })
     }
@@ -141,13 +160,11 @@ export async function POST(req: NextRequest) {
 
       if (wtErr) {
         console.error("Wallet transaction error:", wtErr)
-        // Cleanup
         await supabase.from("order_items").delete().eq("order_id", order.id)
         await supabase.from("orders").delete().eq("id", order.id)
         return NextResponse.json({ error: "Erreur débit wallet" }, { status: 500 })
       }
 
-      // MAJ wallet balance
       await supabase
         .from("wallets")
         .update({
@@ -157,7 +174,6 @@ export async function POST(req: NextRequest) {
         })
         .eq("id", walletId)
 
-      // MAJ order avec wallet_transaction_id
       await supabase
         .from("orders")
         .update({ wallet_transaction_id: wt.id })
@@ -175,10 +191,8 @@ export async function POST(req: NextRequest) {
     }
 
     // 9. Si charge CB nécessaire → créer Stripe Checkout Session
-    // NOTE: Stripe en mode test. Si pas de clé configurée, on simule.
     const stripeKey = process.env.STRIPE_SECRET_KEY
     if (!stripeKey) {
-      // Simulation mode test — on passe directement en paid
       await supabase.from("orders").update({
         status: "paid",
         paid_at: new Date().toISOString(),
@@ -195,7 +209,6 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // Stripe réel
     const stripe = require("stripe")(stripeKey)
     const origin = req.headers.get("origin") || "https://pandasnack-five.vercel.app"
 
@@ -213,12 +226,15 @@ export async function POST(req: NextRequest) {
         },
         quantity: 1,
       }],
-      metadata: { order_id: order.id },
+      metadata: {
+        product_line: "panda_snack",
+        type: "order_payment",
+        order_id: order.id,
+      },
       success_url: `${origin}/confirmation?order=${order.id}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/commander?cancelled=1`,
     })
 
-    // Stocker le checkout session ID
     await supabase.from("orders").update({
       stripe_checkout_session_id: session.id,
     }).eq("id", order.id)
