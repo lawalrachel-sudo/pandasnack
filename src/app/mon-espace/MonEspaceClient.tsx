@@ -16,7 +16,7 @@ const TX_LABELS: Record<string, { label: string; color: string }> = {
   adjustment: { label: "Ajustement", color: "#6B7280" },
 }
 
-function fmtPrice(c: number): string { return `${(Math.abs(c) / 100).toFixed(2).replace(".", ",")} €` }
+function fmtPrice(c: number): string { return `${(Math.abs(c) / 100).toFixed(2).replace(".", ",")} €` }
 function fmtDateShort(d: string): string {
   return new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" })
 }
@@ -255,7 +255,7 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
           <div className="rounded-xl p-5 mb-4 text-center" style={{ background: "var(--bg-alt)" }}>
             <img src={WALLET_IMG} alt="Panda Wallet" className="w-20 h-20 rounded-full object-cover mx-auto mb-3" />
             <p className="text-3xl font-bold" style={{ color: "var(--accent-2)" }}>
-              {wallet ? fmtPrice(wallet.balance_cents) : "0,00 €"}
+              {wallet ? fmtPrice(wallet.balance_cents) : "0,00 €"}
             </p>
             <p className="text-xs mt-1" style={{ color: "var(--ink-soft)" }}>Solde disponible</p>
             {wallet && (

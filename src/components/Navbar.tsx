@@ -11,7 +11,7 @@ interface NavbarProps {
 
 export function Navbar({ walletBalance, familyName }: NavbarProps) {
   const balanceDisplay = walletBalance != null
-    ? `${(walletBalance / 100).toFixed(2).replace('.', ',')} €`
+    ? `${(walletBalance / 100).toFixed(2).replace('.', ',')} €`
     : null
 
   return (
@@ -34,7 +34,7 @@ export function Navbar({ walletBalance, familyName }: NavbarProps) {
         style={{ background: 'var(--accent-2)' }}
       >
         <img src={WALLET_IMG} alt="" className="w-6 h-6 rounded-full object-cover" />
-        {balanceDisplay || "0,00 €"}
+        {balanceDisplay || "0,00 €"}
       </Link>
     </header>
   )

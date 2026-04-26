@@ -20,7 +20,7 @@ export function CartBar({ itemCount, totalCents, onOpen }: CartBarProps) {
           {itemCount}
         </span>
         <span className="text-base">Voir mon panier</span>
-        <span className="text-base">{(totalCents / 100).toFixed(2).replace('.', ',')} €</span>
+        <span className="text-base">{(totalCents / 100).toFixed(2).replace('.', ',')} €</span>
       </button>
     </div>
   )

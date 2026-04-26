@@ -15,7 +15,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string; bg: string; 
   refunded: { label: "Remboursée", color: "#DC2626", bg: "#FEE2E2", dot: "🔴" },
 }
 
-function fmtPrice(c: number): string { return `${(c / 100).toFixed(2).replace(".", ",")} €` }
+function fmtPrice(c: number): string { return `${(c / 100).toFixed(2).replace(".", ",")} €` }
 function fmtDateLong(d: string): string {
   const dt = new Date(d + "T12:00:00")
   const wd = dt.toLocaleDateString("fr-FR", { weekday: "long" })

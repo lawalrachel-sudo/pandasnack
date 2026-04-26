@@ -4,7 +4,7 @@ import Link from "next/link"
 
 const WALLET_IMG = "https://res.cloudinary.com/dbkpvp9ts/image/upload/v1776714727/PANDA_WALLET.jpg"
 
-function fmtPrice(c: number): string { return `${(c / 100).toFixed(2).replace(".", ",")} €` }
+function fmtPrice(c: number): string { return `${(c / 100).toFixed(2).replace(".", ",")} €` }
 function fmtDate(d: string): string {
   const dt = new Date(d + "T12:00:00")
   const wd = dt.toLocaleDateString("fr-FR", { weekday: "long" })

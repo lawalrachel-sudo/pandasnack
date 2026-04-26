@@ -15,7 +15,7 @@ interface Props {
   configs: Config[]
 }
 
-function fmtPrice(c: number): string { return `${(c / 100).toFixed(2).replace(".", ",")} €` }
+function fmtPrice(c: number): string { return `${(c / 100).toFixed(2).replace(".", ",")} €` }
 
 export function RechargerClient({ accountId, familyName, walletBalance, configs }: Props) {
   const [selectedConfig, setSelectedConfig] = useState<string | null>(null)
