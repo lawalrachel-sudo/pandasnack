@@ -55,7 +55,7 @@ function fmtShort(d: string): string {
   const dm = dt.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })
   return `${wd.charAt(0).toUpperCase() + wd.slice(1).replace(".", "")} ${dm}`
 }
-function fmtPrice(c: number): string { return `${(c / 100).toFixed(2).replace(".", ",")} €` }
+function fmtPrice(c: number): string { return `${(c / 100).toFixed(2).replace(".", ",")} €` }
 function skuCat(sku: string): string | null {
   if (sku.startsWith("SAND-")) return "SAND"
   if (sku.startsWith("CROQ-")) return "CROQ"
@@ -379,7 +379,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   // ============================================================================
 
   return (
-    <div className="min-h-screen pb-20 max-w-lg mx-auto">
+    <div className="min-h-screen pb-20 max-w-lg mx-auto overflow-x-hidden">
       <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} />
 
       {addedToast && (
@@ -387,10 +387,6 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
           {addedToast} ajouté
         </div>
       )}
-
-      <div className="px-4 py-4 text-center overflow-hidden" style={{ background: "linear-gradient(135deg, var(--menu-panda-start), var(--menu-panda-end))" }}>
-        <img src="https://res.cloudinary.com/dbkpvp9ts/image/upload/w_600,q_auto,f_auto/v1776298625/BANNIERE_panda_snack_logo.png" alt="Panda Snack" className="mx-auto w-full max-w-[360px] mb-3" />
-      </div>
 
       {/* Profil */}
       {activeProfils.length > 1 && (
