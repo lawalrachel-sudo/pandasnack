@@ -249,6 +249,17 @@ export function MesCommandesClient({ account, profils, orders, wallet, upcomingS
                         <span className="text-lg" style={{ color: "var(--ink-soft)" }}>{isExpanded ? "▲" : "▼"}</span>
                       </button>
 
+                      {/* FIX 2 — Bouton Payer toujours visible pour pending_payment */}
+                      {order.status === "pending_payment" && (
+                        <div className="px-3 pb-3 border-t" style={{ borderColor: "var(--border)" }}>
+                          <Link href={`/checkout?order=${order.id}`}
+                            className="flex items-center justify-center w-full h-11 rounded-lg text-sm font-semibold text-white mt-3"
+                            style={{ background: "var(--accent-2)" }}>
+                            💳 Payer cette commande · {fmtPrice(order.total_cents)}
+                          </Link>
+                        </div>
+                      )}
+
                       {isExpanded && (
                         <div className="px-3 pb-3 border-t" style={{ borderColor: "var(--border)" }}>
                           <div className="space-y-2 mt-2">
