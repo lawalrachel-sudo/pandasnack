@@ -40,6 +40,8 @@ interface Props {
   menuFormulas: MenuFormula[]; toppings: Topping[]; slots: Slot[]
   pendingCount: number
   pendingTotalCents: number
+  weekItemCount: number
+  weekTotalCents: number
 }
 
 // ============================================================================
@@ -83,7 +85,7 @@ function buildImgUrl(url: string): string {
 // COMPONENT
 // ============================================================================
 
-export function CommanderClient({ account, profils, wallet, categories, menuFormulas, toppings, slots, pendingCount, pendingTotalCents }: Props) {
+export function CommanderClient({ account, profils, wallet, categories, menuFormulas, toppings, slots, pendingCount, pendingTotalCents, weekItemCount, weekTotalCents }: Props) {
   const router = useRouter()
   const [selectedSlotId, setSelectedSlotId] = useState<string>(slots[0]?.id || "")
   const [selectedProfilId, setSelectedProfilId] = useState<string>("")
@@ -793,6 +795,13 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
                 <div className="flex justify-between font-bold text-lg">
                   <span>Total</span><span>{fmtPrice(totalCents)}</span>
                 </div>
+
+                {/* FIX 4 — total semaine pending */}
+                {weekItemCount > 0 && (
+                  <p className="text-xs text-center -mt-1" style={{ color: "var(--ink-soft)" }}>
+                    +{weekItemCount} article{weekItemCount > 1 ? "s" : ""} déjà en attente cette semaine ({fmtPrice(weekTotalCents)})
+                  </p>
+                )}
 
                 {(checkoutLoading || savingDraft) ? (
                   <div className="w-full h-14 rounded-xl flex items-center justify-center font-semibold" style={{ background: "var(--bg-alt)", color: "var(--ink-soft)" }}>
