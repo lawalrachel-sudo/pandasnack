@@ -24,9 +24,11 @@ interface Props {
     line_total_cents: number; takeaway: boolean; prenom_libre: string | null
     profils: { prenom: string } | null
   }>
+  remainingPendingCount?: number
+  nextPendingOrderId?: string | null
 }
 
-export function ConfirmationClient({ order, items }: Props) {
+export function ConfirmationClient({ order, items, remainingPendingCount = 0, nextPendingOrderId = null }: Props) {
   const isPaid = order.status === "paid"
   const serviceDate = order.service_slots?.service_date
   const deliveryName = order.service_slots?.delivery_points?.name
@@ -100,6 +102,20 @@ export function ConfirmationClient({ order, items }: Props) {
           </div>
         )}
       </div>
+
+      {/* FIX 3 — chaînage : autres commandes encore à payer */}
+      {isPaid && remainingPendingCount > 0 && nextPendingOrderId && (
+        <div className="rounded-xl p-4 mb-4" style={{ background: "#FEF3E2", border: "1px solid #F5D5A0" }}>
+          <p className="text-sm font-semibold mb-2" style={{ color: "#B45309" }}>
+            ⏳ Tu as encore {remainingPendingCount} commande{remainingPendingCount > 1 ? "s" : ""} à payer
+          </p>
+          <Link href={`/checkout?order=${nextPendingOrderId}`}
+            className="block w-full h-11 rounded-lg font-semibold text-white text-center leading-[2.75rem]"
+            style={{ background: "var(--accent)" }}>
+            Continuer →
+          </Link>
+        </div>
+      )}
 
       {/* Actions */}
       <div className="space-y-3 mt-6">

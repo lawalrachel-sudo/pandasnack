@@ -183,6 +183,25 @@ export function MesCommandesClient({ account, profils, orders, wallet, upcomingS
         </div>
       )}
 
+      {/* FIX 3 — Bouton groupé Tout payer (>= 2 pending) */}
+      {(() => {
+        const pendingOrders = orders.filter(o => o.status === "pending_payment")
+        if (pendingOrders.length < 2) return null
+        const totalSum = pendingOrders.reduce((s, o) => s + (o.total_cents || 0), 0)
+        const oldestFirst = [...pendingOrders].sort((a, b) =>
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        )[0]
+        return (
+          <div className="mx-4 mb-4">
+            <Link href={`/checkout?order=${oldestFirst.id}`}
+              className="flex items-center justify-center w-full h-12 rounded-xl font-bold text-white shadow-lg active:scale-[0.98] transition-transform text-center px-3"
+              style={{ background: "var(--accent)" }}>
+              💳 Payer mes {pendingOrders.length} commandes en attente · {fmtPrice(totalSum)}
+            </Link>
+          </div>
+        )
+      })()}
+
       {wallet && (
         <div className="mx-4 mb-4 rounded-xl p-3 flex items-center gap-3" style={{ background: "var(--bg-alt)" }}>
           <img src={WALLET_IMG} alt="Wallet" className="w-10 h-10 rounded-full object-cover" />

@@ -27,7 +27,7 @@ export default async function ConfirmationPage({
   const { data: order } = await supabase
     .from("orders")
     .select(`
-      id, order_number, status, total_cents, subtotal_cents, vat_cents, 
+      id, account_id, order_number, status, total_cents, subtotal_cents, vat_cents,
       payment_method, created_at, paid_at,
       service_slots!inner(service_date, day_type, delivery_points(name))
     `)
@@ -42,5 +42,24 @@ export default async function ConfirmationPage({
     .eq("order_id", orderId)
     .order("created_at")
 
-  return <ConfirmationClient order={order as any} items={(items || []) as any[]} />
+  // FIX 3 — chaînage : autres commandes pending_payment du même compte
+  const { data: nextPendingList } = await supabase
+    .from("orders")
+    .select("id")
+    .eq("account_id", order.account_id)
+    .eq("status", "pending_payment")
+    .neq("id", orderId)
+    .order("created_at", { ascending: true })
+
+  const remainingPendingCount = nextPendingList?.length || 0
+  const nextPendingOrderId = nextPendingList?.[0]?.id || null
+
+  return (
+    <ConfirmationClient
+      order={order as any}
+      items={(items || []) as any[]}
+      remainingPendingCount={remainingPendingCount}
+      nextPendingOrderId={nextPendingOrderId}
+    />
+  )
 }
