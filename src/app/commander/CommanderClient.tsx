@@ -304,7 +304,9 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   // CHECKOUT
   // ============================================================================
 
-  async function handleCheckout(paymentMethod: "wallet" | "card" | "wallet_card") {
+  // NOTE: handleCheckout est remplacé par handleGoToCheckout → /checkout page
+  // Conservé en commentaire au cas où on voudrait un paiement express sans page récap
+  /* async function handleCheckout(paymentMethod: "wallet" | "card" | "wallet_card") {
     if (cart.length === 0 || !selectedSlotId) return
     setCheckoutLoading(true)
 
@@ -337,7 +339,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       alert("Erreur réseau. Réessaie.")
     }
     setCheckoutLoading(false)
-  }
+  } */
 
   async function handleSaveDraft() {
     if (cart.length === 0 || !selectedSlotId) return
@@ -365,6 +367,33 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       alert("Erreur réseau. Réessaie.")
     }
     setSavingDraft(false)
+  }
+
+  // Save as draft → redirect to /checkout for payment
+  async function handleGoToCheckout() {
+    if (cart.length === 0 || !selectedSlotId) return
+    setCheckoutLoading(true)
+    try {
+      const res = await fetch("/api/save-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slotId: selectedSlotId,
+          items: cart.map(item => ({ ...item, quantity: 1 })),
+          specialRequest: orderNote.trim() || undefined,
+        }),
+      })
+      const data = await res.json()
+      if (data.success && data.orderId) {
+        router.push(`/checkout?order=${data.orderId}`)
+      } else {
+        alert(data.error || "Erreur lors de la sauvegarde")
+        setCheckoutLoading(false)
+      }
+    } catch {
+      alert("Erreur réseau. Réessaie.")
+      setCheckoutLoading(false)
+    }
   }
 
   const wb = wallet?.balance_cents ?? 0
@@ -754,28 +783,17 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
                   </div>
                 ) : (
                   <>
-                    {/* PT7: bouton Valider = sauvegarder brouillon */}
-                    <button onClick={handleSaveDraft} className="w-full h-12 rounded-xl font-semibold border text-sm"
-                      style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>
-                      Valider (enregistrer sans payer)
+                    {/* Bouton principal: sauvegarder → page checkout */}
+                    <button onClick={handleGoToCheckout} className="w-full h-14 rounded-xl font-bold text-white shadow-lg active:scale-[0.98] transition-transform"
+                      style={{ background: "var(--accent)" }}>
+                      Finaliser ma commande · {fmtPrice(totalCents)}
                     </button>
 
-                    {wCovers ? (
-                      <button onClick={() => handleCheckout("wallet")} className="w-full h-14 rounded-xl font-semibold text-white flex items-center justify-center gap-3" style={{ background: "var(--accent-2)" }}>
-                        <img src={WALLET_IMG} alt="Panda Wallet" className="w-8 h-8 rounded-full object-cover" />
-                        Payer avec mon Panda Wallet ({fmtPrice(wb)})
-                      </button>
-                    ) : wPartial ? (
-                      <div className="space-y-2">
-                        <button onClick={() => handleCheckout("wallet_card")} className="w-full h-14 rounded-xl font-semibold text-white flex items-center justify-center gap-3" style={{ background: "var(--accent-2)" }}>
-                          <img src={WALLET_IMG} alt="Panda Wallet" className="w-8 h-8 rounded-full object-cover" />
-                          Wallet ({fmtPrice(wb)}) + CB ({fmtPrice(totalCents - wb)})
-                        </button>
-                        <button onClick={() => handleCheckout("card")} className="w-full h-12 rounded-xl font-semibold text-white" style={{ background: "var(--accent)" }}>Entièrement par carte</button>
-                      </div>
-                    ) : (
-                      <button onClick={() => handleCheckout("card")} className="w-full h-12 rounded-xl font-semibold text-white" style={{ background: "var(--accent)" }}>Payer par carte</button>
-                    )}
+                    {/* PT7: bouton secondaire = sauvegarder brouillon sans payer */}
+                    <button onClick={handleSaveDraft} className="w-full h-12 rounded-xl font-semibold border text-sm"
+                      style={{ borderColor: "var(--border)", color: "var(--ink-soft)" }}>
+                      Enregistrer pour plus tard
+                    </button>
                   </>
                 )}
               </div>
