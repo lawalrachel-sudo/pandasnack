@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useCallback } from "react"
+import { useMemo, useState, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Navbar } from "@/components/Navbar"
@@ -113,8 +113,24 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
     if (selectedProfilId) return activeProfils.find((p) => p.id === selectedProfilId) || activeProfils[0] || null
     return activeProfils.find((p) => p.is_default) || activeProfils[0] || null
   }, [activeProfils, selectedProfilId])
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useMemo(() => { if (!selectedProfilId && selectedProfil) setSelectedProfilId(selectedProfil.id) }, [])
+  // FIX 5 — restaure le profil actif depuis localStorage au montage
+  useEffect(() => {
+    const stored = typeof window !== "undefined" ? localStorage.getItem("panda_active_profil") : null
+    if (stored && activeProfils.some((p) => p.id === stored)) {
+      setSelectedProfilId(stored)
+    } else {
+      const fallback = activeProfils.find((p) => p.is_default) || activeProfils[0]
+      if (fallback) setSelectedProfilId(fallback.id)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // FIX 5 — persiste le profil actif dans localStorage
+  useEffect(() => {
+    if (selectedProfilId && typeof window !== "undefined") {
+      localStorage.setItem("panda_active_profil", selectedProfilId)
+    }
+  }, [selectedProfilId])
 
   const isMaternelle = selectedProfil?.classe === "maternelle"
   const sg = account.source_group
