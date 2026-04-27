@@ -31,6 +31,20 @@ export default async function CommanderPage() {
     .eq("account_id", account.id)
     .single()
 
+  // FIX 1 — commandes en attente de paiement pour bandeau "à régler"
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: pendingOrders } = await (supabase as any)
+    .from("orders")
+    .select("total_cents")
+    .eq("account_id", account.id)
+    .eq("status", "pending_payment")
+
+  const pendingCount = pendingOrders?.length || 0
+  const pendingTotalCents = (pendingOrders || []).reduce(
+    (sum: number, o: { total_cents: number }) => sum + (o.total_cents || 0),
+    0
+  )
+
   // Catalog : catégories + items
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: categories } = await (supabase as any)
@@ -83,6 +97,8 @@ export default async function CommanderPage() {
       menuFormulas={menuFormulas || []}
       toppings={toppings || []}
       slots={slots}
+      pendingCount={pendingCount}
+      pendingTotalCents={pendingTotalCents}
     />
   )
 }

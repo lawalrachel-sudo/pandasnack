@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { Navbar } from "@/components/Navbar"
 import { ProductCard } from "@/components/ProductCard"
 import { CartBar } from "@/components/CartBar"
@@ -37,6 +38,8 @@ interface CartItem {
 interface Props {
   account: Account; profils: Profil[]; wallet: Wallet | null; categories: Category[]
   menuFormulas: MenuFormula[]; toppings: Topping[]; slots: Slot[]
+  pendingCount: number
+  pendingTotalCents: number
 }
 
 // ============================================================================
@@ -80,7 +83,7 @@ function buildImgUrl(url: string): string {
 // COMPONENT
 // ============================================================================
 
-export function CommanderClient({ account, profils, wallet, categories, menuFormulas, toppings, slots }: Props) {
+export function CommanderClient({ account, profils, wallet, categories, menuFormulas, toppings, slots, pendingCount, pendingTotalCents }: Props) {
   const router = useRouter()
   const [selectedSlotId, setSelectedSlotId] = useState<string>(slots[0]?.id || "")
   const [selectedProfilId, setSelectedProfilId] = useState<string>("")
@@ -410,6 +413,20 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   return (
     <div className="min-h-screen pb-20 max-w-lg mx-auto overflow-x-hidden">
       <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} />
+
+      {/* FIX 1 — Bandeau commandes en attente de paiement */}
+      {pendingCount > 0 && (
+        <div className="mx-4 mt-3 rounded-xl p-3 flex items-center gap-3" style={{ background: "#FEF3E2", border: "1px solid #F5D5A0" }}>
+          <span className="text-xl leading-none">⏳</span>
+          <div className="flex-1 text-sm" style={{ color: "#B45309" }}>
+            <strong>Tu as {pendingCount} commande{pendingCount > 1 ? "s" : ""} en attente</strong>
+            <span> — {fmtPrice(pendingTotalCents)} à régler</span>
+          </div>
+          <Link href="/mes-commandes" className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white whitespace-nowrap" style={{ background: "var(--accent)" }}>
+            Voir et payer →
+          </Link>
+        </div>
+      )}
 
       {addedToast && (
         <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 rounded-xl text-sm font-semibold text-white shadow-lg animate-fade-in" style={{ background: "var(--accent-2)" }}>
