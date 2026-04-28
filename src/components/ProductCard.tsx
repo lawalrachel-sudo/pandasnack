@@ -107,13 +107,13 @@ export function ProductCard({
           </div>
         )}
 
-        <div className="flex items-center justify-between mt-2">
-          <span className="font-bold text-base">{priceDisplay}</span>
+        <div className="flex items-center justify-between mt-2 gap-2">
+          <span className="font-bold text-base whitespace-nowrap">{priceDisplay}</span>
           <span
-            className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white"
+            className="text-xs font-semibold px-2.5 py-1.5 rounded-lg text-white whitespace-nowrap"
             style={{ background: "var(--accent)" }}
           >
-            {isMenuOnly ? "Via Menu" : "Composer +"}
+            {isMenuOnly ? "Via Menu" : "Ajouter"}
           </span>
         </div>
       </div>

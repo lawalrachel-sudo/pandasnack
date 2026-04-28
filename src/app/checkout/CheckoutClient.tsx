@@ -181,8 +181,7 @@ export function CheckoutClient({ order, items, wallet, account, cutoffPassed, wa
             Heure limite dépassée
           </h1>
           <p className="text-sm mb-6" style={{ color: "var(--ink-soft)" }}>
-            La commande pour le {serviceDate ? fmtDate(serviceDate) : "ce jour"} ne peut plus être payée.
-            L&apos;heure limite était hier à 20h.
+            {`La commande pour le ${serviceDate ? fmtDate(serviceDate) : "ce jour"} ne peut plus être payée. L'heure limite était hier à 20h.`}
           </p>
           <Link href="/commander"
             className="inline-block px-6 py-3 rounded-xl text-white font-semibold"

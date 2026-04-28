@@ -227,7 +227,7 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
                     (e.currentTarget.style.borderColor = '#E8D6BF')
                   }
                 >
-                  <strong style={{ color: '#3A2A20', fontSize: 15 }}>
+                  <strong style={key === 'ecole' ? { color: '#1D4ED8', fontSize: 17, fontWeight: 800 } : { color: '#3A2A20', fontSize: 15 }}>
                     {typeLabels[key].title}
                   </strong>
                   <span style={{ color: '#6B5742', fontSize: 13 }}>
@@ -403,7 +403,7 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
             <div style={S.recapBlock}>
               <div style={S.recapRow}>
                 <span style={S.recapLabel}>Type</span>
-                <span style={S.recapValue}>{typeLabels[sourceGroup].title}</span>
+                <span style={sourceGroup === 'ecole' ? { ...S.recapValue, color: '#1D4ED8', fontSize: 16, fontWeight: 800 } : S.recapValue}>{typeLabels[sourceGroup].title}</span>
               </div>
               <div style={S.recapRow}>
                 <span style={S.recapLabel}>Compte</span>
