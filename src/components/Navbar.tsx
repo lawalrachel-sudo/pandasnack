@@ -26,13 +26,12 @@ export function Navbar({ walletBalance, familyName, lastRechargeCents }: NavbarP
       className="sticky top-0 z-50 border-b px-4 py-3 flex items-center justify-between"
       style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}
     >
-      <Link href="/" className="flex items-center gap-2">
+      <Link href="/commander" className="flex items-center">
         <img
-          src="https://res.cloudinary.com/dbkpvp9ts/image/upload/w_48,q_auto,f_auto/v1776343210/tete_panda_panda_snack.png"
+          src="https://res.cloudinary.com/dbkpvp9ts/image/upload/q_auto,f_auto/v1777332077/PANDA_SNACK_LOGO.jpg"
           alt="Panda Snack"
-          className="w-10 h-10 rounded-full"
+          className="h-10 w-auto md:h-12"
         />
-        <span className="font-bold text-lg tracking-tight">Panda Snack</span>
       </Link>
 
       <Link
