@@ -39,7 +39,7 @@ interface Profil { id: string; prenom: string; classe: string | null; is_default
 interface WalletTx { id: string; type: string; amount_cents: number; balance_after_cents: number; description: string | null; created_at: string }
 
 interface Props {
-  account: { id: string; nom_compte: string; email: string; telephone: string | null; source_group: string | null; source_detail: string | null }
+  account: { id: string; nom_compte: string; email: string; telephone: string | null; source_group: string | null; source_detail: string | null; panda_id: string }
   profils: Profil[]
   wallet: { id: string; balance_cents: number; total_credited_cents: number; total_debited_cents: number } | null
   walletTransactions: WalletTx[]
@@ -71,6 +71,18 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
   const [showConfirmPwd, setShowConfirmPwd] = useState(false)
   const [pwdMsg, setPwdMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null)
   const [pwdSaving, setPwdSaving] = useState(false)
+
+  // G3 — Panda ID copy state
+  const [pandaIdCopied, setPandaIdCopied] = useState(false)
+  async function copyPandaId() {
+    try {
+      await navigator.clipboard.writeText(account.panda_id)
+      setPandaIdCopied(true)
+      setTimeout(() => setPandaIdCopied(false), 2000)
+    } catch {
+      alert("Impossible de copier — sélectionne et copie manuellement")
+    }
+  }
 
   const activeProfils = profils.filter(p => p.active)
   const inactiveProfils = profils.filter(p => !p.active)
@@ -162,6 +174,29 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
             <p className="text-xs text-white/70">wallet</p>
           </div>
         </div>
+      </div>
+
+      {/* G — Encart Mon ID Panda (visible dès l'arrivée) */}
+      <div className="px-4 py-4 border-b" style={{ borderColor: "var(--border)", background: "var(--bg-alt)" }}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium" style={{ color: "var(--ink-soft)" }}>Mon ID Panda</p>
+            <p className="text-2xl font-bold tracking-wider mt-0.5" style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", color: "var(--accent)" }}>
+              {account.panda_id}
+            </p>
+          </div>
+          <button
+            onClick={copyPandaId}
+            aria-label="Copier mon ID Panda"
+            className="px-4 py-2 rounded-lg text-xs font-semibold text-white whitespace-nowrap transition-colors"
+            style={{ background: pandaIdCopied ? "#16A34A" : "var(--accent)" }}
+          >
+            {pandaIdCopied ? "✓ Copié !" : "Copier"}
+          </button>
+        </div>
+        <p className="text-[11px] mt-2 leading-snug" style={{ color: "var(--ink-soft)" }}>
+          Partage cet ID avec mamy, papa, tonton, nounou... ils pourront créditer ton wallet.
+        </p>
       </div>
 
       {/* Tabs — 3 onglets */}

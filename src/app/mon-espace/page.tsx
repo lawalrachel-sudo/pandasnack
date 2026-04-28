@@ -9,7 +9,7 @@ export default async function MonEspacePage() {
 
   const { data: account } = await supabase
     .from("accounts")
-    .select("id, nom_compte, email, telephone, source_group, source_detail")
+    .select("id, nom_compte, email, telephone, source_group, source_detail, panda_id")
     .eq("auth_user_id", user.id)
     .single()
   if (!account) redirect("/onboarding")
