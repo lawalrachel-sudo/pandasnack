@@ -61,7 +61,7 @@ export default async function CheckoutPage({
     if (order.status === "paid") {
       redirect(`/confirmation?order=${order.id}`)
     }
-    redirect("/mes-commandes")
+    redirect("/panier")
   }
 
   // Order items with profil info (formula_choices + topping names for display)

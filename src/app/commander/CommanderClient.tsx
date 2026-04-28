@@ -380,7 +380,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
         setCart([])
         setOrderNote("")
         showToast("Commande enregistrée")
-        router.push("/mes-commandes")
+        router.push("/panier")
       } else {
         alert(data.error || "Erreur lors de la sauvegarde")
       }
@@ -440,7 +440,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
             <strong>Tu as {pendingCount} commande{pendingCount > 1 ? "s" : ""} en attente</strong>
             <span> — {fmtPrice(pendingTotalCents)} à régler</span>
           </div>
-          <Link href="/mes-commandes" className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white whitespace-nowrap" style={{ background: "var(--accent)" }}>
+          <Link href="/panier" className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white whitespace-nowrap" style={{ background: "var(--accent)" }}>
             Voir et payer →
           </Link>
         </div>

@@ -119,8 +119,8 @@ export function ConfirmationClient({ order, items, remainingPendingCount = 0, ne
 
       {/* Actions */}
       <div className="space-y-3 mt-6">
-        <Link href="/mes-commandes" className="block w-full h-12 rounded-xl font-semibold text-white text-center leading-[3rem]" style={{ background: "var(--accent)" }}>
-          Voir mes commandes
+        <Link href="/panier" className="block w-full h-12 rounded-xl font-semibold text-white text-center leading-[3rem]" style={{ background: "var(--accent)" }}>
+          Voir mon panier
         </Link>
         <Link href="/commander" className="block w-full h-12 rounded-xl font-semibold text-center leading-[3rem] border" style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>
           Commander pour un autre jour

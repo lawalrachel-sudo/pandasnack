@@ -1,8 +1,8 @@
 import { createServerSupabase as createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import { MesCommandesClient } from "./MesCommandesClient"
+import { PanierClient } from "./PanierClient"
 
-export default async function MesCommandesPage() {
+export default async function PanierPage() {
   const supabase: any = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/auth")  // FIX: était /connexion
@@ -51,7 +51,7 @@ export default async function MesCommandesPage() {
     .limit(30)
 
   return (
-    <MesCommandesClient
+    <PanierClient
       account={account as any}
       profils={(profils || []) as any[]}
       orders={(orders || []) as any[]}

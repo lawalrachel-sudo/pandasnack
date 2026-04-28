@@ -48,7 +48,7 @@ interface Props {
   upcomingSlots: Slot[]
 }
 
-export function MesCommandesClient({ account, profils, orders, wallet, upcomingSlots }: Props) {
+export function PanierClient({ account, profils, orders, wallet, upcomingSlots }: Props) {
   const [selectedProfilId, setSelectedProfilId] = useState<string>("all")
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null)
   const printRef = useRef<HTMLDivElement>(null)
@@ -120,8 +120,8 @@ export function MesCommandesClient({ account, profils, orders, wallet, upcomingS
       <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} />
 
       <div className="px-4 pt-6">
-        <h1 className="text-xl font-bold mb-1" style={{ color: "var(--ink)" }}>Voir mes commandes</h1>
-        <p className="text-xs mb-4" style={{ color: "var(--ink-soft)" }}>60 derniers jours</p>
+        <h1 className="text-xl font-bold mb-1" style={{ color: "var(--ink)" }}>Mon panier</h1>
+        <p className="text-xs mb-4" style={{ color: "var(--ink-soft)" }}>Tes commandes en attente de paiement</p>
       </div>
 
       {profils.length > 1 && (
