@@ -23,7 +23,7 @@ export default async function RechargerPage() {
   // FIX BUG 13: la table wallet_recharge_config a "recharge_cents" comme PK, pas "id" ni "amount_cents"
   const { data: configs } = await supabase
     .from("wallet_recharge_config")
-    .select("recharge_cents, bonus_cents, total_credit_cents, label, bonus_label, active")
+    .select("recharge_cents, bonus_cents, total_credit_cents, label, bonus_label, badge, active")
     .eq("active", true)
     .order("sort_order")
 
