@@ -4,10 +4,10 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 
 const NAV_ITEMS = [
-  { href: "/commander", label: "Ma commande", img: "https://res.cloudinary.com/dbkpvp9ts/image/upload/w_64,q_auto,f_auto/v1777024643/MON_PANIER.jpg" },
-  { href: "/mes-commandes", label: "Voir mes commandes", img: "https://res.cloudinary.com/dbkpvp9ts/image/upload/w_64,q_auto,f_auto/v1777024028/MES_COMMANDES.jpg" },
-  { href: "/mon-espace", label: "Mon espace", img: "https://res.cloudinary.com/dbkpvp9ts/image/upload/w_64,q_auto,f_auto/v1777024021/MON_ESPACE.jpg" },
-  { href: "/contact", label: "Contact", img: "https://res.cloudinary.com/dbkpvp9ts/image/upload/w_64,q_auto,f_auto/v1777023402/CONTACT.jpg" },
+  { href: "/commander", label: "Le Menu", img: "https://res.cloudinary.com/dbkpvp9ts/image/upload/w_64,q_auto,f_auto/v1777331138/Panda_Chef.jpg", emoji: "👨‍🍳" },
+  { href: "/planning", label: "Planning", img: null, emoji: "📅" },
+  { href: "/mon-espace", label: "Mon espace", img: "https://res.cloudinary.com/dbkpvp9ts/image/upload/w_64,q_auto,f_auto/v1777024021/MON_ESPACE.jpg", emoji: "🐼" },
+  { href: "/contact", label: "Contact", img: "https://res.cloudinary.com/dbkpvp9ts/image/upload/w_64,q_auto,f_auto/v1777023402/CONTACT.jpg", emoji: "📞" },
 ]
 
 export function BottomNav() {
@@ -37,8 +37,9 @@ export function BottomNav() {
         style={{ background: '#FFFFFF', borderColor: 'var(--border)' }}
       >
         <div className="max-w-lg mx-auto grid grid-cols-4 items-end py-2 px-1">
-          {NAV_ITEMS.map(({ href, label, img }) => {
+          {NAV_ITEMS.map(({ href, label, img, emoji }) => {
             const active = pathname === href || (href !== "/" && pathname?.startsWith(href))
+            const size = active ? 32 : 26
             return (
               <Link
                 key={href}
@@ -46,12 +47,16 @@ export function BottomNav() {
                 className={`nav-item flex flex-col items-center gap-1 py-1 rounded-xl ${active ? "nav-item-active" : ""}`}
                 style={active ? { background: "rgba(200,90,60,0.08)" } : {}}
               >
-                <img
-                  src={img}
-                  alt={label}
-                  className="object-contain"
-                  style={{ width: active ? 32 : 26, height: active ? 32 : 26, transition: "all 0.25s ease" }}
-                />
+                {img ? (
+                  <img
+                    src={img}
+                    alt={label}
+                    className="object-cover rounded-full"
+                    style={{ width: size, height: size, transition: "all 0.25s ease" }}
+                  />
+                ) : (
+                  <span style={{ fontSize: size, lineHeight: 1, transition: "all 0.25s ease" }}>{emoji}</span>
+                )}
                 <span
                   className="leading-tight text-center"
                   style={{
