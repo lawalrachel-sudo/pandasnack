@@ -430,7 +430,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
 
   return (
     <div className="min-h-screen pb-20 max-w-lg mx-auto overflow-x-hidden">
-      <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} />
+      <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} pendingCount={pendingCount} />
 
       {/* CHANTIER C — Encart top commandes en attente, cliquable sur toute la zone */}
       {pendingCount > 0 && (

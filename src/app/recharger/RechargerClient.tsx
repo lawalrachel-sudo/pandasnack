@@ -22,6 +22,7 @@ interface Props {
   configs: Config[]
   currentMenuPriceCents: number
   lastRechargeCents: number
+  pendingCount: number
 }
 
 function fmtPrice(c: number): string { return `${(c / 100).toFixed(2).replace(".", ",")} €` }
@@ -38,7 +39,7 @@ function getDiscountLabel(rechargeCents: number): string {
   return ""
 }
 
-export function RechargerClient({ accountId, familyName, walletBalance, configs, currentMenuPriceCents, lastRechargeCents }: Props) {
+export function RechargerClient({ accountId, familyName, walletBalance, configs, currentMenuPriceCents, lastRechargeCents, pendingCount }: Props) {
   const [selectedRecharge, setSelectedRecharge] = useState<number | null>(null)
   const [customAmount, setCustomAmount] = useState("")
   const [loading, setLoading] = useState(false)
@@ -69,7 +70,7 @@ export function RechargerClient({ accountId, familyName, walletBalance, configs,
 
   return (
     <div className="min-h-screen pb-16 max-w-lg mx-auto">
-      <Navbar walletBalance={walletBalance} familyName={familyName} />
+      <Navbar walletBalance={walletBalance} familyName={familyName} pendingCount={pendingCount} />
 
       <div className="px-4 pt-6">
         {/* Solde actuel + palier */}

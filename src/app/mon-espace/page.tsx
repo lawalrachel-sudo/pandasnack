@@ -40,6 +40,13 @@ export default async function MonEspacePage() {
     .eq("account_id", account.id)
     .eq("status", "paid")
 
+  // CHANTIER B — pending count pour caddie navbar
+  const { count: pendingCount } = await supabase
+    .from("orders")
+    .select("id", { count: "exact", head: true })
+    .eq("account_id", account.id)
+    .eq("status", "pending_payment")
+
   return (
     <MonEspaceClient
       account={account as any}
@@ -48,6 +55,7 @@ export default async function MonEspacePage() {
       walletTransactions={(walletTx || []) as any[]}
       orderCount={orderCount || 0}
       userEmail={user.email || ""}
+      pendingCount={pendingCount || 0}
     />
   )
 }

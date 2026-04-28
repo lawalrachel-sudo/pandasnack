@@ -1,4 +1,4 @@
-import { Navbar } from "@/components/Navbar"
+import { NavbarServer } from "@/components/NavbarServer"
 
 const SNACKS = [
   { name: "Gaufres maison (Cœurs/Biscuits du Panda)", price: "3,90 €" },
@@ -12,10 +12,10 @@ const SNACKS = [
   { name: "Gaufre emballée Nat/Choc", price: "0,50 €" },
 ]
 
-export default function NosPrixShopPage() {
+export default async function NosPrixShopPage() {
   return (
     <div className="min-h-screen">
-      <Navbar />
+      <NavbarServer />
       <div className="max-w-lg mx-auto px-4 py-6">
         <h1 className="text-xl font-bold mb-1">Nos prix shop</h1>
         <p className="text-xs mb-4" style={{ color: 'var(--ink-soft)' }}>

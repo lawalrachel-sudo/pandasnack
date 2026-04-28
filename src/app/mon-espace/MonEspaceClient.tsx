@@ -45,9 +45,10 @@ interface Props {
   walletTransactions: WalletTx[]
   orderCount: number
   userEmail: string
+  pendingCount: number
 }
 
-export function MonEspaceClient({ account, profils, wallet, walletTransactions, orderCount, userEmail }: Props) {
+export function MonEspaceClient({ account, profils, wallet, walletTransactions, orderCount, userEmail, pendingCount }: Props) {
   const searchParams = useSearchParams()
   const initialTab = searchParams.get("tab") === "wallet" ? "wallet" : searchParams.get("tab") === "compte" ? "compte" : "profils"
   const [tab, setTab] = useState<"profils" | "wallet" | "compte">(initialTab)
@@ -127,7 +128,7 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
 
   return (
     <div className="min-h-screen pb-16 max-w-lg mx-auto">
-      <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} />
+      <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} pendingCount={pendingCount} />
 
       {/* Header profil parent */}
       <div className="px-4 pt-6 pb-4" style={{ background: "linear-gradient(135deg, var(--menu-panda-start), var(--menu-panda-end))" }}>

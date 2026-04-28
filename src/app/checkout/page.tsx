@@ -98,6 +98,14 @@ export default async function CheckoutPage({
     ? new Date() >= new Date(order.service_slots.orders_cutoff_at)
     : false
 
+  // CHANTIER B — pending count pour caddie navbar
+  const { data: pendingOrders } = await sb
+    .from("orders")
+    .select("id")
+    .eq("account_id", account.id)
+    .eq("status", "pending_payment")
+  const pendingCount = pendingOrders?.length || 0
+
   return (
     <CheckoutClient
       order={order}
@@ -107,6 +115,7 @@ export default async function CheckoutPage({
       cutoffPassed={cutoffPassed}
       wasCancelled={wasCancelled}
       toppingsMap={toppingsMap}
+      pendingCount={pendingCount}
     />
   )
 }

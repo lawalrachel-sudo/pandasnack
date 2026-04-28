@@ -50,6 +50,9 @@ export default async function PanierPage() {
     .order("service_date")
     .limit(30)
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pendingCount = (orders || []).filter((o: any) => o.status === "pending_payment").length
+
   return (
     <PanierClient
       account={account as any}
@@ -57,6 +60,7 @@ export default async function PanierPage() {
       orders={(orders || []) as any[]}
       wallet={wallet as any}
       upcomingSlots={(upcomingSlots || []) as any[]}
+      pendingCount={pendingCount}
     />
   )
 }

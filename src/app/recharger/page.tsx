@@ -31,6 +31,13 @@ export default async function RechargerPage() {
   const lastRecharge = wallet?.last_recharge_cents || 0
   const currentMenuPrice = lastRecharge >= 10000 ? 800 : lastRecharge >= 5000 ? 900 : 1000
 
+  // CHANTIER B — pending count pour caddie navbar
+  const { count: pendingCount } = await supabase
+    .from("orders")
+    .select("id", { count: "exact", head: true })
+    .eq("account_id", account.id)
+    .eq("status", "pending_payment")
+
   return (
     <RechargerClient
       accountId={account.id}
@@ -39,6 +46,7 @@ export default async function RechargerPage() {
       configs={(configs || []) as any[]}
       currentMenuPriceCents={currentMenuPrice}
       lastRechargeCents={lastRecharge}
+      pendingCount={pendingCount || 0}
     />
   )
 }

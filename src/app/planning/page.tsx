@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { createServerSupabase } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import { Navbar } from "@/components/Navbar"
+import { NavbarServer } from "@/components/NavbarServer"
 
 export const dynamic = "force-dynamic"
 
@@ -10,24 +10,9 @@ export default async function PlanningPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/auth")
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: account } = await (supabase as any)
-    .from("accounts")
-    .select("id, nom_compte")
-    .eq("auth_user_id", user.id)
-    .single()
-  if (!account) redirect("/onboarding")
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: wallet } = await (supabase as any)
-    .from("wallets")
-    .select("balance_cents")
-    .eq("account_id", account.id)
-    .single()
-
   return (
     <div className="min-h-screen pb-20 max-w-lg mx-auto">
-      <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} />
+      <NavbarServer />
 
       <div className="px-4 pt-8">
         <div className="text-center mb-6">

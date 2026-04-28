@@ -1,9 +1,9 @@
-import { Navbar } from "@/components/Navbar"
+import { NavbarServer } from "@/components/NavbarServer"
 
-export default function CGVPage() {
+export default async function CGVPage() {
   return (
     <div className="min-h-screen">
-      <Navbar />
+      <NavbarServer />
       <div className="max-w-2xl mx-auto px-4 py-6">
         <h1 className="text-xl font-bold mb-4">Conditions Générales de Vente</h1>
         <div className="prose prose-sm" style={{ color: 'var(--ink)' }}>

@@ -62,6 +62,7 @@ interface Props {
   items: OrderItem[]
   wallet: Wallet | null
   account: Account
+  pendingCount: number
   cutoffPassed: boolean
   wasCancelled: boolean
   toppingsMap: Record<string, string>
@@ -88,7 +89,7 @@ function fmtDate(d: string): string {
 // COMPONENT
 // ============================================================================
 
-export function CheckoutClient({ order, items, wallet, account, cutoffPassed, wasCancelled, toppingsMap }: Props) {
+export function CheckoutClient({ order, items, wallet, account, cutoffPassed, wasCancelled, toppingsMap, pendingCount }: Props) {
   const router = useRouter()
   const [paymentLoading, setPaymentLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -173,7 +174,7 @@ export function CheckoutClient({ order, items, wallet, account, cutoffPassed, wa
   if (cutoffPassed) {
     return (
       <div className="min-h-screen max-w-lg mx-auto px-4 py-8">
-        <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} />
+        <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} pendingCount={pendingCount} />
         <div className="text-center mt-16">
           <div className="text-5xl mb-4">⏰</div>
           <h1 className="text-xl font-bold mb-2" style={{ color: "var(--ink)" }}>
@@ -195,7 +196,7 @@ export function CheckoutClient({ order, items, wallet, account, cutoffPassed, wa
 
   return (
     <div className="min-h-screen max-w-lg mx-auto px-4 pb-8">
-      <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} />
+      <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} pendingCount={pendingCount} />
 
       {/* Cancellation banner (after Stripe cancel_url) */}
       {wasCancelled && !cancelDismissed && (

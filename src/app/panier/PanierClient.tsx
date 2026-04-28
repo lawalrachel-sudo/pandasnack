@@ -46,9 +46,10 @@ interface Props {
   orders: Order[]
   wallet: { balance_cents: number } | null
   upcomingSlots: Slot[]
+  pendingCount: number
 }
 
-export function PanierClient({ account, profils, orders, wallet, upcomingSlots }: Props) {
+export function PanierClient({ account, profils, orders, wallet, upcomingSlots, pendingCount }: Props) {
   const [selectedProfilId, setSelectedProfilId] = useState<string>("all")
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null)
   const printRef = useRef<HTMLDivElement>(null)
@@ -117,7 +118,7 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots }
 
   return (
     <div className="min-h-screen pb-20 max-w-lg mx-auto">
-      <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} />
+      <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} pendingCount={pendingCount} />
 
       <div className="px-4 pt-6">
         <h1 className="text-xl font-bold mb-1" style={{ color: "var(--ink)" }}>Mon panier</h1>

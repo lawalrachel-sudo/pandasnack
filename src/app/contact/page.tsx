@@ -1,19 +1,9 @@
-import { Navbar } from "@/components/Navbar"
+import { NavbarServer } from "@/components/NavbarServer"
 
-export default function ContactPage() {
+export default async function ContactPage() {
   return (
     <div className="min-h-screen pb-16 max-w-lg mx-auto">
-      <header
-        className="sticky top-0 z-50 border-b px-4 py-3 flex items-center gap-2"
-        style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}
-      >
-        <img
-          src="https://res.cloudinary.com/dbkpvp9ts/image/upload/w_48,q_auto,f_auto/v1776343210/tete_panda_panda_snack.png"
-          alt="Panda Snack"
-          className="w-10 h-10 rounded-full"
-        />
-        <span className="font-bold text-lg tracking-tight">Panda Snack</span>
-      </header>
+      <NavbarServer />
 
       <div className="px-4 pt-10 text-center">
         <img
