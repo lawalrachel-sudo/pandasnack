@@ -432,18 +432,23 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
     <div className="min-h-screen pb-20 max-w-lg mx-auto overflow-x-hidden">
       <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} />
 
-      {/* FIX 1 — Bandeau commandes en attente de paiement */}
+      {/* CHANTIER C — Encart top commandes en attente, cliquable sur toute la zone */}
       {pendingCount > 0 && (
-        <div className="mx-4 mt-3 rounded-xl p-3 flex items-center gap-3" style={{ background: "#FEF3E2", border: "1px solid #F5D5A0" }}>
-          <span className="text-xl leading-none">⏳</span>
-          <div className="flex-1 text-sm" style={{ color: "#B45309" }}>
-            <strong>Tu as {pendingCount} commande{pendingCount > 1 ? "s" : ""} en attente</strong>
-            <span> — {fmtPrice(pendingTotalCents)} à régler</span>
+        <Link
+          href="/panier"
+          className="block mx-4 mt-3 rounded-xl p-4 transition-shadow hover:shadow-md"
+          style={{ background: "#FFF3E0", border: "1px solid #F5D5A0" }}
+        >
+          <div className="flex items-center gap-2" style={{ color: "#92400E" }}>
+            <span className="text-lg leading-none">🛒</span>
+            <span className="text-sm font-semibold flex-1">
+              Tu as {pendingCount} commande{pendingCount > 1 ? "s" : ""} en attente · {fmtPrice(pendingTotalCents)}
+            </span>
           </div>
-          <Link href="/panier" className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white whitespace-nowrap" style={{ background: "var(--accent)" }}>
-            Voir et payer →
-          </Link>
-        </div>
+          <div className="text-right text-xs mt-1" style={{ color: "#B45309" }}>
+            Voir / Modifier ›
+          </div>
+        </Link>
       )}
 
       {addedToast && (
