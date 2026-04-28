@@ -39,6 +39,7 @@ interface Order {
 
 interface Profil { id: string; prenom: string; classe: string | null; is_default: boolean; active: boolean }
 interface Slot { id: string; service_date: string; day_type: string; orders_cutoff_at: string | null }
+interface CatalogItem { id: string; sku: string | null; name: string; emoji: string | null; price_alone_cents: number | null; image_url: string | null; ui_group: string | null }
 
 interface Props {
   account: { id: string; nom_compte: string }
@@ -47,12 +48,56 @@ interface Props {
   wallet: { balance_cents: number } | null
   upcomingSlots: Slot[]
   pendingCount: number
+  catalogItems: CatalogItem[]
 }
 
-export function PanierClient({ account, profils, orders, wallet, upcomingSlots, pendingCount }: Props) {
+export function PanierClient({ account, profils, orders, wallet, upcomingSlots, pendingCount, catalogItems }: Props) {
   const [selectedProfilId, setSelectedProfilId] = useState<string>("all")
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null)
   const printRef = useRef<HTMLDivElement>(null)
+
+  // H2.1 — modal "Ajouter un repas" à une commande pending
+  const [addItemOrderId, setAddItemOrderId] = useState<string | null>(null)
+  const [addItemProfilId, setAddItemProfilId] = useState<string>("")
+  const [addItemTakeaway, setAddItemTakeaway] = useState(false)
+  const [addItemSubmitting, setAddItemSubmitting] = useState(false)
+
+  function openAddItem(order: Order) {
+    setAddItemOrderId(order.id)
+    // profil par défaut: celui du 1er item de la commande, sinon premier profil
+    const firstItemProfilId = order.order_items?.find(i => i.profil_id)?.profil_id
+    setAddItemProfilId(firstItemProfilId || profils[0]?.id || "")
+    setAddItemTakeaway(false)
+  }
+
+  async function handleAddItem(item: CatalogItem) {
+    if (!addItemOrderId || !item.price_alone_cents) return
+    setAddItemSubmitting(true)
+    try {
+      const res = await fetch("/api/order-item", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: addItemOrderId,
+          catalogItemId: item.id,
+          profilId: addItemProfilId || null,
+          takeaway: addItemTakeaway,
+          notes: item.name,
+        }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setAddItemOrderId(null)
+        window.location.reload()
+      } else {
+        alert(data.error || "Erreur ajout article")
+        setAddItemSubmitting(false)
+      }
+    } catch {
+      alert("Erreur réseau")
+      setAddItemSubmitting(false)
+    }
+  }
 
   const calendarData = useMemo(() => {
     const targetProfils = selectedProfilId === "all" ? profils : profils.filter(p => p.id === selectedProfilId)
@@ -269,11 +314,20 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
                         <span className="text-lg" style={{ color: "var(--ink-soft)" }}>{isExpanded ? "▲" : "▼"}</span>
                       </button>
 
-                      {/* FIX 2 — Bouton Payer toujours visible pour pending_payment */}
+                      {/* FIX 2 — Bouton Payer + H2.1 Bouton Ajouter pour pending_payment */}
                       {order.status === "pending_payment" && (
-                        <div className="px-3 pb-3 border-t" style={{ borderColor: "var(--border)" }}>
+                        <div className="px-3 pb-3 border-t space-y-2 mt-3" style={{ borderColor: "var(--border)" }}>
+                          {canModify && (
+                            <button
+                              onClick={() => openAddItem(order)}
+                              className="flex items-center justify-center w-full h-10 rounded-lg text-sm font-semibold border"
+                              style={{ borderColor: "var(--accent)", color: "var(--accent)", background: "var(--card)" }}
+                            >
+                              + Ajouter un repas
+                            </button>
+                          )}
                           <Link href={`/checkout?order=${order.id}`}
-                            className="flex items-center justify-center w-full h-11 rounded-lg text-sm font-semibold text-white mt-3"
+                            className="flex items-center justify-center w-full h-11 rounded-lg text-sm font-semibold text-white"
                             style={{ background: "var(--accent-2)" }}>
                             💳 Payer cette commande · {fmtPrice(order.total_cents)}
                           </Link>
@@ -370,6 +424,77 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
           Ma commande
         </Link>
       </div>
+
+      {/* H2.1 — Modal Ajouter un repas à une commande pending */}
+      {addItemOrderId && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-end justify-center">
+          <div className="w-full max-w-lg rounded-t-2xl max-h-[85vh] overflow-y-auto" style={{ background: "var(--card)" }}>
+            <div className="sticky top-0 z-10 flex justify-between items-center px-5 py-4 border-b" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
+              <div>
+                <h3 className="font-bold text-lg">Ajouter un repas</h3>
+                <p className="text-xs" style={{ color: "var(--ink-soft)" }}>Sélectionne un article à ajouter à la commande</p>
+              </div>
+              <button onClick={() => setAddItemOrderId(null)} className="text-2xl leading-none" aria-label="Fermer">&times;</button>
+            </div>
+            <div className="p-5 space-y-4">
+              {/* Profil */}
+              {profils.length > 1 && (
+                <div>
+                  <label className="text-xs font-semibold" style={{ color: "var(--ink-soft)" }}>Pour</label>
+                  <select
+                    value={addItemProfilId}
+                    onChange={(e) => setAddItemProfilId(e.target.value)}
+                    className="w-full mt-1 px-3 py-2 rounded-lg border text-sm"
+                    style={{ borderColor: "var(--border)", background: "var(--bg)" }}
+                  >
+                    {profils.filter(p => p.active).map(p => (
+                      <option key={p.id} value={p.id}>{p.prenom}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* À emporter */}
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={addItemTakeaway} onChange={(e) => setAddItemTakeaway(e.target.checked)} />
+                À emporter — hors établissement
+              </label>
+
+              {/* Liste articles à la carte */}
+              <div>
+                <p className="text-xs font-semibold mb-2" style={{ color: "var(--ink-soft)" }}>Articles à la carte</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {catalogItems.filter(it => it.price_alone_cents != null).map(item => (
+                    <button
+                      key={item.id}
+                      onClick={() => handleAddItem(item)}
+                      disabled={addItemSubmitting}
+                      className="rounded-xl border p-3 text-left active:scale-[0.98] transition-transform disabled:opacity-50"
+                      style={{ borderColor: "var(--border)", background: "var(--card)" }}
+                    >
+                      {item.image_url ? (
+                        <div className="aspect-[4/3] overflow-hidden rounded-lg mb-2">
+                          <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" loading="lazy" />
+                        </div>
+                      ) : (
+                        <div className="aspect-[4/3] flex items-center justify-center rounded-lg mb-2 text-3xl" style={{ background: "var(--bg-alt)" }}>
+                          {item.emoji || "🐼"}
+                        </div>
+                      )}
+                      <p className="text-sm font-semibold">{item.name}</p>
+                      <p className="text-sm font-bold mt-1" style={{ color: "var(--accent)" }}>{fmtPrice(item.price_alone_cents!)}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <p className="text-[11px] text-center" style={{ color: "var(--ink-soft)" }}>
+                Pour ajouter un menu complet (Bento, Menu Panda), reviens sur <Link href="/commander" className="underline font-semibold" style={{ color: "var(--accent)" }}>Le Menu</Link>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

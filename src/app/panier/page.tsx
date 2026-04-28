@@ -50,6 +50,14 @@ export default async function PanierPage() {
     .order("service_date")
     .limit(30)
 
+  // H2.1 — catalog à-la-carte items pour modal "Ajouter un repas"
+  const { data: catalogItems } = await supabase
+    .from("catalog_items")
+    .select("id, sku, name, emoji, price_alone_cents, image_url, sellable_alone, active, ui_group, sort_order")
+    .eq("active", true)
+    .eq("sellable_alone", true)
+    .order("sort_order")
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pendingCount = (orders || []).filter((o: any) => o.status === "pending_payment").length
 
@@ -61,6 +69,7 @@ export default async function PanierPage() {
       wallet={wallet as any}
       upcomingSlots={(upcomingSlots || []) as any[]}
       pendingCount={pendingCount}
+      catalogItems={(catalogItems || []) as any[]}
     />
   )
 }
