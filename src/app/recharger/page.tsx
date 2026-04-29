@@ -9,7 +9,7 @@ export default async function RechargerPage() {
 
   const { data: account } = await supabase
     .from("accounts")
-    .select("id, nom_compte")
+    .select("id, nom_compte, panda_id")
     .eq("auth_user_id", user.id)
     .single()
   if (!account) redirect("/onboarding")
@@ -47,6 +47,7 @@ export default async function RechargerPage() {
       currentMenuPriceCents={currentMenuPrice}
       lastRechargeCents={lastRecharge}
       pendingCount={pendingCount || 0}
+      pandaId={account.panda_id || null}
     />
   )
 }

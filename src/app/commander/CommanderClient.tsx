@@ -535,7 +535,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
         return (
           <div className="px-4 mb-6">
             {/* P0a #6 — titre section École en bleu */}
-            <h2 className="font-bold text-lg mb-1" style={{ color: "#1D4ED8" }}>Menu Panda du jour</h2>
+            <h2 className="font-bold text-lg mb-1 text-center" style={{ color: "#1D4ED8" }}>Menu Panda du jour</h2>
             {/* P0a #9 — description Menu Panda rouge brique gras plus grande */}
             <p className="text-sm font-bold mb-1" style={{ color: "#B91C1C" }}>Composition : plat + infusion maison glacée + dessert</p>
             <p className="text-xs mb-3" style={{ color: "var(--accent-2)" }}>Infusion maison glacée offerte avec chaque menu.</p>
@@ -590,7 +590,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
                   <div className="flex items-center justify-between mt-2">
                     <span className="font-bold text-base">{fmtPrice(f.price_cents)}</span>
                     <span className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white" style={{ background: "var(--accent)" }}>
-                      "Ajouter +"
+                      Ajouter
                     </span>
                   </div>
                 </div>
@@ -626,7 +626,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
                   <div className="flex items-center justify-between mt-2">
                     <span className="font-bold text-base">{fmtPrice(bentoToupitiFormula.price_cents)}</span>
                     <span className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white" style={{ background: "var(--accent)" }}>
-                      Ajouter +
+                      Ajouter
                     </span>
                   </div>
                 </div>

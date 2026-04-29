@@ -184,13 +184,12 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
     <div style={S.page}>
       <div style={S.card}>
         {/* Header */}
-        <div style={S.logoRow}>
+        <div style={{ ...S.logoRow, justifyContent: 'center' }}>
           <img
-            src="https://res.cloudinary.com/dbkpvp9ts/image/upload/c_fit,w_80,q_auto,f_auto/v1776343210/tete_panda_panda_snack.png"
+            src="https://res.cloudinary.com/dbkpvp9ts/image/upload/q_auto,f_auto/v1777335338/PANDA_SNACK_LOGO_transparent.png"
             alt="Panda Snack"
-            style={{ width: 40, height: 40, objectFit: 'contain' }}
+            style={{ height: 80, width: 'auto' }}
           />
-          <span style={S.brand}>Panda Snack</span>
         </div>
 
         {/* Indicateur d'étapes */}
@@ -215,26 +214,31 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
             <p style={S.subtitle}>Choisis un groupe pour entrer dans le Panda Snack !</p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {(Object.keys(typeLabels) as SourceGroup[]).map((key) => (
-                <button
-                  key={key}
-                  onClick={() => handleChooseType(key)}
-                  style={S.typeBtn}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.borderColor = '#C85A3C')
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.borderColor = '#E8D6BF')
-                  }
-                >
-                  <strong style={key === 'ecole' ? { color: '#1D4ED8', fontSize: 17, fontWeight: 800 } : { color: '#3A2A20', fontSize: 15 }}>
-                    {typeLabels[key].title}
-                  </strong>
-                  <span style={{ color: '#6B5742', fontSize: 13 }}>
-                    {typeLabels[key].desc}
-                  </span>
-                </button>
-              ))}
+              {(Object.keys(typeLabels) as SourceGroup[]).map((key) => {
+                const isEcole = key === 'ecole'
+                const cardStyle = isEcole
+                  ? { ...S.typeBtn, padding: '24px 18px', background: '#DCFCE7', borderColor: '#16A34A', borderWidth: 3 }
+                  : S.typeBtn
+                const defaultBorder = isEcole ? '#16A34A' : '#E8D6BF'
+                return (
+                  <button
+                    key={key}
+                    onClick={() => handleChooseType(key)}
+                    style={cardStyle}
+                    onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#C85A3C')}
+                    onMouseLeave={(e) => (e.currentTarget.style.borderColor = defaultBorder)}
+                  >
+                    <strong style={isEcole ? { color: '#1D4ED8', fontSize: 19, fontWeight: 800 } : { color: '#3A2A20', fontSize: 15 }}>
+                      {typeLabels[key].title}
+                    </strong>
+                    {typeLabels[key].desc && (
+                      <span style={{ color: isEcole ? '#15803D' : '#6B5742', fontSize: isEcole ? 14 : 13, fontWeight: isEcole ? 600 : 400 }}>
+                        {typeLabels[key].desc}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
             </div>
           </div>
         )}

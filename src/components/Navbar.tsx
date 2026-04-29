@@ -34,7 +34,7 @@ export function Navbar({ walletBalance, lastRechargeCents, pendingCount = 0 }: N
           <img
             src={LOGO_URL}
             alt="Panda Snack"
-            className="h-12 md:h-14 w-auto"
+            className="h-16 md:h-20 w-auto"
           />
         </Link>
       </div>

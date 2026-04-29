@@ -140,7 +140,7 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
   const TAB_LABELS = { profils: "Profils", wallet: "Panda Wallet", compte: "Mon compte" } as const
 
   return (
-    <div className="min-h-screen pb-16 max-w-lg mx-auto">
+    <div className="min-h-screen pb-28 max-w-lg mx-auto">
       <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} pendingCount={pendingCount} />
 
       {/* Header profil parent */}

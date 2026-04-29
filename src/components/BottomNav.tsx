@@ -7,7 +7,7 @@ const NAV_ITEMS = [
   { href: "/commander", label: "Le Menu", img: "https://res.cloudinary.com/dbkpvp9ts/image/upload/w_64,q_auto,f_auto/v1777331138/Panda_Chef.jpg", emoji: "👨‍🍳" },
   { href: "/planning", label: "Planning", img: null, emoji: "📅" },
   { href: "/mon-espace", label: "Mon espace", img: "https://res.cloudinary.com/dbkpvp9ts/image/upload/w_64,q_auto,f_auto/v1777024021/MON_ESPACE.jpg", emoji: "🐼" },
-  { href: "/contact", label: "Contact", img: "https://res.cloudinary.com/dbkpvp9ts/image/upload/w_64,q_auto,f_auto/v1777023402/CONTACT.jpg", emoji: "📞" },
+  { href: "/contact", label: "Contact", img: "https://res.cloudinary.com/dbkpvp9ts/image/upload/w_64,q_auto,f_auto/v1777335899/Enveloppe.png", emoji: "✉️" },
 ]
 
 export function BottomNav() {

@@ -2,7 +2,7 @@ import { NavbarServer } from "@/components/NavbarServer"
 
 export default async function ContactPage() {
   return (
-    <div className="min-h-screen pb-16 max-w-lg mx-auto">
+    <div className="min-h-screen pb-28 max-w-lg mx-auto">
       <NavbarServer />
 
       <div className="px-4 pt-10 text-center">
@@ -16,8 +16,8 @@ export default async function ContactPage() {
           Une question, un souci, une suggestion ?
         </p>
         <img
-          src="https://res.cloudinary.com/dbkpvp9ts/image/upload/w_160,q_auto,f_auto/v1777331138/Panda_Chef.jpg"
-          alt="Panda Chef"
+          src="https://res.cloudinary.com/dbkpvp9ts/image/upload/w_160,q_auto,f_auto/v1777023402/CONTACT.jpg"
+          alt="Panda enveloppe"
           className="w-24 h-24 rounded-full mx-auto mb-6 object-cover"
         />
 

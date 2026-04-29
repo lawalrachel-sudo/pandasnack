@@ -138,13 +138,12 @@ function AuthContent() {
   return (
     <div style={styles.page}>
       <div style={styles.card}>
-        <div style={styles.logoRow}>
+        <div style={{ ...styles.logoRow, justifyContent: 'center' }}>
           <img
-            src="https://res.cloudinary.com/dbkpvp9ts/image/upload/c_fit,w_80,q_auto,f_auto/v1776343210/tete_panda_panda_snack.png"
+            src="https://res.cloudinary.com/dbkpvp9ts/image/upload/q_auto,f_auto/v1777335338/PANDA_SNACK_LOGO_transparent.png"
             alt="Panda Snack"
-            style={styles.logo}
+            style={{ height: 80, width: 'auto' }}
           />
-          <h1 style={styles.brand}>Panda Snack</h1>
         </div>
 
         <h2 style={styles.title}>

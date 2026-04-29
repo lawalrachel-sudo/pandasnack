@@ -24,15 +24,28 @@ interface Props {
   currentMenuPriceCents: number
   lastRechargeCents: number
   pendingCount: number
+  pandaId: string | null
 }
 
 function fmtPrice(c: number): string { return `${(c / 100).toFixed(2).replace(".", ",")} €` }
 
-export function RechargerClient({ accountId, familyName, walletBalance, configs, currentMenuPriceCents, lastRechargeCents, pendingCount }: Props) {
+export function RechargerClient({ accountId, familyName, walletBalance, configs, currentMenuPriceCents, lastRechargeCents, pendingCount, pandaId }: Props) {
   const [selectedRecharge, setSelectedRecharge] = useState<number | null>(null)
   const [customAmount, setCustomAmount] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showRib, setShowRib] = useState(false)
+  const [ribCopied, setRibCopied] = useState(false)
+
+  async function copyIban() {
+    try {
+      await navigator.clipboard.writeText("FR76 1010 7006 2200 7330 6210 647")
+      setRibCopied(true)
+      setTimeout(() => setRibCopied(false), 2000)
+    } catch {
+      alert("Impossible de copier — sélectionne le RIB manuellement")
+    }
+  }
 
   const selectedConfig = configs.find(c => c.recharge_cents === selectedRecharge)
   const customCents = customAmount ? Math.round(parseFloat(customAmount.replace(",", ".")) * 100) : 0
@@ -43,6 +56,10 @@ export function RechargerClient({ accountId, familyName, walletBalance, configs,
     setLoading(true); setError(null)
     const amountCents = selectedConfig ? selectedConfig.recharge_cents : customCents
     const bonusCents = selectedConfig ? selectedConfig.bonus_cents : 0
+    // P0 patch — palier 200 € = virement uniquement, pas Stripe
+    if (selectedConfig && selectedConfig.recharge_cents === 20000) {
+      setShowRib(true); setLoading(false); return
+    }
     if (amountCents > 20000) { setError("Pour un montant supérieur à 200 €, contactez team@pandasnack.online"); setLoading(false); return }
     if (amountCents < 500) { setError("Montant minimum : 5 €"); setLoading(false); return }
     try {
@@ -55,7 +72,7 @@ export function RechargerClient({ accountId, familyName, walletBalance, configs,
   }
 
   return (
-    <div className="min-h-screen pb-16 max-w-lg mx-auto">
+    <div className="min-h-screen pb-28 max-w-lg mx-auto">
       <Navbar walletBalance={walletBalance} familyName={familyName} pendingCount={pendingCount} />
 
       <div className="px-4 pt-6">
@@ -152,7 +169,9 @@ export function RechargerClient({ accountId, familyName, walletBalance, configs,
 
         <button onClick={handleRecharge} disabled={!canPay}
           className="w-full h-12 rounded-xl font-semibold text-white text-center text-sm disabled:opacity-50" style={{ background: "var(--accent-2)" }}>
-          {loading ? "Redirection vers Stripe..." : `Recharger${selectedConfig ? ` ${fmtPrice(selectedConfig.recharge_cents)}` : isCustom ? ` ${fmtPrice(customCents)}` : ""} par carte`}
+          {loading ? "Redirection vers Stripe..."
+            : selectedConfig?.recharge_cents === 20000 ? "Voir les infos de virement"
+            : `Recharger${selectedConfig ? ` ${fmtPrice(selectedConfig.recharge_cents)}` : isCustom ? ` ${fmtPrice(customCents)}` : ""} par carte`}
         </button>
 
         <p className="text-sm text-center mt-4 leading-relaxed" style={{ color: "var(--ink-soft)" }}>
@@ -160,6 +179,48 @@ export function RechargerClient({ accountId, familyName, walletBalance, configs,
           <Link href="/contact" className="font-bold underline" style={{ color: "var(--accent)" }}>contacte-nous</Link>
         </p>
       </div>
+
+      {/* P0 patch — Modal RIB pour palier 200 € (virement uniquement) */}
+      {showRib && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center px-4">
+          <div className="rounded-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto" style={{ background: "var(--card)" }}>
+            <div className="flex justify-between items-start mb-4 gap-3">
+              <h3 className="font-bold text-lg" style={{ color: "var(--ink)" }}>Recharge 200 € par virement</h3>
+              <button onClick={() => setShowRib(false)} className="text-3xl leading-none -mt-1" aria-label="Fermer" style={{ color: "var(--ink-soft)" }}>&times;</button>
+            </div>
+            <p className="text-sm mb-4" style={{ color: "var(--ink-soft)" }}>
+              Pour les recharges de 200 € et plus (bonus 15 à 20%), effectue un virement :
+            </p>
+            <div className="space-y-2 text-sm rounded-xl p-3 mb-4" style={{ background: "var(--bg-alt)" }}>
+              <p><strong>IBAN :</strong> <span style={{ fontFamily: "ui-monospace, monospace" }}>FR76 1010 7006 2200 7330 6210 647</span></p>
+              <p><strong>BIC :</strong> BREDFRPPXXX</p>
+              <p><strong>À l&apos;ordre de :</strong> La Tribe Corp SARL</p>
+              <p>
+                <strong>Communication :</strong>{" "}
+                {pandaId ? (
+                  <span style={{ fontFamily: "ui-monospace, monospace", color: "var(--accent)" }}>PS-WALLET-{pandaId}</span>
+                ) : (
+                  <span style={{ color: "#DC2626" }}>Contacte team@pandasnack.online</span>
+                )}
+              </p>
+            </div>
+            <button
+              onClick={copyIban}
+              className="w-full h-11 rounded-lg font-semibold text-white mb-2"
+              style={{ background: ribCopied ? "#16A34A" : "var(--accent)" }}
+            >
+              {ribCopied ? "✓ Copié !" : "Copier le RIB"}
+            </button>
+            <button
+              onClick={() => setShowRib(false)}
+              className="w-full h-10 rounded-lg text-sm font-medium border"
+              style={{ borderColor: "var(--border)", color: "var(--ink-soft)" }}
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
