@@ -39,7 +39,7 @@ interface Profil { id: string; prenom: string; classe: string | null; is_default
 interface WalletTx { id: string; type: string; amount_cents: number; balance_after_cents: number; description: string | null; created_at: string }
 
 interface Props {
-  account: { id: string; nom_compte: string; email: string; telephone: string | null; source_group: string | null; source_detail: string | null; panda_id: string }
+  account: { id: string; nom_compte: string; email: string; telephone: string | null; source_group: string | null; source_detail: string | null; panda_id: string | null }
   profils: Profil[]
   wallet: { id: string; balance_cents: number; total_credited_cents: number; total_debited_cents: number } | null
   walletTransactions: WalletTx[]
@@ -75,6 +75,7 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
   // G3 — Panda ID copy state
   const [pandaIdCopied, setPandaIdCopied] = useState(false)
   async function copyPandaId() {
+    if (!account.panda_id) return
     try {
       await navigator.clipboard.writeText(account.panda_id)
       setPandaIdCopied(true)
@@ -182,7 +183,7 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium" style={{ color: "var(--ink-soft)" }}>Mon ID Panda</p>
             <p className="text-2xl font-bold tracking-wider mt-0.5" style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", color: "var(--accent)" }}>
-              {account.panda_id}
+              {account.panda_id || "— en attente —"}
             </p>
           </div>
           <button

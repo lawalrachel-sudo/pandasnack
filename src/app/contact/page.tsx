@@ -7,14 +7,19 @@ export default async function ContactPage() {
 
       <div className="px-4 pt-10 text-center">
         <img
-          src="https://res.cloudinary.com/dbkpvp9ts/image/upload/w_120,q_auto,f_auto/v1776343210/tete_panda_panda_snack.png"
-          alt="Panda"
-          className="w-20 h-20 rounded-full mx-auto mb-4"
+          src="https://res.cloudinary.com/dbkpvp9ts/image/upload/w_240,q_auto,f_auto/v1777335899/Enveloppe.png"
+          alt="Enveloppe"
+          className="w-32 h-auto mx-auto mb-3"
         />
         <h1 className="text-xl font-bold mb-2" style={{ color: "var(--ink)" }}>Contacte-nous</h1>
         <p className="text-sm mb-6" style={{ color: "var(--ink-soft)" }}>
           Une question, un souci, une suggestion ?
         </p>
+        <img
+          src="https://res.cloudinary.com/dbkpvp9ts/image/upload/w_160,q_auto,f_auto/v1777331138/Panda_Chef.jpg"
+          alt="Panda Chef"
+          className="w-24 h-24 rounded-full mx-auto mb-6 object-cover"
+        />
 
         <a
           href="mailto:team@pandasnack.online"

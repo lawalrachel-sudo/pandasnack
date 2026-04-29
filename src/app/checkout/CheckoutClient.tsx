@@ -212,7 +212,7 @@ export function CheckoutClient({ order, items, wallet, account, cutoffPassed, wa
 
       {/* Header */}
       <div className="pt-4 pb-4">
-        <button onClick={() => router.back()} className="text-sm flex items-center gap-1 mb-3" style={{ color: "var(--ink-soft)" }}>
+        <button onClick={() => router.push("/panier")} className="text-sm flex items-center gap-1 mb-3" style={{ color: "var(--ink-soft)" }}>
           ← Retour au panier
         </button>
         <h1 className="text-xl font-bold" style={{ color: "var(--ink)" }}>

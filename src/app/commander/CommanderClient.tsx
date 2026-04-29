@@ -462,12 +462,14 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
         <div className="px-4 pt-4">
           <h2 className="font-bold text-sm mb-2" style={{ color: "var(--ink-soft)" }}>Commande pour</h2>
           <div className="flex gap-2 overflow-x-auto pb-1">
-            {activeProfils.map((p) => {
+            {activeProfils.map((p, idx) => {
               const sel = selectedProfil?.id === p.id
+              const PASTEL_COLORS = ['#FEF3C7', '#99F6E4', '#FBCFE8', '#BBF7D0']
+              const pastelBg = PASTEL_COLORS[idx % PASTEL_COLORS.length]
               return (<button key={p.id} onClick={() => setSelectedProfilId(p.id)}
-                className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap border transition-colors ${sel ? "text-white border-transparent" : "border-[var(--border)]"}`}
-                style={sel ? { background: "var(--accent)" } : {}}>
-                {p.prenom}{p.classe && <span className="ml-1 opacity-75 text-xs">({CL[p.classe]})</span>}
+                className={`px-4 py-2 rounded-xl text-base font-bold whitespace-nowrap border transition-colors ${sel ? "text-white border-transparent" : "border-[var(--border)]"}`}
+                style={sel ? { background: "var(--accent)" } : { background: pastelBg, color: "var(--ink)" }}>
+                {p.prenom}{p.classe && <span className="ml-1 opacity-75 text-xs font-medium">({CL[p.classe]})</span>}
               </button>)
             })}
           </div>
@@ -526,19 +528,21 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
         const bento = visFormulas.find((f) => f.code === "BENTO_PANDA")
         const mp = visFormulas.find((f) => f.code === "MENU_PANDA")
         const canChange = !isMaternelle
+        // P0a #10/#10b — image hero bento selon profil sélectionné
+        const heroBentoImg = isMaternelle
+          ? "https://res.cloudinary.com/dbkpvp9ts/image/upload/v1776956118/Bento_TOUPITI_boulette_RIZ_POULET_carottes_cuites.png"
+          : "https://res.cloudinary.com/dbkpvp9ts/image/upload/v1776901351/Bento_3boulette_RIZ_POULET_carottes_cuites.png"
         return (
           <div className="px-4 mb-6">
-            <h2 className="font-bold text-lg mb-1">Menu Panda du jour</h2>
-            <p className="text-xs mb-1" style={{ color: "var(--ink-soft)" }}>Composition : plat + infusion maison glacée + dessert</p>
+            {/* P0a #6 — titre section École en bleu */}
+            <h2 className="font-bold text-lg mb-1" style={{ color: "#1D4ED8" }}>Menu Panda du jour</h2>
+            {/* P0a #9 — description Menu Panda rouge brique gras plus grande */}
+            <p className="text-sm font-bold mb-1" style={{ color: "#B91C1C" }}>Composition : plat + infusion maison glacée + dessert</p>
             <p className="text-xs mb-3" style={{ color: "var(--accent-2)" }}>Infusion maison glacée offerte avec chaque menu.</p>
             {bento && (
               <div className="rounded-2xl overflow-hidden mb-3" style={{ background: "var(--card)", boxShadow: "0 2px 16px var(--shadow)" }}>
                 <div className="aspect-[16/9] overflow-hidden">
-                  {bento.image_url ? (
-                    <img src={bento.image_url} alt={bento.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-6xl" style={{ background: "linear-gradient(135deg, var(--menu-panda-start), var(--menu-panda-end))" }}>🍱</div>
-                  )}
+                  <img src={heroBentoImg} alt={bento.name} className="w-full h-full object-cover" />
                 </div>
                 <div className="p-4">
                   <div className="flex items-center justify-between">
@@ -808,7 +812,6 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
                 <div>
                   <label className="text-xs font-medium" style={{ color: "var(--ink-soft)" }}>Note pour le préparateur</label>
                   <textarea value={orderNote} onChange={(e) => setOrderNote(e.target.value)}
-                    placeholder="Ex: allergie noisette pour Lyv, pas de sauce pour Tya..."
                     className="w-full mt-1 p-3 rounded-xl border text-sm resize-none" rows={2}
                     style={{ borderColor: "var(--border)", background: "var(--bg)" }} />
                 </div>

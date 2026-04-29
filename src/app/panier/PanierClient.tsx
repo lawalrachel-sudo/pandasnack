@@ -349,7 +349,7 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
                                     </p>
                                     {lineModifiable && (
                                       <div className="flex gap-3 mt-1">
-                                        <Link href="/commander" className="text-[11px] underline" style={{ color: "var(--accent)" }}>Modifier</Link>
+                                        <Link href="/planning" className="text-[11px] underline" style={{ color: "var(--accent)" }}>Modifier</Link>
                                         <button onClick={() => handleDeleteItem(item.id)} className="text-[11px] underline" style={{ color: "#DC2626" }}>Supprimer</button>
                                       </div>
                                     )}

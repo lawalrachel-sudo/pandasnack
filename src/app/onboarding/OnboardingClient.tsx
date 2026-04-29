@@ -159,15 +159,15 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
   const typeLabels: Record<SourceGroup, { title: string; desc: string }> = {
     ecole: {
       title: 'École La Patience (Fond Lahaye)',
-      desc: 'Parent d\'élève — bento et menus livrés à l\'école',
+      desc: "Livraison à l'école",
     },
     pandattitude: {
       title: 'École Pandattitude',
-      desc: 'Cours de dessin — menus midi mercredi, vendredi, samedi',
+      desc: '',
     },
     panda_guest: {
       title: 'Panda Guest',
-      desc: 'Commande libre — pickup à Didier ou livraison bureau',
+      desc: 'Pickup au Panda Snack ou livraison au bureau (CTM - FdF)',
     },
   }
 
@@ -212,7 +212,7 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
         {step === 1 && (
           <div>
             <h2 style={S.title}>Bienvenue {prenom || ''} !</h2>
-            <p style={S.subtitle}>Comment vas-tu utiliser Panda Snack ?</p>
+            <p style={S.subtitle}>Choisis un groupe pour entrer dans le Panda Snack !</p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {(Object.keys(typeLabels) as SourceGroup[]).map((key) => (

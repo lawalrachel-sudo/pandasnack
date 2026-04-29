@@ -3,6 +3,7 @@
 import Link from "next/link"
 
 const WALLET_IMG = "https://res.cloudinary.com/dbkpvp9ts/image/upload/w_40,q_auto,f_auto/v1776714727/PANDA_WALLET.jpg"
+const LOGO_URL = "https://res.cloudinary.com/dbkpvp9ts/image/upload/q_auto,f_auto/v1777335338/PANDA_SNACK_LOGO_transparent.png"
 
 interface NavbarProps {
   walletBalance?: number
@@ -11,12 +12,12 @@ interface NavbarProps {
   pendingCount?: number
 }
 
-export function Navbar({ walletBalance, familyName, lastRechargeCents, pendingCount = 0 }: NavbarProps) {
+export function Navbar({ walletBalance, lastRechargeCents, pendingCount = 0 }: NavbarProps) {
   const balanceDisplay = walletBalance != null
     ? `${(walletBalance / 100).toFixed(2).replace('.', ',')} €`
     : null
 
-  // Déterminer le palier de prix actif
+  // Palier de prix actif
   const recharge = lastRechargeCents || 0
   let palierLabel = ""
   if (recharge >= 10000) palierLabel = " (menus 8€)"
@@ -24,18 +25,22 @@ export function Navbar({ walletBalance, familyName, lastRechargeCents, pendingCo
 
   return (
     <header
-      className="sticky top-0 z-50 border-b px-4 py-3 flex items-center justify-between"
+      className="sticky top-0 z-50 border-b"
       style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}
     >
-      <Link href="/commander" className="flex items-center">
-        <img
-          src="https://res.cloudinary.com/dbkpvp9ts/image/upload/q_auto,f_auto/v1777332077/PANDA_SNACK_LOGO.jpg"
-          alt="Panda Snack"
-          className="h-10 w-auto md:h-12"
-        />
-      </Link>
+      {/* Row 1 — Logo grand centré */}
+      <div className="px-4 pt-2 pb-1 flex items-center justify-center">
+        <Link href="/commander" aria-label="Accueil Panda Snack">
+          <img
+            src={LOGO_URL}
+            alt="Panda Snack"
+            className="h-12 md:h-14 w-auto"
+          />
+        </Link>
+      </div>
 
-      <div className="flex items-center gap-2">
+      {/* Row 2 — Wallet pill (gauche) + Caddie (droite) */}
+      <div className="px-4 pb-2 flex items-center justify-between gap-2">
         <Link
           href="/mon-espace?tab=wallet"
           className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-bold text-white"
@@ -45,7 +50,6 @@ export function Navbar({ walletBalance, familyName, lastRechargeCents, pendingCo
           <span>{balanceDisplay || "0,00 €"}{palierLabel}</span>
         </Link>
 
-        {/* CHANTIER B — Bouton caddie avec badge pending */}
         <Link
           href="/panier"
           aria-label="Voir mon panier"
