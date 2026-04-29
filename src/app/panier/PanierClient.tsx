@@ -323,7 +323,7 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
                               className="flex items-center justify-center w-full h-10 rounded-lg text-sm font-semibold border"
                               style={{ borderColor: "var(--accent)", color: "var(--accent)", background: "var(--card)" }}
                             >
-                              + Ajouter un repas
+                              Ajouter un repas
                             </button>
                           )}
                           <Link href={`/checkout?order=${order.id}`}
@@ -417,12 +417,6 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
             )}
           </tbody>
         </table>
-      </div>
-
-      <div className="px-4 mt-8">
-        <Link href="/commander" className="block w-full h-12 rounded-xl font-semibold text-white text-center leading-[3rem]" style={{ background: "var(--accent)" }}>
-          Ma commande
-        </Link>
       </div>
 
       {/* H2.1 — Modal Ajouter un repas à une commande pending */}
