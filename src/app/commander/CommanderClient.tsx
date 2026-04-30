@@ -189,7 +189,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   const visFormulas = useMemo(() => {
     return menuFormulas.filter((f) => {
       const c = f.code || ""
-      if (c === "BENTO_TOUPITI") return sg === "ecole_la_patience" || sg === "pandattitude"
+      if (c === "BENTO_TOUPITI") return sg === "ecole_la_patience"
       if (c === "BENTO_PANDA") return sg === "ecole_la_patience" || sg === "pandattitude"
       if (c === "MENU_PANDA") return sg === "ecole_la_patience" || sg === "pandattitude"
       return false
