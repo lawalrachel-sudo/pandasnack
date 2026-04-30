@@ -11,7 +11,7 @@ import { CartBar } from "@/components/CartBar"
 // TYPES
 // ============================================================================
 
-type SourceGroup = "ecole" | "pandattitude" | "panda_guest"
+type SourceGroup = "ecole_la_patience" | "pandattitude" | "panda_guest"
 type Classe = "maternelle" | "primaire" | "college" | "lycee" | "prof"
 
 interface CatalogItem {
@@ -144,7 +144,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   function visForSource(item: CatalogItem): boolean {
     if (!item.active) return false
     const sku = item.sku || ""
-    if (sg === "ecole") {
+    if (sg === "ecole_la_patience") {
       if (sku.startsWith("CROQ-")) return false
       if (sku === "DRINK-BBL") return false
       if (sku.startsWith("SAL-")) return false
@@ -189,9 +189,9 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   const visFormulas = useMemo(() => {
     return menuFormulas.filter((f) => {
       const c = f.code || ""
-      if (c === "BENTO_TOUPITI") return sg === "ecole" || sg === "pandattitude"
-      if (c === "BENTO_PANDA") return sg === "ecole" || sg === "pandattitude"
-      if (c === "MENU_PANDA") return sg === "ecole" || sg === "pandattitude"
+      if (c === "BENTO_TOUPITI") return sg === "ecole_la_patience" || sg === "pandattitude"
+      if (c === "BENTO_PANDA") return sg === "ecole_la_patience" || sg === "pandattitude"
+      if (c === "MENU_PANDA") return sg === "ecole_la_patience" || sg === "pandattitude"
       return false
     })
   }, [menuFormulas, sg])
@@ -420,7 +420,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   const wb = wallet?.balance_cents ?? 0
   const wCovers = wb >= totalCents && wb > 0
   const wPartial = wb > 0 && wb < totalCents
-  const showALC = !(isMaternelle && sg === "ecole")
+  const showALC = !(isMaternelle && sg === "ecole_la_patience")
   const dateLabel = selectedSlot ? fmtDate(selectedSlot.service_date) : ""
   const bentoToupitiFormula = visFormulas.find((f) => f.code === "BENTO_TOUPITI")
 
@@ -514,7 +514,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
         </div>
       )}
 
-      {isMaternelle && sg === "ecole" && (
+      {isMaternelle && sg === "ecole_la_patience" && (
         <div className="mx-4 mb-4 rounded-xl p-4 text-sm" style={{ background: "#FEF3E2", border: "1px solid #F5D5A0" }}>
           <strong>{selectedProfil?.prenom}</strong> est en maternelle — le repas est un <strong>Bento du jour</strong> (pas de changement de plat possible).
           Tu peux ajouter des en-cas en plus.
@@ -524,7 +524,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       {/* ================================================================ */}
       {/* ÉCOLE — Hero Bento                                                */}
       {/* ================================================================ */}
-      {visFormulas.length > 0 && sg === "ecole" && (() => {
+      {visFormulas.length > 0 && sg === "ecole_la_patience" && (() => {
         const bento = visFormulas.find((f) => f.code === "BENTO_PANDA")
         const mp = visFormulas.find((f) => f.code === "MENU_PANDA")
         const canChange = !isMaternelle

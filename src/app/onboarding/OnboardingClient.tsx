@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { Logo } from '@/components/Logo'
 
-type SourceGroup = 'ecole' | 'pandattitude' | 'panda_guest'
+type SourceGroup = 'ecole_la_patience' | 'pandattitude' | 'panda_guest'
 type Classe = 'maternelle' | 'primaire' | 'college' | 'lycee' | 'prof'
 
 interface Profil {
@@ -85,7 +85,7 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
         setError(`Merci de renseigner le prénom du profil ${i + 1}.`)
         return false
       }
-      if (sourceGroup === 'ecole' && !profils[i].classe) {
+      if (sourceGroup === 'ecole_la_patience' && !profils[i].classe) {
         setError(`Merci de choisir la classe pour ${profils[i].prenom}.`)
         return false
       }
@@ -111,7 +111,7 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
       // 1. Créer le compte
       const nomCompte = `${prenom} ${nom}`.trim() || email
       const sourceDetail =
-        sourceGroup === 'ecole' ? 'fond_lahaye' : null
+        sourceGroup === 'ecole_la_patience' ? 'fond_lahaye' : null
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: account, error: accErr } = await (supabase as any)
@@ -158,7 +158,7 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
 
   // === LABELS ===
   const typeLabels: Record<SourceGroup, { title: string; desc: string }> = {
-    ecole: {
+    ecole_la_patience: {
       title: 'École La Patience (Fond Lahaye)',
       desc: "Livraison à l'école",
     },
@@ -212,7 +212,7 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {(Object.keys(typeLabels) as SourceGroup[]).map((key) => {
-                const isEcole = key === 'ecole'
+                const isEcole = key === 'ecole_la_patience'
                 const cardStyle = isEcole
                   ? { ...S.typeBtn, padding: '24px 18px', background: '#DCFCE7', borderColor: '#16A34A', borderWidth: 3 }
                   : S.typeBtn
@@ -249,7 +249,7 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
                 : 'Qui mange ?'}
             </h2>
             <p style={S.subtitle}>
-              {sourceGroup === 'ecole'
+              {sourceGroup === 'ecole_la_patience'
                 ? 'Ajoute un profil par enfant avec sa classe.'
                 : sourceGroup === 'pandattitude'
                 ? 'Ajoute les prénoms de ceux qui mangent.'
@@ -297,7 +297,7 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
                 </label>
 
                 {/* Classe — seulement pour école */}
-                {sourceGroup === 'ecole' && (
+                {sourceGroup === 'ecole_la_patience' && (
                   <label style={S.label}>
                     Classe
                     <select
@@ -404,7 +404,7 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
             <div style={S.recapBlock}>
               <div style={S.recapRow}>
                 <span style={S.recapLabel}>Type</span>
-                <span style={sourceGroup === 'ecole' ? { ...S.recapValue, color: '#1D4ED8', fontSize: 16, fontWeight: 800 } : S.recapValue}>{typeLabels[sourceGroup].title}</span>
+                <span style={sourceGroup === 'ecole_la_patience' ? { ...S.recapValue, color: '#1D4ED8', fontSize: 16, fontWeight: 800 } : S.recapValue}>{typeLabels[sourceGroup].title}</span>
               </div>
               <div style={S.recapRow}>
                 <span style={S.recapLabel}>Compte</span>
