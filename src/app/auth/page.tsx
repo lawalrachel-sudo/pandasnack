@@ -4,6 +4,7 @@ import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
+import { Logo } from '@/components/Logo';
 
 function AuthContent() {
   const router = useRouter();
@@ -139,11 +140,7 @@ function AuthContent() {
     <div style={styles.page}>
       <div style={styles.card}>
         <div style={{ ...styles.logoRow, justifyContent: 'center' }}>
-          <img
-            src="https://res.cloudinary.com/dbkpvp9ts/image/upload/q_auto,f_auto/v1777335338/PANDA_SNACK_LOGO_transparent.png"
-            alt="Panda Snack"
-            style={{ height: 80, width: 'auto' }}
-          />
+          <Logo size="lg" />
         </div>
 
         <h2 style={styles.title}>

@@ -1,9 +1,9 @@
 "use client"
 
 import Link from "next/link"
+import { Logo } from "./Logo"
 
 const WALLET_IMG = "https://res.cloudinary.com/dbkpvp9ts/image/upload/w_40,q_auto,f_auto/v1776714727/PANDA_WALLET.jpg"
-const LOGO_URL = "https://res.cloudinary.com/dbkpvp9ts/image/upload/q_auto,f_auto/v1777335338/PANDA_SNACK_LOGO_transparent.png"
 
 interface NavbarProps {
   walletBalance?: number
@@ -28,15 +28,9 @@ export function Navbar({ walletBalance, lastRechargeCents, pendingCount = 0 }: N
       className="sticky top-0 z-50 border-b"
       style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}
     >
-      {/* Row 1 — Logo grand centré */}
+      {/* Row 1 — Logo bannière md (80px) centré */}
       <div className="px-4 pt-2 pb-1 flex items-center justify-center">
-        <Link href="/commander" aria-label="Accueil Panda Snack">
-          <img
-            src={LOGO_URL}
-            alt="Panda Snack"
-            className="h-16 md:h-20 w-auto"
-          />
-        </Link>
+        <Logo size="md" link />
       </div>
 
       {/* Row 2 — Wallet pill (gauche) + Caddie (droite) */}

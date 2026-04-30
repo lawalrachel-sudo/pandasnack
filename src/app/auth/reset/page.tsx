@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import Link from "next/link"
+import { Logo } from "@/components/Logo"
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("")
@@ -53,7 +54,9 @@ export default function ResetPasswordPage() {
     return (
       <div className="min-h-screen flex items-center justify-center px-4" style={{ background: "var(--bg)" }}>
         <div className="max-w-sm w-full text-center">
-          <p className="text-4xl mb-4">🐼</p>
+          <div className="flex justify-center mb-4">
+            <Logo size="lg" />
+          </div>
           <h1 className="text-xl font-bold mb-2" style={{ color: "var(--ink)" }}>Mot de passe modifié</h1>
           <p className="text-sm mb-6" style={{ color: "var(--ink-soft)" }}>Tu peux maintenant te connecter avec ton nouveau mot de passe.</p>
           <Link href="/auth" className="inline-block px-6 py-3 rounded-xl font-semibold text-white text-sm" style={{ background: "var(--accent)" }}>
@@ -68,7 +71,9 @@ export default function ResetPasswordPage() {
     <div className="min-h-screen flex items-center justify-center px-4" style={{ background: "var(--bg)" }}>
       <div className="max-w-sm w-full">
         <div className="text-center mb-6">
-          <p className="text-4xl mb-2">🐼</p>
+          <div className="flex justify-center mb-3">
+            <Logo size="lg" />
+          </div>
           <h1 className="text-xl font-bold" style={{ color: "var(--ink)" }}>Nouveau mot de passe</h1>
           <p className="text-sm mt-1" style={{ color: "var(--ink-soft)" }}>Choisis un nouveau mot de passe pour ton compte Panda Snack.</p>
         </div>

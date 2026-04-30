@@ -1,14 +1,13 @@
 import Link from "next/link"
+import { Logo } from "@/components/Logo"
 
 export default function Home() {
   return (
     <div className="flex flex-col flex-1 items-center justify-center px-6 py-16">
-      {/* Logo banner */}
-      <img
-        src="https://res.cloudinary.com/dbkpvp9ts/image/upload/w_600,q_auto,f_auto/v1776298625/BANNIERE_panda_snack_logo.png"
-        alt="Panda Snack"
-        className="w-full max-w-md mb-8"
-      />
+      {/* Logo banner xl */}
+      <div className="mb-8">
+        <Logo size="xl" />
+      </div>
 
       <h1 className="text-2xl font-bold text-center mb-3" style={{ color: 'var(--ink)' }}>
         Commande en ligne

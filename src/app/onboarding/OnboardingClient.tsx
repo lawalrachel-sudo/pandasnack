@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
+import { Logo } from '@/components/Logo'
 
 type SourceGroup = 'ecole' | 'pandattitude' | 'panda_guest'
 type Classe = 'maternelle' | 'primaire' | 'college' | 'lycee' | 'prof'
@@ -185,11 +186,7 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
       <div style={S.card}>
         {/* Header */}
         <div style={{ ...S.logoRow, justifyContent: 'center' }}>
-          <img
-            src="https://res.cloudinary.com/dbkpvp9ts/image/upload/q_auto,f_auto/v1777335338/PANDA_SNACK_LOGO_transparent.png"
-            alt="Panda Snack"
-            style={{ height: 80, width: 'auto' }}
-          />
+          <Logo size="lg" />
         </div>
 
         {/* Indicateur d'étapes */}
