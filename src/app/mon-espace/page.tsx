@@ -18,6 +18,7 @@ export default async function MonEspacePage() {
     .from("profils")
     .select("id, prenom, classe, is_default, active, notes_allergies")
     .eq("account_id", account.id)
+    .is("archived_at", null)
     .order("is_default", { ascending: false })
     .order("created_at")
 

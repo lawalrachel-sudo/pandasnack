@@ -472,24 +472,10 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
     <div className="min-h-screen pb-20 max-w-lg mx-auto overflow-x-hidden">
       <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} pendingCount={pendingCount} />
 
-      {/* CHANTIER C — Encart top commandes en attente, cliquable sur toute la zone */}
-      {pendingCount > 0 && (
-        <Link
-          href="/panier"
-          className="block mx-4 mt-3 rounded-xl p-4 transition-shadow hover:shadow-md"
-          style={{ background: "#FFF3E0", border: "1px solid #F5D5A0" }}
-        >
-          <div className="flex items-center gap-2" style={{ color: "#92400E" }}>
-            <span className="text-lg leading-none">🛒</span>
-            <span className="text-sm font-semibold flex-1">
-              Tu as {pendingCount} commande{pendingCount > 1 ? "s" : ""} en attente · {fmtPrice(pendingTotalCents)}
-            </span>
-          </div>
-          <div className="text-right text-xs mt-1" style={{ color: "#B45309" }}>
-            Voir / Modifier ›
-          </div>
-        </Link>
-      )}
+      {/* Texte de bienvenue permanent (remplace l'ancien bandeau commande en attente) */}
+      <p className="px-4 mt-2 text-xs text-center" style={{ color: "var(--ink-soft)" }}>
+        Bienvenue chez Panda Snack 🐼 — Compose ton menu, choisis tes jours, c&apos;est prêt.
+      </p>
 
       {addedToast && (
         <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 rounded-xl text-sm font-semibold text-white shadow-lg animate-fade-in" style={{ background: "var(--accent-2)" }}>
@@ -499,7 +485,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
 
       {/* Profil */}
       {activeProfils.length > 1 && (
-        <div className="px-4 pt-4">
+        <div className="px-4 pt-2">
           <h2 className="font-bold text-sm mb-2" style={{ color: "var(--ink-soft)" }}>Commande pour</h2>
           <div className="flex gap-2 overflow-x-auto pb-1">
             {activeProfils.map((p, idx) => {
@@ -516,7 +502,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
         </div>
       )}
       {activeProfils.length === 1 && selectedProfil && (
-        <div className="px-4 pt-3">
+        <div className="px-4 pt-2">
           <p className="text-sm" style={{ color: "var(--ink-soft)" }}>
             Commande pour <strong style={{ color: "var(--ink)" }}>{selectedProfil.prenom}</strong>
             {selectedProfil.classe && <span className="ml-1 text-xs">({CLF[selectedProfil.classe]})</span>}
@@ -525,7 +511,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       )}
 
       {/* Slot */}
-      <div className="px-4 py-4">
+      <div className="px-4 py-2">
         <h2 className="font-bold text-sm mb-2" style={{ color: "var(--ink-soft)" }}>Jour de livraison</h2>
         {slots.length === 0 ? (
           <div className="rounded-xl p-4 text-sm" style={{ background: "var(--bg-alt)", color: "var(--ink-soft)" }}>Aucun créneau ouvert pour le moment.</div>

@@ -72,6 +72,28 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
   const [pwdMsg, setPwdMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null)
   const [pwdSaving, setPwdSaving] = useState(false)
 
+  // Modif 6 — Suppression profil (soft delete via archived_at)
+  const [pendingDelete, setPendingDelete] = useState<Profil | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
+  async function archiveProfil(profilId: string) {
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/profils?profilId=${profilId}`, { method: "DELETE" })
+      const data = await res.json()
+      if (res.ok) {
+        setPendingDelete(null)
+        window.location.reload()
+      } else {
+        alert(data.error || "Erreur suppression")
+        setDeleting(false)
+      }
+    } catch {
+      alert("Erreur réseau")
+      setDeleting(false)
+    }
+  }
+
   // G3 — Panda ID copy state
   const [pandaIdCopied, setPandaIdCopied] = useState(false)
   async function copyPandaId() {
@@ -225,7 +247,18 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
                   {p.classe && <p className="text-xs mt-0.5" style={{ color: "var(--ink-soft)" }}>{CL[p.classe] || p.classe}</p>}
                   {p.notes_allergies && <p className="text-xs mt-1" style={{ color: "#B45309" }}>⚠ {p.notes_allergies}</p>}
                 </div>
-                <button onClick={() => toggleProfil(p.id, false)} className="text-xs underline" style={{ color: "var(--ink-soft)" }}>Désactiver</button>
+                <div className="flex flex-col items-end gap-1">
+                  <button onClick={() => toggleProfil(p.id, false)} className="text-xs underline" style={{ color: "var(--ink-soft)" }}>Désactiver</button>
+                  <button
+                    onClick={() => setPendingDelete(p)}
+                    disabled={profils.length <= 1}
+                    title={profils.length <= 1 ? "Au moins 1 profil obligatoire" : "Supprimer ce profil"}
+                    className="text-xs underline disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{ color: "#DC2626" }}
+                  >
+                    🗑️ Supprimer
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -437,6 +470,38 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
           }} className="w-full h-10 rounded-lg font-semibold text-sm border" style={{ borderColor: "var(--border)", color: "var(--accent)" }}>
             Se déconnecter
           </button>
+        </div>
+      )}
+
+      {/* Modif 6 — Modal confirmation suppression profil */}
+      {pendingDelete && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center px-4">
+          <div className="rounded-2xl max-w-sm w-full p-6" style={{ background: "var(--card)" }}>
+            <h3 className="font-bold text-lg mb-2" style={{ color: "var(--ink)" }}>
+              Supprimer le profil {pendingDelete.prenom} ?
+            </h3>
+            <p className="text-sm mb-5" style={{ color: "var(--ink-soft)" }}>
+              Cette action est définitive. L&apos;historique de commandes lié au profil reste préservé pour la facturation.
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => archiveProfil(pendingDelete.id)}
+                disabled={deleting}
+                className="w-full h-11 rounded-lg font-semibold text-white text-sm disabled:opacity-50"
+                style={{ background: "#DC2626" }}
+              >
+                {deleting ? "Suppression..." : "Supprimer définitivement"}
+              </button>
+              <button
+                onClick={() => setPendingDelete(null)}
+                disabled={deleting}
+                className="w-full h-10 rounded-lg text-sm font-medium border"
+                style={{ borderColor: "var(--border)", color: "var(--ink-soft)" }}
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

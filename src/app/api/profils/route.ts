@@ -67,3 +67,40 @@ export async function PATCH(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })
 }
+
+// DELETE — Soft delete (archived_at = NOW), avec garde-fou ≥ 1 profil non archivé
+export async function DELETE(req: NextRequest) {
+  const supabase: any = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 })
+
+  const { data: account } = await supabase
+    .from("accounts").select("id").eq("auth_user_id", user.id).single()
+  if (!account) return NextResponse.json({ error: "Compte introuvable" }, { status: 404 })
+
+  const profilId = req.nextUrl.searchParams.get("profilId")
+  if (!profilId) return NextResponse.json({ error: "profilId requis" }, { status: 400 })
+
+  // Vérifier ownership
+  const { data: existing } = await supabase
+    .from("profils").select("id, archived_at")
+    .eq("id", profilId).eq("account_id", account.id).single()
+  if (!existing) return NextResponse.json({ error: "Profil introuvable" }, { status: 404 })
+  if (existing.archived_at) return NextResponse.json({ error: "Profil déjà archivé" }, { status: 400 })
+
+  // Garde-fou backend : count profils non archivés > 1
+  const { count } = await supabase
+    .from("profils").select("id", { count: "exact", head: true })
+    .eq("account_id", account.id).is("archived_at", null)
+  if ((count ?? 0) <= 1) {
+    return NextResponse.json({ error: "Au moins 1 profil obligatoire" }, { status: 400 })
+  }
+
+  const { error } = await supabase
+    .from("profils")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("id", profilId)
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ success: true })
+}
