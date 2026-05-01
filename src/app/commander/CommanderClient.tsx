@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Navbar } from "@/components/Navbar"
 import { ProductCard } from "@/components/ProductCard"
+import { useCart } from "@/lib/cart-context"
 
 // ============================================================================
 // TYPES
@@ -29,10 +30,7 @@ interface Wallet { balance_cents: number }
 interface DeliveryPoint { id: string; name: string; address: string | null; delivery_time_local: string | null }
 interface Slot { id: string; service_date: string; day_type: string; active: boolean; morning_delivery: boolean | null; target_source_group: SourceGroup | null; delivery_points: DeliveryPoint | null }
 
-interface CartItem {
-  itemId: string; itemName: string; priceCents: number; profilId: string | null; profilPrenom: string
-  isTakeaway: boolean; isFormula: boolean; formulaCode: string | null; selectedPlat: string | null; selectedToppings: string[]
-}
+// CartItem type is now imported from @/lib/cart-context
 
 interface Props {
   account: Account; profils: Profil[]; wallet: Wallet | null; categories: Category[]
@@ -86,9 +84,9 @@ function buildImgUrl(url: string): string {
 
 export function CommanderClient({ account, profils, wallet, categories, menuFormulas, toppings, slots, pendingCount, pendingTotalCents, weekItemCount, weekTotalCents }: Props) {
   const router = useRouter()
+  const { cart, setCart, totalCents } = useCart()
   const [selectedSlotId, setSelectedSlotId] = useState<string>(slots[0]?.id || "")
   const [selectedProfilId, setSelectedProfilId] = useState<string>("")
-  const [cart, setCart] = useState<CartItem[]>([])
   const [showCart, setShowCart] = useState(false)
   const [addedToast, setAddedToast] = useState<string | null>(null)
   const [mfOpen, setMfOpen] = useState(false)
@@ -107,7 +105,6 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
 
 
   const selectedSlot = useMemo(() => slots.find((s) => s.id === selectedSlotId) || null, [slots, selectedSlotId])
-  const totalCents = cart.reduce((s, i) => s + i.priceCents, 0)
   const activeProfils = useMemo(() => profils.filter((p) => p.active), [profils])
   const selectedProfil = useMemo(() => {
     if (selectedProfilId) return activeProfils.find((p) => p.id === selectedProfilId) || activeProfils[0] || null
@@ -738,27 +735,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
         </div>
       )}
 
-      {/* BUG 1 — Mini cabas sticky top-right (remplace bouton inline large) */}
-      {cart.length > 0 && (
-        <button
-          onClick={() => setShowCart(true)}
-          className="fixed top-32 right-4 z-40 w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center"
-          style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.15)", border: "2px solid var(--accent)" }}
-          aria-label={`Voir mon panier (${cart.length})`}
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--accent)" }}>
-            <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-            <path d="M3 6h18" />
-            <path d="M16 10a4 4 0 0 1-8 0" />
-          </svg>
-          <span
-            className="absolute -top-1 -right-1 min-w-[20px] h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center px-1"
-            style={{ background: "#DC2626" }}
-          >
-            {cart.length}
-          </span>
-        </button>
-      )}
+      {/* T1 (3-E) — Mini cabas sticky supprimé. Point d'entrée unique = icône caddie BottomNav. */}
 
       {/* ================================================================ */}
       {/* MENU FLOW MODAL                                                   */}
