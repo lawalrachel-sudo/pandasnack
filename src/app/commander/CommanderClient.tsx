@@ -144,6 +144,8 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   function visForSource(item: CatalogItem): boolean {
     if (!item.active) return false
     const sku = item.sku || ""
+    // Toupiti à la carte est dédupliqué : la formula BENTO_TOUPITI assure le rendu, l'item solo est masqué partout
+    if (sku === "BENTO-TOUPITI-CARTE") return false
     if (sg === "ecole_la_patience") {
       if (sku.startsWith("CROQ-")) return false
       if (sku === "DRINK-BBL") return false
@@ -180,7 +182,20 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       snacks.push(...inSnack)
       alcItems.push(...notSnack)
     }
-    alcItems.sort((a, b) => a.sort_order - b.sort_order)
+    // Pandattitude : Bubble Tea + Thé maison repoussés en toute fin de liste À la carte
+    const PANDATTITUDE_END_SKUS = ["DRINK-BBL", "DRINK-TEA_MAISON_50CL"]
+    alcItems.sort((a, b) => {
+      if (sg === "pandattitude") {
+        const aIdx = PANDATTITUDE_END_SKUS.indexOf(a.sku || "")
+        const bIdx = PANDATTITUDE_END_SKUS.indexOf(b.sku || "")
+        const aEnd = aIdx >= 0
+        const bEnd = bIdx >= 0
+        if (aEnd && !bEnd) return 1
+        if (!aEnd && bEnd) return -1
+        if (aEnd && bEnd) return aIdx - bIdx
+      }
+      return a.sort_order - b.sort_order
+    })
     snacks.sort((a, b) => a.sort_order - b.sort_order)
     return { aLaCarteItems: alcItems, snackItems: snacks }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -192,6 +207,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       if (c === "BENTO_TOUPITI") return sg === "ecole_la_patience"
       if (c === "BENTO_PANDA") return sg === "ecole_la_patience" || sg === "pandattitude"
       if (c === "MENU_PANDA") return sg === "ecole_la_patience" || sg === "pandattitude"
+      if (c === "MENU_CROQUE") return sg === "pandattitude"
       return false
     })
   }, [menuFormulas, sg])

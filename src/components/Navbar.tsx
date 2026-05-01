@@ -30,7 +30,7 @@ export function Navbar({ walletBalance, lastRechargeCents, pendingCount = 0 }: N
     >
       {/* Row 1 — Logo bannière md (80px) centré */}
       <div className="px-4 pt-2 pb-1 flex items-center justify-center">
-        <Logo size="lg" link />
+        <Logo size="xl" link />
       </div>
 
       {/* Row 2 — Wallet pill (gauche) + Caddie (droite) */}
