@@ -9,7 +9,7 @@ export default async function PanierPage() {
 
   const { data: account } = await supabase
     .from("accounts")
-    .select("id, nom_compte")
+    .select("id, nom_compte, source_group")
     .eq("auth_user_id", user.id)
     .single()
   if (!account) redirect("/onboarding")

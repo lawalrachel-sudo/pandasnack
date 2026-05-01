@@ -4,6 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { Navbar } from "@/components/Navbar"
+import { HeaderMetier } from "@/components/HeaderMetier"
 
 const WALLET_IMG = "https://res.cloudinary.com/dbkpvp9ts/image/upload/v1776714727/PANDA_WALLET.jpg"
 const CL: Record<string, string> = { maternelle: "Maternelle", primaire: "Primaire", college: "Collège", lycee: "Lycée", prof: "Prof/Équipe" }
@@ -164,6 +165,7 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
   return (
     <div className="min-h-screen pb-28 max-w-lg mx-auto">
       <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} pendingCount={pendingCount} />
+      <HeaderMetier sg={account.source_group} />
 
       {/* Header profil parent */}
       <div className="px-4 pt-6 pb-4" style={{ background: "linear-gradient(135deg, var(--menu-panda-start), var(--menu-panda-end))" }}>

@@ -6,6 +6,7 @@ import Link from "next/link"
 import { Navbar } from "@/components/Navbar"
 import { ProductCard } from "@/components/ProductCard"
 import { useCart } from "@/lib/cart-context"
+import { HeaderMetier } from "@/components/HeaderMetier"
 
 // ============================================================================
 // TYPES
@@ -467,16 +468,8 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
         Bienvenue chez Panda Snack 🐼 — Compose ton menu, choisis tes jours, c&apos;est prêt.
       </p>
 
-      {/* BUG 4 — Header métier (identification source_group) */}
-      {sg && (
-        <div className="px-4 pt-3 pb-1">
-          <h1 className="font-bold text-base text-center" style={{ color: "var(--ink)" }}>
-            {sg === "ecole_la_patience" && "École La Patience"}
-            {sg === "pandattitude" && "Pandattitude"}
-            {sg === "panda_guest" && "Panda Guest"}
-          </h1>
-        </div>
-      )}
+      {/* T3 (3-E) — HeaderMetier composant réutilisable */}
+      <HeaderMetier sg={sg} />
 
       {addedToast && (
         <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 rounded-xl text-sm font-semibold text-white shadow-lg animate-fade-in" style={{ background: "var(--accent-2)" }}>

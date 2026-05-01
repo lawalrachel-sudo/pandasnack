@@ -3,6 +3,7 @@
 import { useState, useMemo, useRef } from "react"
 import Link from "next/link"
 import { Navbar } from "@/components/Navbar"
+import { HeaderMetier } from "@/components/HeaderMetier"
 
 const WALLET_IMG = "https://res.cloudinary.com/dbkpvp9ts/image/upload/v1776714727/PANDA_WALLET.jpg"
 const STATUS_LABELS: Record<string, { label: string; color: string; bg: string; dot: string }> = {
@@ -42,7 +43,7 @@ interface Slot { id: string; service_date: string; day_type: string; orders_cuto
 interface CatalogItem { id: string; sku: string | null; name: string; emoji: string | null; price_alone_cents: number | null; image_url: string | null; ui_group: string | null }
 
 interface Props {
-  account: { id: string; nom_compte: string }
+  account: { id: string; nom_compte: string; source_group: string | null }
   profils: Profil[]
   orders: Order[]
   wallet: { balance_cents: number } | null
@@ -164,8 +165,9 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
   return (
     <div className="min-h-screen pb-20 max-w-lg mx-auto">
       <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} pendingCount={pendingCount} />
+      <HeaderMetier sg={account.source_group} />
 
-      <div className="px-4 pt-6">
+      <div className="px-4 pt-3">
         <h1 className="text-xl font-bold mb-1" style={{ color: "var(--ink)" }}>Mon panier</h1>
         <p className="text-xs mb-4" style={{ color: "var(--ink-soft)" }}>Tes commandes en attente de paiement</p>
       </div>

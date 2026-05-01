@@ -2,6 +2,7 @@ import Link from "next/link"
 import { createServerSupabase } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { NavbarServer } from "@/components/NavbarServer"
+import { HeaderMetier } from "@/components/HeaderMetier"
 
 export const dynamic = "force-dynamic"
 
@@ -48,7 +49,7 @@ export default async function PlanningPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: account } = await (supabase as any)
     .from("accounts")
-    .select("id")
+    .select("id, source_group")
     .eq("auth_user_id", user.id)
     .single()
   if (!account) redirect("/onboarding")
@@ -83,8 +84,9 @@ export default async function PlanningPage() {
   return (
     <div className="min-h-screen pb-28 max-w-lg mx-auto">
       <NavbarServer />
+      <HeaderMetier sg={account.source_group} />
 
-      <div className="px-4 pt-6">
+      <div className="px-4 pt-3">
         <h1 className="text-xl font-bold mb-1" style={{ color: "var(--ink)" }}>Planning</h1>
         <p className="text-xs mb-5" style={{ color: "var(--ink-soft)" }}>
           Tes commandes en attente de paiement
