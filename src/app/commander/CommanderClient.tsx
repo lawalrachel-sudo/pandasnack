@@ -222,7 +222,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       const c = f.code || ""
       if (c === "BENTO_TOUPITI") return sg === "ecole_la_patience" || sg === "panda_guest"
       if (c === "BENTO_PANDA") return sg === "ecole_la_patience"
-      if (c === "BENTO_JOUR") return sg === "pandattitude"
+      if (c === "BENTO_JOUR") return sg === "pandattitude" || sg === "panda_guest"
       if (c === "MENU_PANDA") return sg === "ecole_la_patience" || sg === "pandattitude"
       if (c === "MENU_PANDA_GUEST") return sg === "panda_guest"
       return false
@@ -470,6 +470,17 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
         Bienvenue chez Panda Snack 🐼 — Compose ton menu, choisis tes jours, c&apos;est prêt.
       </p>
 
+      {/* BUG 4 — Header métier (identification source_group) */}
+      {sg && (
+        <div className="px-4 pt-3 pb-1">
+          <h1 className="font-bold text-base text-center" style={{ color: "var(--ink)" }}>
+            {sg === "ecole_la_patience" && "École La Patience"}
+            {sg === "pandattitude" && "Pandattitude"}
+            {sg === "panda_guest" && "Panda Guest"}
+          </h1>
+        </div>
+      )}
+
       {addedToast && (
         <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 rounded-xl text-sm font-semibold text-white shadow-lg animate-fade-in" style={{ background: "var(--accent-2)" }}>
           {addedToast} ajouté
@@ -593,7 +604,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
         return (
           <div className="px-4 mb-6">
             <h2 className="font-bold text-lg mb-1 text-center" style={{ color: "#1D4ED8" }}>Menu Panda du jour</h2>
-            <p className="text-sm font-bold mb-1" style={{ color: "#B91C1C" }}>Composition : plat + infusion maison glacée + dessert</p>
+            <p className="text-sm font-bold mb-1" style={{ color: "#B91C1C" }}>Bento du jour + boisson + dessert</p>
             <p className="text-xs mb-3" style={{ color: "var(--accent-2)" }}>Infusion maison glacée offerte avec chaque menu.</p>
             {bento && (
               <div className="rounded-2xl overflow-hidden mb-3" style={{ background: "var(--card)", boxShadow: "0 2px 16px var(--shadow)" }}>
@@ -630,13 +641,11 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       {/* PANDA GUEST — Hero pattern La Patience (BENTO_JOUR + Changer de plat via MENU_PANDA_GUEST, sans Croque) */}
       {visFormulas.length > 0 && sg === "panda_guest" && (() => {
         const bento = visFormulas.find((f) => f.code === "BENTO_JOUR")
-          // Fallback : Panda Guest n'a pas BENTO_JOUR au moment du push initial — utilise BENTO_PANDA en placeholder si dispo
-          || visFormulas.find((f) => f.code === "BENTO_PANDA")
         const mp = visFormulas.find((f) => f.code === "MENU_PANDA_GUEST")
         return (
           <div className="px-4 mb-6">
             <h2 className="font-bold text-lg mb-1 text-center" style={{ color: "#1D4ED8" }}>Menu Panda du jour</h2>
-            <p className="text-sm font-bold mb-1" style={{ color: "#B91C1C" }}>Composition : plat + infusion maison glacée + dessert</p>
+            <p className="text-sm font-bold mb-1" style={{ color: "#B91C1C" }}>Bento du jour + boisson + dessert</p>
             <p className="text-xs mb-3" style={{ color: "var(--accent-2)" }}>Infusion maison glacée offerte avec chaque menu.</p>
             {bento && (
               <div className="rounded-2xl overflow-hidden mb-3" style={{ background: "var(--card)", boxShadow: "0 2px 16px var(--shadow)" }}>
@@ -729,21 +738,26 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
         </div>
       )}
 
-      {/* T2 — Bouton inline non-sticky pour ouvrir le panier (remplace CartBar sticky) */}
+      {/* BUG 1 — Mini cabas sticky top-right (remplace bouton inline large) */}
       {cart.length > 0 && (
-        <div className="px-4 mt-8">
-          <button
-            onClick={() => setShowCart(true)}
-            className="w-full h-14 rounded-2xl flex items-center justify-between px-5 font-bold text-white shadow-lg"
-            style={{ background: "var(--accent)" }}
+        <button
+          onClick={() => setShowCart(true)}
+          className="fixed top-32 right-4 z-40 w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center"
+          style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.15)", border: "2px solid var(--accent)" }}
+          aria-label={`Voir mon panier (${cart.length})`}
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--accent)" }}>
+            <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+            <path d="M3 6h18" />
+            <path d="M16 10a4 4 0 0 1-8 0" />
+          </svg>
+          <span
+            className="absolute -top-1 -right-1 min-w-[20px] h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center px-1"
+            style={{ background: "#DC2626" }}
           >
-            <span className="bg-white/20 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">
-              {cart.length}
-            </span>
-            <span className="text-base">Voir mon panier</span>
-            <span className="text-base">{fmtPrice(totalCents)}</span>
-          </button>
-        </div>
+            {cart.length}
+          </span>
+        </button>
       )}
 
       {/* ================================================================ */}

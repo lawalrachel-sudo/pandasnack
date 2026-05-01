@@ -354,9 +354,10 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
                                   {lineModifiable && (
                                     <div className="flex gap-2 mt-2">
                                       <Link
-                                        href="/planning"
+                                        href="/commander"
                                         className="flex-1 text-center px-3 py-1.5 rounded-md text-xs font-semibold border"
                                         style={{ borderColor: "var(--accent)", color: "var(--accent)", background: "var(--card)" }}
+                                        title="Retire l'article puis ré-ajoute-le depuis Le Menu"
                                       >
                                         ✏️ Modifier
                                       </Link>
