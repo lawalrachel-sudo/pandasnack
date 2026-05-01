@@ -106,6 +106,9 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   const [alcItem, setAlcItem] = useState<CatalogItem | null>(null)
   const [alcToppings, setAlcToppings] = useState<string[]>([])
 
+  // --- Pandattitude Hero — plat sélectionné dans le carrousel (1 card Menu Panda) ---
+  const [pandaPlatId, setPandaPlatId] = useState<string | null>(null)
+
   const selectedSlot = useMemo(() => slots.find((s) => s.id === selectedSlotId) || null, [slots, selectedSlotId])
   const totalCents = cart.reduce((s, i) => s + i.priceCents, 0)
   const activeProfils = useMemo(() => profils.filter((p) => p.active), [profils])
@@ -153,7 +156,10 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       if (sd === "fond_lahaye" && sku === "SAND-C") return false
       if (sd === "fond_lahaye" && sku === "SAND-A") return false
     }
-    if (sg === "pandattitude") { if (sku.startsWith("SAL-")) return false }
+    if (sg === "pandattitude") {
+      if (sku.startsWith("SAL-")) return false
+      if (sku === "SAND-VOLAILLE") return false
+    }
     return true
   }
 
@@ -166,7 +172,13 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   const menuPlatItems = useMemo(() => {
     return categories.flatMap((c) => c.catalog_items)
       .filter((i) => i.active && i.sellable_in_menu && visForSource(i))
-      .filter((i) => { const s = i.sku || ""; return s.startsWith("SAND-") || s.startsWith("PASTA-") || s.startsWith("CROQ-") || s.startsWith("SAL-") })
+      .filter((i) => {
+        const s = i.sku || ""
+        const baseMatch = s.startsWith("SAND-") || s.startsWith("PASTA-") || s.startsWith("CROQ-") || s.startsWith("SAL-")
+        // Pandattitude carrousel : ajout BENTO-JOUR (rotation A/B programmée plus tard)
+        const pandattitudeBonus = sg === "pandattitude" && s === "BENTO-JOUR"
+        return baseMatch || pandattitudeBonus
+      })
       .sort((a, b) => a.sort_order - b.sort_order)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categories, sg, sd])
@@ -205,9 +217,8 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
     return menuFormulas.filter((f) => {
       const c = f.code || ""
       if (c === "BENTO_TOUPITI") return sg === "ecole_la_patience"
-      if (c === "BENTO_PANDA") return sg === "ecole_la_patience" || sg === "pandattitude"
+      if (c === "BENTO_PANDA") return sg === "ecole_la_patience"
       if (c === "MENU_PANDA") return sg === "ecole_la_patience" || sg === "pandattitude"
-      if (c === "MENU_CROQUE") return sg === "pandattitude"
       return false
     })
   }, [menuFormulas, sg])
@@ -276,6 +287,19 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       selectedPlat: null, selectedToppings: [],
     }])
     showToast(f.name)
+  }
+
+  // Pandattitude — ajout MENU_PANDA inline avec plat sélectionné via carrousel
+  function addPandattitudeMenu(formula: MenuFormula, plat: CatalogItem) {
+    const pr = selectedProfil
+    const label = `${formula.name} — ${plat.name}`
+    setCart((p) => [...p, {
+      itemId: formula.id, itemName: label, priceCents: formula.price_cents,
+      profilId: pr?.id ?? null, profilPrenom: pr?.prenom ?? account.nom_compte,
+      isTakeaway: false, isFormula: true, formulaCode: formula.code,
+      selectedPlat: plat.sku, selectedToppings: [],
+    }])
+    showToast(label)
   }
 
   // ============================================================================
@@ -583,38 +607,83 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
         )
       })()}
 
-      {/* PANDATTITUDE */}
-      {visFormulas.length > 0 && sg === "pandattitude" && (
-        <div className="px-4 mb-6">
-          <h2 className="font-bold text-lg mb-1">Menu Panda</h2>
-          <p className="text-xs mb-1" style={{ color: "var(--ink-soft)" }}>Composition : plat au choix + infusion maison glacée + dessert</p>
-          <p className="text-xs mb-3" style={{ color: "var(--accent-2)" }}>Infusion maison glacée offerte avec chaque menu.</p>
-          <div className="grid grid-cols-2 gap-3">
-            {visFormulas.map((f) => (
-              <div key={f.id} className="rounded-2xl overflow-hidden cursor-pointer transition-transform hover:scale-[1.02]"
-                style={{ background: "var(--card)", boxShadow: "0 2px 12px var(--shadow)" }} onClick={() => openMenuFlow(f)}>
-                <div className="aspect-[4/3] overflow-hidden">
-                  {f.image_url && !f.image_url.includes("etiquette_emballage") ? (
-                    <img src={buildImgUrl(f.image_url)} alt={f.name} className="w-full h-full object-cover" loading="lazy" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-5xl" style={{ background: "var(--bg-alt)" }}>{f.emoji || "🐼"}</div>
-                  )}
+      {/* PANDATTITUDE — 1 card Menu Panda + carrousel plats inline */}
+      {sg === "pandattitude" && visFormulas.find((f) => f.code === "MENU_PANDA") && menuPlatItems.length > 0 && (() => {
+        const menuPanda = visFormulas.find((f) => f.code === "MENU_PANDA")!
+        const platSelected = menuPlatItems.find((p) => p.id === pandaPlatId) || menuPlatItems[0]
+        const heroImage = platSelected?.image_url
+        return (
+          <div className="px-4 mb-6">
+            <h2 className="font-bold text-lg mb-1 text-center" style={{ color: "#1D4ED8" }}>Menu Panda du jour</h2>
+            <p className="text-sm font-bold mb-1 text-center" style={{ color: "#B91C1C" }}>Composition : plat + infusion maison glacée + dessert</p>
+            <p className="text-xs mb-3 text-center" style={{ color: "var(--accent-2)" }}>Infusion maison glacée offerte avec chaque menu.</p>
+
+            <div className="rounded-2xl overflow-hidden mb-3" style={{ background: "var(--card)", boxShadow: "0 2px 16px var(--shadow)" }}>
+              {/* Image hero — change selon plat sélectionné, object-contain pour gérer photos + illus mascotte */}
+              <div className="aspect-[4/3] flex items-center justify-center" style={{ background: "var(--bg-alt)" }}>
+                {heroImage ? (
+                  <img src={buildImgUrl(heroImage)} alt={platSelected?.name || menuPanda.name} className="max-w-full max-h-full object-contain" />
+                ) : (
+                  <div className="text-6xl">🐼</div>
+                )}
+              </div>
+
+              <div className="p-4">
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-lg">{menuPanda.name}</h3>
+                    {platSelected && (
+                      <p className="text-xs mt-1" style={{ color: "var(--ink-soft)" }}>
+                        Plat : <strong style={{ color: "var(--ink)" }}>{platSelected.name}</strong>
+                        {platSelected.description && <span> — {platSelected.description}</span>}
+                      </p>
+                    )}
+                  </div>
+                  <span className="font-bold text-xl shrink-0">{fmtPrice(menuPanda.price_cents)}</span>
                 </div>
-                <div className="p-3">
-                  <h4 className="font-semibold text-sm">{f.name}</h4>
-                  {f.description && <p className="text-xs mt-0.5" style={{ color: "var(--ink-soft)" }}>{f.description}</p>}
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="font-bold text-base">{fmtPrice(f.price_cents)}</span>
-                    <span className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white" style={{ background: "var(--accent)" }}>
-                      Ajouter
-                    </span>
+
+                {/* Carrousel thumbnails — radio horizontaux scrollables */}
+                <div className="mb-3">
+                  <p className="text-xs font-semibold mb-2" style={{ color: "var(--ink-soft)" }}>Choisis ton plat</p>
+                  <div className="flex gap-3 overflow-x-auto pb-1">
+                    {menuPlatItems.map((plat) => {
+                      const isSel = platSelected?.id === plat.id
+                      return (
+                        <button key={plat.id} onClick={() => setPandaPlatId(plat.id)}
+                          className="flex-shrink-0 flex flex-col items-center"
+                          aria-label={`Choisir ${plat.name}`}>
+                          <div className="w-[50px] h-[50px] rounded-full overflow-hidden border-2 transition-all"
+                            style={{
+                              borderColor: isSel ? "var(--accent)" : "var(--border)",
+                              transform: isSel ? "scale(1.1)" : "scale(1)",
+                              opacity: isSel ? 1 : 0.7,
+                            }}>
+                            {plat.image_url ? (
+                              <img src={buildImgUrl(plat.image_url)} alt={plat.name} className="w-full h-full object-cover" loading="lazy" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-lg" style={{ background: "var(--bg-alt)" }}>{plat.emoji || "🐼"}</div>
+                            )}
+                          </div>
+                          <span className="text-[9px] mt-1 max-w-[64px] text-center leading-tight"
+                            style={{ color: isSel ? "var(--accent)" : "var(--ink-soft)", fontWeight: isSel ? 700 : 500 }}>
+                            {plat.name.length > 14 ? plat.name.slice(0, 12) + "…" : plat.name}
+                          </span>
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
+
+                <button onClick={() => platSelected && addPandattitudeMenu(menuPanda, platSelected)} disabled={!platSelected}
+                  className="w-full h-11 rounded-xl font-semibold text-white text-sm disabled:opacity-50"
+                  style={{ background: "var(--accent)" }}>
+                  Ajouter au panier · {fmtPrice(menuPanda.price_cents)}
+                </button>
               </div>
-            ))}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* ================================================================ */}
       {/* À LA CARTE — PT2: Bento Toupiti as card, PT3: single title       */}
