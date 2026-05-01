@@ -29,7 +29,7 @@ export default async function PanierPage() {
     .select(`
       id, order_number, status, total_cents, payment_method, created_at, paid_at, special_request,
       service_slots!inner(service_date, day_type, orders_cutoff_at, delivery_points(name)),
-      order_items(id, notes, quantity, unit_price_cents, line_total_cents, takeaway, profil_id, prenom_libre, profils(prenom))
+      order_items(id, notes, quantity, unit_price_cents, line_total_cents, takeaway, profil_id, prenom_libre, catalog_item_id, menu_formula_id, profils(prenom))
     `)
     .eq("account_id", account.id)
     .gte("created_at", sixtyDaysAgo.toISOString())

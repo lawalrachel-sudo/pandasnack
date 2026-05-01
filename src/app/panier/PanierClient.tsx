@@ -27,7 +27,10 @@ function fmtDateLong(d: string): string {
 interface OrderItem {
   id: string; notes: string; quantity: number; unit_price_cents: number
   line_total_cents: number; takeaway: boolean; profil_id: string | null
-  prenom_libre: string | null; profils: { prenom: string } | null
+  prenom_libre: string | null
+  catalog_item_id: string | null
+  menu_formula_id: string | null
+  profils: { prenom: string } | null
 }
 
 interface Order {
@@ -62,6 +65,49 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
   const [addItemProfilId, setAddItemProfilId] = useState<string>("")
   const [addItemTakeaway, setAddItemTakeaway] = useState(false)
   const [addItemSubmitting, setAddItemSubmitting] = useState(false)
+
+  // T4 (Brief 3-E) — modal swap inline d'un item solo (catalog_item)
+  const [swapItem, setSwapItem] = useState<OrderItem | null>(null)
+  const [swapSubmitting, setSwapSubmitting] = useState(false)
+
+  function getCurrentItemSku(item: OrderItem): string | null {
+    if (!item.catalog_item_id) return null
+    const ci = catalogItems.find(c => c.id === item.catalog_item_id)
+    return ci?.sku || null
+  }
+
+  function getSwapOptions(item: OrderItem): CatalogItem[] {
+    const sku = getCurrentItemSku(item)
+    if (!sku) return []
+    const prefix = sku.split("-")[0]
+    return catalogItems.filter(c =>
+      c.sku && c.sku !== sku &&
+      c.sku.split("-")[0] === prefix &&
+      c.price_alone_cents != null
+    )
+  }
+
+  async function handleSwapItem(itemId: string, newSku: string) {
+    setSwapSubmitting(true)
+    try {
+      const res = await fetch("/api/order-item", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderItemId: itemId, newSku }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setSwapItem(null)
+        window.location.reload()
+      } else {
+        alert(data.error || "Erreur swap")
+        setSwapSubmitting(false)
+      }
+    } catch {
+      alert("Erreur réseau")
+      setSwapSubmitting(false)
+    }
+  }
 
   function openAddItem(order: Order) {
     setAddItemOrderId(order.id)
@@ -355,14 +401,25 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
                                   </div>
                                   {lineModifiable && (
                                     <div className="flex gap-2 mt-2">
-                                      <Link
-                                        href="/commander"
-                                        className="flex-1 text-center px-3 py-1.5 rounded-md text-xs font-semibold border"
-                                        style={{ borderColor: "var(--accent)", color: "var(--accent)", background: "var(--card)" }}
-                                        title="Retire l'article puis ré-ajoute-le depuis Le Menu"
-                                      >
-                                        ✏️ Modifier
-                                      </Link>
+                                      {item.catalog_item_id && !item.menu_formula_id ? (
+                                        <button
+                                          onClick={() => setSwapItem(item)}
+                                          className="flex-1 text-center px-3 py-1.5 rounded-md text-xs font-semibold border"
+                                          style={{ borderColor: "var(--accent)", color: "var(--accent)", background: "var(--card)" }}
+                                          title="Échanger contre un autre article de la même catégorie"
+                                        >
+                                          ✏️ Modifier
+                                        </button>
+                                      ) : (
+                                        <Link
+                                          href="/commander"
+                                          className="flex-1 text-center px-3 py-1.5 rounded-md text-xs font-semibold border"
+                                          style={{ borderColor: "var(--accent)", color: "var(--accent)", background: "var(--card)" }}
+                                          title="Pour modifier un menu, retire-le et ré-ajoute-le depuis Le Menu"
+                                        >
+                                          ✏️ Modifier
+                                        </Link>
+                                      )}
                                       <button
                                         onClick={() => handleDeleteItem(item.id)}
                                         className="flex-1 text-center px-3 py-1.5 rounded-md text-xs font-semibold text-white"
@@ -435,6 +492,64 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
           </tbody>
         </table>
       </div>
+
+      {/* T4 (Brief 3-E) — Modal swap inline d'un item solo */}
+      {swapItem && (() => {
+        const options = getSwapOptions(swapItem)
+        return (
+          <div className="fixed inset-0 z-50 bg-black/50 flex items-end justify-center">
+            <div className="w-full max-w-lg rounded-t-2xl max-h-[85vh] overflow-y-auto" style={{ background: "var(--card)" }}>
+              <div className="sticky top-0 z-10 flex justify-between items-center px-5 py-4 border-b" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-lg">Modifier l&apos;article</h3>
+                  <p className="text-xs" style={{ color: "var(--ink-soft)" }}>
+                    Actuel : <strong>{swapItem.notes}</strong>
+                  </p>
+                </div>
+                <button onClick={() => setSwapItem(null)} className="text-2xl leading-none" aria-label="Fermer">&times;</button>
+              </div>
+              <div className="p-5 space-y-3">
+                {options.length === 0 ? (
+                  <p className="text-sm text-center py-6" style={{ color: "var(--ink-soft)" }}>
+                    Aucune alternative dans la même catégorie.
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-xs font-semibold mb-2" style={{ color: "var(--ink-soft)" }}>
+                      Remplacer par un autre article de la même catégorie :
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {options.map(opt => (
+                        <button
+                          key={opt.id}
+                          onClick={() => opt.sku && handleSwapItem(swapItem.id, opt.sku)}
+                          disabled={swapSubmitting}
+                          className="rounded-xl border p-3 text-left active:scale-[0.98] transition-transform disabled:opacity-50"
+                          style={{ borderColor: "var(--border)", background: "var(--card)" }}
+                        >
+                          {opt.image_url ? (
+                            <div className="aspect-[4/3] overflow-hidden rounded-lg mb-2">
+                              <img src={opt.image_url} alt={opt.name} className="w-full h-full object-cover" loading="lazy" />
+                            </div>
+                          ) : (
+                            <div className="aspect-[4/3] flex items-center justify-center rounded-lg mb-2 text-3xl" style={{ background: "var(--bg-alt)" }}>
+                              {opt.emoji || "🐼"}
+                            </div>
+                          )}
+                          <p className="text-sm font-semibold">{opt.name}</p>
+                          {opt.price_alone_cents != null && (
+                            <p className="text-sm font-bold mt-1" style={{ color: "var(--accent)" }}>{fmtPrice(opt.price_alone_cents)}</p>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* H2.1 — Modal Ajouter un repas à une commande pending */}
       {addItemOrderId && (

@@ -1,6 +1,98 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabase as createClient } from "@/lib/supabase/server"
 
+// PATCH /api/order-item — Brief 3-E T4 : swap plat solo (catalog_item_id) par newSku, même catégorie
+// Body: { orderItemId, newSku }
+export async function PATCH(req: NextRequest) {
+  try {
+    const supabase: any = await createClient()
+    const { data: { user }, error: authErr } = await supabase.auth.getUser()
+    if (authErr || !user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 })
+
+    const { orderItemId, newSku } = await req.json()
+    if (!orderItemId || !newSku) {
+      return NextResponse.json({ error: "Données manquantes" }, { status: 400 })
+    }
+
+    // Get the order_item
+    const { data: item } = await supabase.from("order_items")
+      .select("id, order_id, catalog_item_id, menu_formula_id")
+      .eq("id", orderItemId).single()
+    if (!item) return NextResponse.json({ error: "Article introuvable" }, { status: 404 })
+    if (!item.catalog_item_id || item.menu_formula_id) {
+      return NextResponse.json({ error: "Modification inline non supportée — retire et ré-ajoute depuis Le Menu" }, { status: 400 })
+    }
+
+    // Get order + ownership + cutoff
+    const { data: order } = await supabase.from("orders")
+      .select("id, account_id, status, vat_rate, service_slot_id")
+      .eq("id", item.order_id).single()
+    if (!order) return NextResponse.json({ error: "Commande introuvable" }, { status: 404 })
+
+    const { data: account } = await supabase.from("accounts")
+      .select("id").eq("auth_user_id", user.id).single()
+    if (!account || account.id !== order.account_id) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 403 })
+    }
+
+    if (order.status !== "pending_payment") {
+      return NextResponse.json({ error: "Commande non modifiable" }, { status: 400 })
+    }
+
+    if (order.service_slot_id) {
+      const { data: slot } = await supabase.from("service_slots")
+        .select("orders_cutoff_at").eq("id", order.service_slot_id).single()
+      if (slot?.orders_cutoff_at && new Date() >= new Date(slot.orders_cutoff_at)) {
+        return NextResponse.json({ error: "Heure limite dépassée — modification impossible" }, { status: 400 })
+      }
+    }
+
+    // Original item to compare category
+    const { data: originalItem } = await supabase.from("catalog_items")
+      .select("sku").eq("id", item.catalog_item_id).single()
+    const origPrefix = (originalItem?.sku || "").split("-")[0]
+
+    // New item validation
+    const { data: newItem } = await supabase.from("catalog_items")
+      .select("id, name, sku, price_alone_cents, sellable_alone, active")
+      .eq("sku", newSku).single()
+    if (!newItem || !newItem.active || !newItem.sellable_alone || newItem.price_alone_cents == null) {
+      return NextResponse.json({ error: "Article cible invalide" }, { status: 400 })
+    }
+    const newPrefix = (newItem.sku || "").split("-")[0]
+    if (origPrefix && newPrefix && origPrefix !== newPrefix) {
+      return NextResponse.json({ error: "Catégorie incompatible (ex: sandwich → croque interdit)" }, { status: 400 })
+    }
+
+    // Update order_item
+    await supabase.from("order_items").update({
+      catalog_item_id: newItem.id,
+      unit_price_cents: newItem.price_alone_cents,
+      line_total_cents: newItem.price_alone_cents,
+      notes: newItem.name,
+    }).eq("id", orderItemId)
+
+    // Recalc order totals
+    const { data: items } = await supabase.from("order_items")
+      .select("line_total_cents").eq("order_id", order.id)
+    const newSubtotal = (items || []).reduce((s: number, r: { line_total_cents: number }) => s + r.line_total_cents, 0)
+    const vatRate = Number(order.vat_rate) || 2.10
+    const newVat = Math.round(newSubtotal * vatRate / 100)
+    const newTotal = newSubtotal + newVat
+
+    await supabase.from("orders").update({
+      subtotal_cents: newSubtotal,
+      vat_cents: newVat,
+      total_cents: newTotal,
+    }).eq("id", order.id)
+
+    return NextResponse.json({ success: true, newTotal })
+  } catch (err) {
+    console.error("Swap order item error:", err)
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
+  }
+}
+
 // POST /api/order-item — H2.1 ajout d'un item à une commande pending
 // Body: { orderId, catalogItemId? OR menuFormulaId?, profilId?, prenomLibre?, takeaway, notes, selectedToppings? }
 export async function POST(req: NextRequest) {
