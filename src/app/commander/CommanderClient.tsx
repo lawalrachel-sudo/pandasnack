@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Navbar } from "@/components/Navbar"
 import { ProductCard } from "@/components/ProductCard"
-import { CartBar } from "@/components/CartBar"
 
 // ============================================================================
 // TYPES
@@ -106,8 +105,6 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   const [alcItem, setAlcItem] = useState<CatalogItem | null>(null)
   const [alcToppings, setAlcToppings] = useState<string[]>([])
 
-  // --- Pandattitude Hero — plat sélectionné dans le carrousel (1 card Menu Panda) ---
-  const [pandaPlatId, setPandaPlatId] = useState<string | null>(null)
 
   const selectedSlot = useMemo(() => slots.find((s) => s.id === selectedSlotId) || null, [slots, selectedSlotId])
   const totalCents = cart.reduce((s, i) => s + i.priceCents, 0)
@@ -147,8 +144,10 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   function visForSource(item: CatalogItem): boolean {
     if (!item.active) return false
     const sku = item.sku || ""
-    // Toupiti à la carte est dédupliqué : la formula BENTO_TOUPITI assure le rendu, l'item solo est masqué partout
+    // Toupiti à la carte dédupliqué : la formula BENTO_TOUPITI assure le rendu École
     if (sku === "BENTO-TOUPITI-CARTE") return false
+    // T3 — SAND-VOLAILLE supprimé partout (3 métiers)
+    if (sku === "SAND-VOLAILLE") return false
     if (sg === "ecole_la_patience") {
       if (sku.startsWith("CROQ-")) return false
       if (sku === "DRINK-BBL") return false
@@ -158,7 +157,10 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
     }
     if (sg === "pandattitude") {
       if (sku.startsWith("SAL-")) return false
-      if (sku === "SAND-VOLAILLE") return false
+    }
+    if (sg === "panda_guest") {
+      if (sku.startsWith("SAL-")) return false
+      if (sku === "DRINK-BBL") return false  // Bubble Tea exclusif Pandattitude
     }
     return true
   }
@@ -175,9 +177,11 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       .filter((i) => {
         const s = i.sku || ""
         const baseMatch = s.startsWith("SAND-") || s.startsWith("PASTA-") || s.startsWith("CROQ-") || s.startsWith("SAL-")
-        // Pandattitude carrousel : ajout BENTO-JOUR (rotation A/B programmée plus tard)
         const pandattitudeBonus = sg === "pandattitude" && s === "BENTO-JOUR"
-        return baseMatch || pandattitudeBonus
+        const pandaGuestBonus = sg === "panda_guest" && s === "BENTO-JOUR"
+        // Panda Guest : pas de Croque (école hors-classe pas adaptée)
+        if (sg === "panda_guest" && s.startsWith("CROQ-")) return false
+        return baseMatch || pandattitudeBonus || pandaGuestBonus
       })
       .sort((a, b) => a.sort_order - b.sort_order)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -216,9 +220,11 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   const visFormulas = useMemo(() => {
     return menuFormulas.filter((f) => {
       const c = f.code || ""
-      if (c === "BENTO_TOUPITI") return sg === "ecole_la_patience"
+      if (c === "BENTO_TOUPITI") return sg === "ecole_la_patience" || sg === "panda_guest"
       if (c === "BENTO_PANDA") return sg === "ecole_la_patience"
+      if (c === "BENTO_JOUR") return sg === "pandattitude"
       if (c === "MENU_PANDA") return sg === "ecole_la_patience" || sg === "pandattitude"
+      if (c === "MENU_PANDA_GUEST") return sg === "panda_guest"
       return false
     })
   }, [menuFormulas, sg])
@@ -287,19 +293,6 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       selectedPlat: null, selectedToppings: [],
     }])
     showToast(f.name)
-  }
-
-  // Pandattitude — ajout MENU_PANDA inline avec plat sélectionné via carrousel
-  function addPandattitudeMenu(formula: MenuFormula, plat: CatalogItem) {
-    const pr = selectedProfil
-    const label = `${formula.name} — ${plat.name}`
-    setCart((p) => [...p, {
-      itemId: formula.id, itemName: label, priceCents: formula.price_cents,
-      profilId: pr?.id ?? null, profilPrenom: pr?.prenom ?? account.nom_compte,
-      isTakeaway: false, isFormula: true, formulaCode: formula.code,
-      selectedPlat: plat.sku, selectedToppings: [],
-    }])
-    showToast(label)
   }
 
   // ============================================================================
@@ -593,80 +586,86 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
         )
       })()}
 
-      {/* PANDATTITUDE — 1 card Menu Panda + carrousel plats inline */}
-      {sg === "pandattitude" && visFormulas.find((f) => f.code === "MENU_PANDA") && menuPlatItems.length > 0 && (() => {
-        const menuPanda = visFormulas.find((f) => f.code === "MENU_PANDA")!
-        const platSelected = menuPlatItems.find((p) => p.id === pandaPlatId) || menuPlatItems[0]
-        const heroImage = platSelected?.image_url
+      {/* PANDATTITUDE — Hero pattern La Patience (BENTO_JOUR + Changer de plat) */}
+      {visFormulas.length > 0 && sg === "pandattitude" && (() => {
+        const bento = visFormulas.find((f) => f.code === "BENTO_JOUR")
+        const mp = visFormulas.find((f) => f.code === "MENU_PANDA")
         return (
           <div className="px-4 mb-6">
             <h2 className="font-bold text-lg mb-1 text-center" style={{ color: "#1D4ED8" }}>Menu Panda du jour</h2>
-            <p className="text-sm font-bold mb-1 text-center" style={{ color: "#B91C1C" }}>Composition : plat + infusion maison glacée + dessert</p>
-            <p className="text-xs mb-3 text-center" style={{ color: "var(--accent-2)" }}>Infusion maison glacée offerte avec chaque menu.</p>
-
-            <div className="rounded-2xl overflow-hidden mb-3" style={{ background: "var(--card)", boxShadow: "0 2px 16px var(--shadow)" }}>
-              {/* Image hero — change selon plat sélectionné, object-contain pour gérer photos + illus mascotte */}
-              <div className="aspect-[4/3] flex items-center justify-center" style={{ background: "var(--bg-alt)" }}>
-                {heroImage ? (
-                  <img src={buildImgUrl(heroImage)} alt={platSelected?.name || menuPanda.name} className="max-w-full max-h-full object-contain" />
-                ) : (
-                  <div className="text-6xl">🐼</div>
-                )}
-              </div>
-
-              <div className="p-4">
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-lg">{menuPanda.name}</h3>
-                    {platSelected && (
-                      <p className="text-xs mt-1" style={{ color: "var(--ink-soft)" }}>
-                        Plat : <strong style={{ color: "var(--ink)" }}>{platSelected.name}</strong>
-                        {platSelected.description && <span> — {platSelected.description}</span>}
-                      </p>
+            <p className="text-sm font-bold mb-1" style={{ color: "#B91C1C" }}>Composition : plat + infusion maison glacée + dessert</p>
+            <p className="text-xs mb-3" style={{ color: "var(--accent-2)" }}>Infusion maison glacée offerte avec chaque menu.</p>
+            {bento && (
+              <div className="rounded-2xl overflow-hidden mb-3" style={{ background: "var(--card)", boxShadow: "0 2px 16px var(--shadow)" }}>
+                <div className="aspect-[16/9] overflow-hidden">
+                  {bento.image_url ? (
+                    <img src={bento.image_url} alt={bento.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-6xl" style={{ background: "linear-gradient(135deg, var(--menu-panda-start), var(--menu-panda-end))" }}>🍱</div>
+                  )}
+                </div>
+                <div className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-bold text-lg">{bento.name}</h3>
+                      <p className="text-xs mt-1" style={{ color: "var(--ink-soft)" }}>{bento.description}</p>
+                    </div>
+                    <span className="font-bold text-xl">{fmtPrice(bento.price_cents)}</span>
+                  </div>
+                  <div className="flex gap-2 mt-3">
+                    <button onClick={() => addFormulaDirect(bento)} className="flex-1 h-11 rounded-xl font-semibold text-white text-sm" style={{ background: "var(--accent)" }}>Ajouter au panier</button>
+                    {mp && (
+                      <button onClick={() => openMenuFlow(mp)} className="h-11 px-3 rounded-xl font-semibold text-xs border leading-tight" style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>
+                        Changer de plat<br/>dans le Menu Panda
+                      </button>
                     )}
                   </div>
-                  <span className="font-bold text-xl shrink-0">{fmtPrice(menuPanda.price_cents)}</span>
                 </div>
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
-                {/* Carrousel thumbnails — radio horizontaux scrollables */}
-                <div className="mb-3">
-                  <p className="text-xs font-semibold mb-2" style={{ color: "var(--ink-soft)" }}>Choisis ton plat</p>
-                  <div className="flex gap-3 overflow-x-auto pb-1">
-                    {menuPlatItems.map((plat) => {
-                      const isSel = platSelected?.id === plat.id
-                      return (
-                        <button key={plat.id} onClick={() => setPandaPlatId(plat.id)}
-                          className="flex-shrink-0 flex flex-col items-center"
-                          aria-label={`Choisir ${plat.name}`}>
-                          <div className="w-[50px] h-[50px] rounded-full overflow-hidden border-2 transition-all"
-                            style={{
-                              borderColor: isSel ? "var(--accent)" : "var(--border)",
-                              transform: isSel ? "scale(1.1)" : "scale(1)",
-                              opacity: isSel ? 1 : 0.7,
-                            }}>
-                            {plat.image_url ? (
-                              <img src={buildImgUrl(plat.image_url)} alt={plat.name} className="w-full h-full object-cover" loading="lazy" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-lg" style={{ background: "var(--bg-alt)" }}>{plat.emoji || "🐼"}</div>
-                            )}
-                          </div>
-                          <span className="text-[9px] mt-1 max-w-[64px] text-center leading-tight"
-                            style={{ color: isSel ? "var(--accent)" : "var(--ink-soft)", fontWeight: isSel ? 700 : 500 }}>
-                            {plat.name.length > 14 ? plat.name.slice(0, 12) + "…" : plat.name}
-                          </span>
-                        </button>
-                      )
-                    })}
+      {/* PANDA GUEST — Hero pattern La Patience (BENTO_JOUR + Changer de plat via MENU_PANDA_GUEST, sans Croque) */}
+      {visFormulas.length > 0 && sg === "panda_guest" && (() => {
+        const bento = visFormulas.find((f) => f.code === "BENTO_JOUR")
+          // Fallback : Panda Guest n'a pas BENTO_JOUR au moment du push initial — utilise BENTO_PANDA en placeholder si dispo
+          || visFormulas.find((f) => f.code === "BENTO_PANDA")
+        const mp = visFormulas.find((f) => f.code === "MENU_PANDA_GUEST")
+        return (
+          <div className="px-4 mb-6">
+            <h2 className="font-bold text-lg mb-1 text-center" style={{ color: "#1D4ED8" }}>Menu Panda du jour</h2>
+            <p className="text-sm font-bold mb-1" style={{ color: "#B91C1C" }}>Composition : plat + infusion maison glacée + dessert</p>
+            <p className="text-xs mb-3" style={{ color: "var(--accent-2)" }}>Infusion maison glacée offerte avec chaque menu.</p>
+            {bento && (
+              <div className="rounded-2xl overflow-hidden mb-3" style={{ background: "var(--card)", boxShadow: "0 2px 16px var(--shadow)" }}>
+                <div className="aspect-[16/9] overflow-hidden">
+                  {bento.image_url ? (
+                    <img src={bento.image_url} alt={bento.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-6xl" style={{ background: "linear-gradient(135deg, var(--menu-panda-start), var(--menu-panda-end))" }}>🍱</div>
+                  )}
+                </div>
+                <div className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-bold text-lg">{bento.name}</h3>
+                      <p className="text-xs mt-1" style={{ color: "var(--ink-soft)" }}>{bento.description}</p>
+                    </div>
+                    <span className="font-bold text-xl">{fmtPrice(bento.price_cents)}</span>
+                  </div>
+                  <div className="flex gap-2 mt-3">
+                    <button onClick={() => addFormulaDirect(bento)} className="flex-1 h-11 rounded-xl font-semibold text-white text-sm" style={{ background: "var(--accent)" }}>Ajouter au panier</button>
+                    {mp && (
+                      <button onClick={() => openMenuFlow(mp)} className="h-11 px-3 rounded-xl font-semibold text-xs border leading-tight" style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>
+                        Changer de plat<br/>dans le Menu Panda
+                      </button>
+                    )}
                   </div>
                 </div>
-
-                <button onClick={() => platSelected && addPandattitudeMenu(menuPanda, platSelected)} disabled={!platSelected}
-                  className="w-full h-11 rounded-xl font-semibold text-white text-sm disabled:opacity-50"
-                  style={{ background: "var(--accent)" }}>
-                  Ajouter au panier · {fmtPrice(menuPanda.price_cents)}
-                </button>
               </div>
-            </div>
+            )}
           </div>
         )
       })()}
@@ -727,6 +726,23 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
                 isMenuOnly={false} allergens={item.allergens} onSelect={addItem} />
             ))}
           </div>
+        </div>
+      )}
+
+      {/* T2 — Bouton inline non-sticky pour ouvrir le panier (remplace CartBar sticky) */}
+      {cart.length > 0 && (
+        <div className="px-4 mt-8">
+          <button
+            onClick={() => setShowCart(true)}
+            className="w-full h-14 rounded-2xl flex items-center justify-between px-5 font-bold text-white shadow-lg"
+            style={{ background: "var(--accent)" }}
+          >
+            <span className="bg-white/20 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">
+              {cart.length}
+            </span>
+            <span className="text-base">Voir mon panier</span>
+            <span className="text-base">{fmtPrice(totalCents)}</span>
+          </button>
         </div>
       )}
 
@@ -923,7 +939,6 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
         </div>
       )}
 
-      <CartBar itemCount={cart.length} totalCents={totalCents} onOpen={() => setShowCart(true)} />
     </div>
   )
 }

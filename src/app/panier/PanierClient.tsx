@@ -340,21 +340,35 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
                             {order.order_items?.map(item => {
                               const lineModifiable = canModify
                               return (
-                                <div key={item.id} className="flex justify-between items-start text-sm gap-2">
-                                  <div className="flex-1 min-w-0">
-                                    <p>{item.notes}</p>
-                                    <p className="text-xs" style={{ color: "var(--ink-soft)" }}>
-                                      {item.profils?.prenom || item.prenom_libre}
-                                      {item.takeaway ? " · A emporter" : ""}
-                                    </p>
-                                    {lineModifiable && (
-                                      <div className="flex gap-3 mt-1">
-                                        <Link href="/planning" className="text-[11px] underline" style={{ color: "var(--accent)" }}>Modifier</Link>
-                                        <button onClick={() => handleDeleteItem(item.id)} className="text-[11px] underline" style={{ color: "#DC2626" }}>Supprimer</button>
-                                      </div>
-                                    )}
+                                <div key={item.id} className="rounded-lg p-2" style={{ background: "var(--bg-alt)" }}>
+                                  <div className="flex justify-between items-start gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium">{item.notes}</p>
+                                      <p className="text-xs mt-0.5" style={{ color: "var(--ink-soft)" }}>
+                                        {item.profils?.prenom || item.prenom_libre}
+                                        {item.takeaway ? " · À emporter" : ""}
+                                      </p>
+                                    </div>
+                                    <span className="font-semibold text-sm shrink-0">{fmtPrice(item.line_total_cents)}</span>
                                   </div>
-                                  <span className="font-medium shrink-0">{fmtPrice(item.line_total_cents)}</span>
+                                  {lineModifiable && (
+                                    <div className="flex gap-2 mt-2">
+                                      <Link
+                                        href="/planning"
+                                        className="flex-1 text-center px-3 py-1.5 rounded-md text-xs font-semibold border"
+                                        style={{ borderColor: "var(--accent)", color: "var(--accent)", background: "var(--card)" }}
+                                      >
+                                        ✏️ Modifier
+                                      </Link>
+                                      <button
+                                        onClick={() => handleDeleteItem(item.id)}
+                                        className="flex-1 text-center px-3 py-1.5 rounded-md text-xs font-semibold text-white"
+                                        style={{ background: "#DC2626" }}
+                                      >
+                                        🗑️ Retirer
+                                      </button>
+                                    </div>
+                                  )}
                                 </div>
                               )
                             })}

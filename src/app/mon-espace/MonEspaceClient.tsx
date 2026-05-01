@@ -7,7 +7,7 @@ import { Navbar } from "@/components/Navbar"
 
 const WALLET_IMG = "https://res.cloudinary.com/dbkpvp9ts/image/upload/v1776714727/PANDA_WALLET.jpg"
 const CL: Record<string, string> = { maternelle: "Maternelle", primaire: "Primaire", college: "Collège", lycee: "Lycée", prof: "Prof/Équipe" }
-const SG_LABELS: Record<string, string> = { ecole: "École", pandattitude: "Pandattitude", panda_guest: "Panda Guest" }
+const SG_LABELS: Record<string, string> = { ecole_la_patience: "École", pandattitude: "Pandattitude", panda_guest: "Panda Guest" }
 const TX_LABELS: Record<string, { label: string; color: string }> = {
   credit_purchase: { label: "Recharge", color: "#166534" },
   credit_stripe: { label: "Recharge CB", color: "#166534" },
