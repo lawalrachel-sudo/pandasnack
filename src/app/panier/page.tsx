@@ -29,7 +29,7 @@ export default async function PanierPage() {
     .select(`
       id, order_number, status, total_cents, payment_method, created_at, paid_at, special_request,
       service_slots!inner(service_date, day_type, orders_cutoff_at, delivery_points(name)),
-      order_items(id, notes, quantity, unit_price_cents, line_total_cents, takeaway, profil_id, prenom_libre, catalog_item_id, menu_formula_id, profils(prenom))
+      order_items(id, notes, quantity, unit_price_cents, line_total_cents, takeaway, profil_id, prenom_libre, catalog_item_id, menu_formula_id, topping_ids, catalog_items(id, name, sku), menu_formulas(id, name, code), profils(prenom))
     `)
     .eq("account_id", account.id)
     .gte("created_at", sixtyDaysAgo.toISOString())
@@ -58,6 +58,12 @@ export default async function PanierPage() {
     .eq("sellable_alone", true)
     .order("sort_order")
 
+  // Phase 2 (Brief 3-E) — toppings pour afficher les noms des garnitures dans la sous-ligne
+  const { data: toppings } = await supabase
+    .from("toppings")
+    .select("id, name")
+    .eq("active", true)
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pendingCount = (orders || []).filter((o: any) => o.status === "pending_payment").length
 
@@ -70,6 +76,7 @@ export default async function PanierPage() {
       upcomingSlots={(upcomingSlots || []) as any[]}
       pendingCount={pendingCount}
       catalogItems={(catalogItems || []) as any[]}
+      toppings={(toppings || []) as any[]}
     />
   )
 }

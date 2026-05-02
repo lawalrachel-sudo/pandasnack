@@ -30,8 +30,13 @@ interface OrderItem {
   prenom_libre: string | null
   catalog_item_id: string | null
   menu_formula_id: string | null
+  topping_ids: string[] | null
+  catalog_items: { id: string; name: string; sku: string } | null
+  menu_formulas: { id: string; name: string; code: string } | null
   profils: { prenom: string } | null
 }
+
+interface Topping { id: string; name: string }
 
 interface Order {
   id: string; order_number: string; status: string; total_cents: number
@@ -53,9 +58,10 @@ interface Props {
   upcomingSlots: Slot[]
   pendingCount: number
   catalogItems: CatalogItem[]
+  toppings: Topping[]
 }
 
-export function PanierClient({ account, profils, orders, wallet, upcomingSlots, pendingCount, catalogItems }: Props) {
+export function PanierClient({ account, profils, orders, wallet, upcomingSlots, pendingCount, catalogItems, toppings }: Props) {
   const [selectedProfilId, setSelectedProfilId] = useState<string>("all")
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null)
   const printRef = useRef<HTMLDivElement>(null)
@@ -387,11 +393,37 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
                           <div className="space-y-2 mt-2">
                             {order.order_items?.map(item => {
                               const lineModifiable = canModify
+                              // Phase 2 (Brief 3-E) — label structuré formula/plat + sous-ligne toppings
+                              const formulaName = item.menu_formulas?.name
+                              const platName = item.catalog_items?.name
+                              const toppingNames = (item.topping_ids || [])
+                                .map(tid => toppings.find(t => t.id === tid)?.name)
+                                .filter((n): n is string => Boolean(n))
+                              const hasFormula = !!item.menu_formula_id
+                              const hasCatalog = !!item.catalog_item_id
                               return (
                                 <div key={item.id} className="rounded-lg p-2" style={{ background: "var(--bg-alt)" }}>
                                   <div className="flex justify-between items-start gap-2">
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-sm font-medium">{item.notes}</p>
+                                      <p className="text-sm font-medium">
+                                        {hasFormula && hasCatalog && formulaName && platName ? (
+                                          <>
+                                            <strong style={{ textTransform: "uppercase" }}>{formulaName}</strong>
+                                            <span> — {platName}</span>
+                                          </>
+                                        ) : hasFormula && formulaName ? (
+                                          formulaName
+                                        ) : platName ? (
+                                          platName
+                                        ) : (
+                                          item.notes
+                                        )}
+                                      </p>
+                                      {toppingNames.length > 0 && (
+                                        <p className="text-xs italic mt-0.5" style={{ color: "var(--ink-soft)" }}>
+                                          + {toppingNames.join(", ")}
+                                        </p>
+                                      )}
                                       <p className="text-xs mt-0.5" style={{ color: "var(--ink-soft)" }}>
                                         {item.profils?.prenom || item.prenom_libre}
                                         {item.takeaway ? " · À emporter" : ""}
