@@ -73,23 +73,46 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Erreur sauvegarde commande" }, { status: 500 })
     }
 
-    const orderItems = items.map((item) => ({
-      order_id: order.id,
-      catalog_item_id: item.isFormula ? null : item.itemId,
-      menu_formula_id: item.isFormula ? item.itemId : null,
-      formula_choices: item.isFormula ? {
-        plat_sku: item.selectedPlat,
-        toppings: item.selectedToppings,
-      } : null,
-      topping_ids: item.selectedToppings?.length ? item.selectedToppings : null,
-      quantity: item.quantity || 1,
-      unit_price_cents: item.priceCents,
-      line_total_cents: item.priceCents * (item.quantity || 1),
-      profil_id: item.profilId || null,
-      prenom_libre: item.profilPrenom || null,
-      takeaway: item.isTakeaway || false,
-      notes: item.itemName,
-    }))
+    // Phase 1 (Brief 3-E) — pour formula avec plat choisi, lookup catalog_item_id du vrai plat
+    // → permet HACCP, swap inline, display propre. formula_choices reste pour audit/legacy.
+    const platSkus = Array.from(new Set(
+      items.filter(i => i.isFormula && i.selectedPlat).map(i => i.selectedPlat as string)
+    ))
+    let platSkuToId: Record<string, string> = {}
+    if (platSkus.length > 0) {
+      const { data: plats } = await supabase
+        .from("catalog_items")
+        .select("id, sku")
+        .in("sku", platSkus)
+      platSkuToId = Object.fromEntries(
+        (plats || []).map((p: { id: string; sku: string }) => [p.sku, p.id])
+      )
+    }
+
+    const orderItems = items.map((item) => {
+      // Pour formula+plat : catalog_item_id = id du plat choisi (lookup SKU). Bento direct sans plat = null (rotation A/B future).
+      const catalogItemId = item.isFormula
+        ? (item.selectedPlat ? (platSkuToId[item.selectedPlat] || null) : null)
+        : item.itemId
+      const menuFormulaId = item.isFormula ? item.itemId : null
+      return {
+        order_id: order.id,
+        catalog_item_id: catalogItemId,
+        menu_formula_id: menuFormulaId,
+        formula_choices: item.isFormula ? {
+          plat_sku: item.selectedPlat,
+          toppings: item.selectedToppings,
+        } : null,
+        topping_ids: item.selectedToppings?.length ? item.selectedToppings : null,
+        quantity: item.quantity || 1,
+        unit_price_cents: item.priceCents,
+        line_total_cents: item.priceCents * (item.quantity || 1),
+        profil_id: item.profilId || null,
+        prenom_libre: item.profilPrenom || null,
+        takeaway: item.isTakeaway || false,
+        notes: item.itemName,
+      }
+    })
 
     const { error: itemsErr } = await supabase.from("order_items").insert(orderItems)
     if (itemsErr) {
