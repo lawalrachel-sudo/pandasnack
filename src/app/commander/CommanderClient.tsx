@@ -85,24 +85,67 @@ function buildImgUrl(url: string): string {
 
 export function CommanderClient({ account, profils, wallet, categories, menuFormulas, toppings, slots, pendingCount, pendingTotalCents, weekItemCount, weekTotalCents }: Props) {
   const router = useRouter()
-  const { cart, setCart, totalCents } = useCart()
+  const { refreshPendingCount } = useCart()
   const [selectedSlotId, setSelectedSlotId] = useState<string>(slots[0]?.id || "")
   const [selectedProfilId, setSelectedProfilId] = useState<string>("")
-  const [showCart, setShowCart] = useState(false)
   const [addedToast, setAddedToast] = useState<string | null>(null)
+  const [addInFlight, setAddInFlight] = useState(false)
   const [mfOpen, setMfOpen] = useState(false)
   const [mfFormula, setMfFormula] = useState<MenuFormula | null>(null)
   const [mfStep, setMfStep] = useState<"plat" | "garnitures">("plat")
   const [mfPlat, setMfPlat] = useState<CatalogItem | null>(null)
   const [mfToppings, setMfToppings] = useState<string[]>([])
-  const [checkoutLoading, setCheckoutLoading] = useState(false)
-  const [orderNote, setOrderNote] = useState("")
-  const [savingDraft, setSavingDraft] = useState(false)
 
   // --- À la carte topping modal state ---
   const [alcTopOpen, setAlcTopOpen] = useState(false)
   const [alcItem, setAlcItem] = useState<CatalogItem | null>(null)
   const [alcToppings, setAlcToppings] = useState<string[]>([])
+
+  // Helper d'ajout async — POST /api/order-item avec slotId (find-or-create)
+  const addToCartAsync = useCallback(async (payload: {
+    catalogItemId?: string | null
+    menuFormulaId?: string | null
+    selectedPlatSku?: string | null
+    selectedToppings?: string[]
+    notes: string
+    isTakeaway?: boolean
+  }, label: string) => {
+    if (!selectedSlotId) { alert("Sélectionne un jour de livraison"); return }
+    if (addInFlight) return
+    setAddInFlight(true)
+    try {
+      // selectedProfilId courant — find via profils (filter active inline)
+      const pr = profils.find((p) => p.active && p.id === selectedProfilId) || null
+      const res = await fetch("/api/order-item", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slotId: selectedSlotId,
+          profilId: pr?.id ?? null,
+          prenomLibre: pr?.prenom ?? account.nom_compte,
+          takeaway: payload.isTakeaway || false,
+          notes: payload.notes,
+          catalogItemId: payload.catalogItemId ?? null,
+          menuFormulaId: payload.menuFormulaId ?? null,
+          selectedPlatSku: payload.selectedPlatSku ?? null,
+          selectedToppings: payload.selectedToppings || [],
+        }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setAddedToast(label)
+        setTimeout(() => setAddedToast(null), 2000)
+        refreshPendingCount()
+      } else {
+        alert(data.error || "Erreur ajout")
+      }
+    } catch {
+      alert("Erreur réseau. Réessaie.")
+    } finally {
+      setAddInFlight(false)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSlotId, selectedProfilId, addInFlight, account.nom_compte, refreshPendingCount, profils])
 
 
   const selectedSlot = useMemo(() => slots.find((s) => s.id === selectedSlotId) || null, [slots, selectedSlotId])
@@ -133,7 +176,6 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   const isMaternelle = selectedProfil?.classe === "maternelle"
   const sg = account.source_group
   const sd = account.source_detail
-  const showToast = useCallback((n: string) => { setAddedToast(n); setTimeout(() => setAddedToast(null), 2000) }, [])
 
   // ============================================================================
   // FILTERING
@@ -268,29 +310,27 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
     })
   }
 
+  // Brief 3-E B-α — auto-persist via addToCartAsync (POST /api/order-item)
   function finishMenu(plat: CatalogItem, tops: string[]) {
     if (!mfFormula) return
-    const pr = selectedProfil
     const tn = tops.map((id) => toppings.find((t) => t.id === id)?.name).filter(Boolean)
     const label = `${mfFormula.name} — ${plat.name}${tn.length > 0 ? ` (${tn.join(", ")})` : ""}`
-    setCart((p) => [...p, {
-      itemId: mfFormula!.id, itemName: label, priceCents: mfFormula!.price_cents,
-      profilId: pr?.id ?? null, profilPrenom: pr?.prenom ?? account.nom_compte,
-      isTakeaway: false, isFormula: true, formulaCode: mfFormula!.code,
-      selectedPlat: plat.sku, selectedToppings: tops,
-    }])
-    setMfOpen(false); showToast(label)
+    addToCartAsync({
+      menuFormulaId: mfFormula.id,
+      selectedPlatSku: plat.sku,
+      selectedToppings: tops,
+      notes: label,
+    }, label)
+    setMfOpen(false)
   }
 
   function addFormulaDirect(f: MenuFormula) {
-    const pr = selectedProfil
-    setCart((p) => [...p, {
-      itemId: f.id, itemName: f.name, priceCents: f.price_cents,
-      profilId: pr?.id ?? null, profilPrenom: pr?.prenom ?? account.nom_compte,
-      isTakeaway: false, isFormula: true, formulaCode: f.code,
-      selectedPlat: null, selectedToppings: [],
-    }])
-    showToast(f.name)
+    addToCartAsync({
+      menuFormulaId: f.id,
+      selectedPlatSku: null,
+      selectedToppings: [],
+      notes: f.name,
+    }, f.name)
   }
 
   // ============================================================================
@@ -312,13 +352,11 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
     }
 
     // No toppings → add directly
-    const pr = selectedProfil
-    setCart((p) => [...p, {
-      itemId: item.id, itemName: item.name, priceCents: item.price_alone_cents!,
-      profilId: pr?.id ?? null, profilPrenom: pr?.prenom ?? account.nom_compte,
-      isTakeaway: false, isFormula: false, formulaCode: null, selectedPlat: null, selectedToppings: [],
-    }])
-    showToast(item.name)
+    addToCartAsync({
+      catalogItemId: item.id,
+      selectedToppings: [],
+      notes: item.name,
+    }, item.name)
   }
 
   function toggleAlcTop(id: string) {
@@ -332,125 +370,16 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
 
   function finishAlcItem() {
     if (!alcItem || alcItem.price_alone_cents == null) return
-    const pr = selectedProfil
     const tn = alcToppings.map((id) => toppings.find((t) => t.id === id)?.name).filter(Boolean)
     const label = `${alcItem.name}${tn.length > 0 ? ` (${tn.join(", ")})` : ""}`
-    setCart((p) => [...p, {
-      itemId: alcItem.id, itemName: label, priceCents: alcItem.price_alone_cents!,
-      profilId: pr?.id ?? null, profilPrenom: pr?.prenom ?? account.nom_compte,
-      isTakeaway: false, isFormula: false, formulaCode: null, selectedPlat: null, selectedToppings: alcToppings,
-    }])
+    addToCartAsync({
+      catalogItemId: alcItem.id,
+      selectedToppings: alcToppings,
+      notes: label,
+    }, label)
     setAlcTopOpen(false)
-    showToast(label)
   }
 
-  function removeCart(i: number) { setCart((p) => p.filter((_, j) => j !== i)) }
-  function toggleTake(i: number) { setCart((p) => p.map((x, j) => j === i ? { ...x, isTakeaway: !x.isTakeaway } : x)) }
-  function changeProfil(i: number, pid: string) {
-    const t = activeProfils.find((p) => p.id === pid)
-    if (!t) return
-    setCart((p) => p.map((x, j) => j === i ? { ...x, profilId: t.id, profilPrenom: t.prenom } : x))
-  }
-
-  // ============================================================================
-  // CHECKOUT
-  // ============================================================================
-
-  // NOTE: handleCheckout est remplacé par handleGoToCheckout → /checkout page
-  // Conservé en commentaire au cas où on voudrait un paiement express sans page récap
-  /* async function handleCheckout(paymentMethod: "wallet" | "card" | "wallet_card") {
-    if (cart.length === 0 || !selectedSlotId) return
-    setCheckoutLoading(true)
-
-    try {
-      const res = await fetch("/api/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          slotId: selectedSlotId,
-          items: cart.map(item => ({
-            ...item,
-            quantity: 1,
-          })),
-          paymentMethod,
-          specialRequest: orderNote.trim() || undefined,
-        }),
-      })
-
-      const data = await res.json()
-      if (data.success && data.redirect) {
-        if (data.redirect.startsWith("http")) {
-          window.location.href = data.redirect
-        } else {
-          router.push(data.redirect)
-        }
-      } else {
-        alert(data.error || "Erreur lors du paiement")
-      }
-    } catch {
-      alert("Erreur réseau. Réessaie.")
-    }
-    setCheckoutLoading(false)
-  } */
-
-  async function handleSaveDraft() {
-    if (cart.length === 0 || !selectedSlotId) return
-    setSavingDraft(true)
-    try {
-      const res = await fetch("/api/save-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          slotId: selectedSlotId,
-          items: cart.map(item => ({ ...item, quantity: 1 })),
-          specialRequest: orderNote.trim() || undefined,
-        }),
-      })
-      const data = await res.json()
-      if (data.success) {
-        setCart([])
-        setOrderNote("")
-        showToast("Commande enregistrée")
-        router.push("/panier")
-      } else {
-        alert(data.error || "Erreur lors de la sauvegarde")
-      }
-    } catch {
-      alert("Erreur réseau. Réessaie.")
-    }
-    setSavingDraft(false)
-  }
-
-  // Save as draft → redirect to /checkout for payment
-  async function handleGoToCheckout() {
-    if (cart.length === 0 || !selectedSlotId) return
-    setCheckoutLoading(true)
-    try {
-      const res = await fetch("/api/save-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          slotId: selectedSlotId,
-          items: cart.map(item => ({ ...item, quantity: 1 })),
-          specialRequest: orderNote.trim() || undefined,
-        }),
-      })
-      const data = await res.json()
-      if (data.success && data.orderId) {
-        router.push(`/checkout?order=${data.orderId}`)
-      } else {
-        alert(data.error || "Erreur lors de la sauvegarde")
-        setCheckoutLoading(false)
-      }
-    } catch {
-      alert("Erreur réseau. Réessaie.")
-      setCheckoutLoading(false)
-    }
-  }
-
-  const wb = wallet?.balance_cents ?? 0
-  const wCovers = wb >= totalCents && wb > 0
-  const wPartial = wb > 0 && wb < totalCents
   const showALC = !(isMaternelle && sg === "ecole_la_patience")
   const dateLabel = selectedSlot ? fmtDate(selectedSlot.service_date) : ""
   const bentoToupitiFormula = visFormulas.find((f) => f.code === "BENTO_TOUPITI")
@@ -829,99 +758,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       )}
 
       {/* ================================================================ */}
-      {/* PANIER                                                            */}
-      {/* ================================================================ */}
-      {showCart && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-end justify-center">
-          <div className="w-full max-w-lg rounded-t-2xl p-5 max-h-[80vh] overflow-y-auto" style={{ background: "var(--card)" }}>
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="font-bold text-lg">Mon panier</h3>
-              <button onClick={() => setShowCart(false)} className="text-2xl leading-none" aria-label="Fermer">&times;</button>
-            </div>
-
-            {cart.length === 0 ? (
-              <p style={{ color: "var(--ink-soft)" }}>Ton panier est vide.</p>
-            ) : (
-              <div className="space-y-3">
-                {cart.map((item, idx) => (
-                  <div key={idx} className="p-3 rounded-xl border" style={{ borderColor: "var(--border)" }}>
-                    {/* PT6: rappel jour + nom en haut de chaque ligne */}
-                    <p className="text-[11px] mb-1.5 font-medium" style={{ color: "var(--ink-soft)" }}>
-                      {dateLabel} — {item.profilPrenom}
-                    </p>
-                    <div className="flex justify-between items-start gap-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm">{item.itemName}</p>
-                        {activeProfils.length > 1 ? (
-                          <select value={item.profilId ?? ""} onChange={(e) => changeProfil(idx, e.target.value)}
-                            className="mt-1 text-xs rounded-md border px-2 py-1 w-full" style={{ borderColor: "var(--border)", background: "var(--bg-alt)" }}>
-                            {activeProfils.map((p) => (<option key={p.id} value={p.id}>Pour {p.prenom}</option>))}
-                          </select>
-                        ) : null}
-                        <label className="flex items-center gap-2 mt-2 text-xs">
-                          <input type="checkbox" checked={item.isTakeaway} onChange={() => toggleTake(idx)} />
-                          A emporter — hors établissement
-                        </label>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="font-bold text-sm">{fmtPrice(item.priceCents)}</p>
-                        {/* PT6: bouton Modifier + Retirer */}
-                        <div className="flex gap-2 mt-1 justify-end">
-                          <button onClick={() => { removeCart(idx); setShowCart(false) }} className="text-[11px] underline" style={{ color: "var(--ink-soft)" }}>Modifier</button>
-                          <button onClick={() => removeCart(idx)} className="text-[11px] underline" style={{ color: "var(--accent)" }}>Retirer</button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {cart.length > 0 && (
-              <div className="mt-4 space-y-3">
-                {/* PT14: champ note */}
-                <div>
-                  <label className="text-xs font-medium" style={{ color: "var(--ink-soft)" }}>Note pour le préparateur</label>
-                  <textarea value={orderNote} onChange={(e) => setOrderNote(e.target.value)}
-                    className="w-full mt-1 p-3 rounded-xl border text-sm resize-none" rows={2}
-                    style={{ borderColor: "var(--border)", background: "var(--bg)" }} />
-                </div>
-
-                <div className="flex justify-between font-bold text-lg">
-                  <span>Total</span><span>{fmtPrice(totalCents)}</span>
-                </div>
-
-                {/* FIX 4 — total semaine pending */}
-                {weekItemCount > 0 && (
-                  <p className="text-xs text-center -mt-1" style={{ color: "var(--ink-soft)" }}>
-                    +{weekItemCount} article{weekItemCount > 1 ? "s" : ""} déjà en attente cette semaine ({fmtPrice(weekTotalCents)})
-                  </p>
-                )}
-
-                {(checkoutLoading || savingDraft) ? (
-                  <div className="w-full h-14 rounded-xl flex items-center justify-center font-semibold" style={{ background: "var(--bg-alt)", color: "var(--ink-soft)" }}>
-                    Traitement en cours...
-                  </div>
-                ) : (
-                  <>
-                    {/* Bouton principal: sauvegarder → page checkout */}
-                    <button onClick={handleGoToCheckout} className="w-full h-14 rounded-xl font-bold text-white shadow-lg active:scale-[0.98] transition-transform"
-                      style={{ background: "var(--accent)" }}>
-                      Finaliser ma commande · {fmtPrice(totalCents)}
-                    </button>
-
-                    {/* PT7: bouton secondaire = sauvegarder brouillon sans payer */}
-                    <button onClick={handleSaveDraft} className="w-full h-12 rounded-xl font-semibold border text-sm"
-                      style={{ borderColor: "var(--border)", color: "var(--ink-soft)" }}>
-                      Enregistrer pour plus tard
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Brief 3-E B-α — Modal showCart in-memory supprimé. Auto-persist en DB via /api/order-item au moment de l'ajout, panier visible via icône caddie BottomNav → /panier. */}
 
     </div>
   )

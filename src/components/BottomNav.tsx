@@ -14,7 +14,7 @@ const NAV_ITEMS = [
 
 export function BottomNav() {
   const pathname = usePathname()
-  const { itemCount } = useCart()
+  const { pendingCount } = useCart()
   if (pathname?.startsWith("/auth") || pathname?.startsWith("/onboarding") || pathname?.startsWith("/connexion")) return null
 
   return (
@@ -59,12 +59,12 @@ export function BottomNav() {
                       <circle cx="20" cy="21" r="1" />
                       <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
                     </svg>
-                    {itemCount > 0 && (
+                    {pendingCount > 0 && (
                       <span
                         className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full text-white text-[9px] font-bold flex items-center justify-center px-1"
                         style={{ background: '#DC2626' }}
                       >
-                        {itemCount > 9 ? '9+' : itemCount}
+                        {pendingCount > 9 ? '9+' : pendingCount}
                       </span>
                     )}
                   </span>
