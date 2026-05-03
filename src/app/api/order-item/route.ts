@@ -135,6 +135,7 @@ export async function POST(req: NextRequest) {
 
     // Find or create order
     let order: { id: string; account_id: string; status: string; vat_rate: number; service_slot_id: string | null } | null = null
+    let orderJustCreated = false  // pour cleanup orphan en cas d'échec INSERT order_items
 
     if (orderId) {
       // Mode A : order spécifié
@@ -171,6 +172,7 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: "Erreur création commande" }, { status: 500 })
         }
         order = created
+        orderJustCreated = true
       }
     }
 
@@ -233,6 +235,10 @@ export async function POST(req: NextRequest) {
 
     if (insertErr) {
       console.error("Add order item error:", insertErr)
+      // Cleanup orphan : si on vient juste de créer l'order et que l'INSERT items fail, supprimer l'order vide
+      if (orderJustCreated) {
+        await supabase.from("orders").delete().eq("id", order.id)
+      }
       return NextResponse.json({ error: "Erreur ajout article" }, { status: 500 })
     }
 
