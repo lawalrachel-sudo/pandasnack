@@ -91,9 +91,17 @@ function skuPrefix(sku: string | null | undefined): string {
   return (sku || "").split("-")[0]
 }
 
+// B-β — date "aujourd'hui" en TZ America/Martinique au format YYYY-MM-DD
+function todayMartinique(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Martinique",
+    year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date())
+}
+
 export function PanierClient({ account, profils, orders, wallet, upcomingSlots, pendingCount, catalogItems, toppings }: Props) {
   const [selectedProfilId, setSelectedProfilId] = useState<string>("all")
-  const [expandedOrder, setExpandedOrder] = useState<string | null>(null)
+  // expandedOrder state supprimé en B-β (plus de mode expand/collapse — tout visible par défaut)
   const printRef = useRef<HTMLDivElement>(null)
 
   // H2.1 — modal "Ajouter un repas" à une commande pending
@@ -233,6 +241,9 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
     return visible.filter(o => o.order_items?.some(item => item.profil_id === selectedProfilId))
   }, [orders, selectedProfilId])
 
+  // B-β — today MQ pour distinguer futurs/passés
+  const todayMQ = useMemo(() => todayMartinique(), [])
+
   const groupedOrders = useMemo(() => {
     const groups: Record<string, Order[]> = {}
     for (const order of filteredOrders) {
@@ -240,8 +251,22 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
       if (!groups[date]) groups[date] = []
       groups[date].push(order)
     }
-    return Object.entries(groups).sort(([a], [b]) => b.localeCompare(a))
-  }, [filteredOrders])
+    // Tri B-β : futurs (>= today) croissant en haut, passés décroissant en bas
+    return Object.entries(groups).sort(([a], [b]) => {
+      const aIsFuture = a >= todayMQ
+      const bIsFuture = b >= todayMQ
+      if (aIsFuture && !bIsFuture) return -1
+      if (!aIsFuture && bIsFuture) return 1
+      if (aIsFuture && bIsFuture) return a.localeCompare(b)
+      return b.localeCompare(a)
+    })
+  }, [filteredOrders, todayMQ])
+
+  // B-β — smooth scroll depuis click calendar pill
+  function scrollToDate(date: string) {
+    const el = document.getElementById(`day-${date}`)
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
+  }
 
   function handlePrint() {
     const el = printRef.current
@@ -306,39 +331,35 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
         </div>
       )}
 
-      {calendarData.length > 0 && (
-        <div className="px-4 mb-6">
-          <h2 className="font-bold text-sm mb-2" style={{ color: "var(--ink-soft)" }}>Prochains jours</h2>
-          <div className="flex gap-1.5 overflow-x-auto pb-2">
-            {calendarData.map(({ slot, profilStatuses }) => {
-              const anyOrder = profilStatuses.some(ps => ps.hasOrder)
-              const allOrdered = profilStatuses.every(ps => ps.hasOrder)
-              const anyPaid = profilStatuses.some(ps => ps.status === "paid" || ps.status === "in_preparation" || ps.status === "ready" || ps.status === "delivered")
-              const dt = new Date(slot.service_date + "T12:00:00")
+      {/* B-β — Calendrier compact : pills horizontales scrollables, 1 pill par date avec order pending */}
+      {groupedOrders.length > 0 && (
+        <div className="px-4 mb-4">
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {groupedOrders.map(([date]) => {
+              if (date === "sans-date") return null
+              const isPast = date < todayMQ
+              const isToday = date === todayMQ
+              const dt = new Date(date + "T12:00:00")
               const dayNum = dt.getDate()
               const dayName = dt.toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", "")
               const monthName = dt.toLocaleDateString("fr-FR", { month: "short" }).replace(".", "")
-
               return (
-                <div key={slot.id} className="flex flex-col items-center min-w-[48px] py-2 px-1 rounded-xl border text-center"
+                <button
+                  key={date}
+                  onClick={() => scrollToDate(date)}
+                  className="flex-shrink-0 flex flex-col items-center min-w-[60px] py-2 px-2 rounded-xl border text-center transition-opacity"
                   style={{
-                    borderColor: anyOrder ? "var(--accent-2)" : "var(--border)",
-                    background: allOrdered ? "#E8F5E9" : anyOrder ? "#FEF3E2" : "transparent",
-                  }}>
+                    borderColor: isPast ? "var(--border)" : isToday ? "var(--accent-2)" : "var(--accent)",
+                    background: isPast ? "var(--bg-alt)" : isToday ? "#E8F5E9" : "rgba(200,90,60,0.08)",
+                    opacity: isPast ? 0.5 : 1,
+                  }}
+                >
                   <span className="text-[10px] uppercase" style={{ color: "var(--ink-soft)" }}>{dayName}</span>
-                  <span className="text-sm font-bold" style={{ color: "var(--ink)" }}>{dayNum}</span>
+                  <span className="text-base font-bold" style={{ color: isPast ? "var(--ink-soft)" : "var(--ink)" }}>{dayNum}</span>
                   <span className="text-[9px] uppercase" style={{ color: "var(--ink-soft)" }}>{monthName}</span>
-                  <span className="text-xs mt-0.5">
-                    {anyPaid ? "🟢" : anyOrder ? "🟡" : "—"}
-                  </span>
-                </div>
+                </button>
               )
             })}
-          </div>
-          <div className="flex items-center gap-3 mt-2 text-[10px]" style={{ color: "var(--ink-soft)" }}>
-            <span>🟢 payé</span>
-            <span>🟡 en attente de paiement</span>
-            <span>— rien commandé</span>
           </div>
         </div>
       )}
@@ -391,52 +412,170 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
           </Link>
         </div>
       ) : (
-        <div className="px-4 space-y-4">
-          {groupedOrders.map(([date, dateOrders]) => (
-            <div key={date}>
-              <h3 className="font-bold text-sm mb-2" style={{ color: "var(--ink)" }}>
-                {date !== "sans-date" ? fmtDateLong(date) : "Sans date"}
-              </h3>
-              <div className="space-y-2">
+        <div className="px-4 space-y-6">
+          {groupedOrders.map(([date, dateOrders]) => {
+            // B-β — détection passé + total date + groupage items par profil
+            const isPast = date !== "sans-date" && date < todayMQ
+            const dateTotal = dateOrders.reduce((s, o) => s + (o.total_cents || 0), 0)
+            return (
+              <div key={date} id={`day-${date}`} className="scroll-mt-4">
+                {/* Header date */}
+                <h3 className="font-bold text-sm mb-1 flex items-center justify-between" style={{ color: "var(--ink)" }}>
+                  <span>🗓️ {date !== "sans-date" ? fmtDateLong(date) : "Sans date"}</span>
+                  <span style={{ color: "var(--accent)" }}>{fmtPrice(dateTotal)}</span>
+                </h3>
+                {/* Bandeau orange si jour passé (Brief B-β) */}
+                {isPast && (
+                  <div className="rounded-lg p-2 mb-2 text-xs font-semibold" style={{ background: "#FFF3E0", border: "1px solid #F5D5A0", color: "#92400E" }}>
+                    ⚠️ Commande non payée à temps
+                  </div>
+                )}
+              <div className="space-y-3" style={{ opacity: isPast ? 0.6 : 1 }}>
                 {dateOrders.map(order => {
-                  const st = STATUS_LABELS[order.status] || STATUS_LABELS.pending_payment
-                  const isExpanded = expandedOrder === order.id
-                  const canModify = (order.status === "paid" || order.status === "pending_payment") && isBeforeCutoff(order.service_slots?.orders_cutoff_at)
+                  const canModify = !isPast && (order.status === "paid" || order.status === "pending_payment") && isBeforeCutoff(order.service_slots?.orders_cutoff_at)
                   const canCancel = canModify
-                  const childNames = [...new Set(order.order_items?.map(i => i.profils?.prenom || i.prenom_libre).filter(Boolean))]
+
+                  // B-β — group items par profil (profil_id ou prenom_libre fallback)
+                  const itemsByProfil: Record<string, { name: string; items: OrderItem[]; total: number }> = {}
+                  for (const item of order.order_items || []) {
+                    const key = item.profil_id || `__libre_${item.prenom_libre || "anon"}`
+                    const name = item.profils?.prenom || item.prenom_libre || "—"
+                    if (!itemsByProfil[key]) itemsByProfil[key] = { name, items: [], total: 0 }
+                    itemsByProfil[key].items.push(item)
+                    itemsByProfil[key].total += item.line_total_cents || 0
+                  }
+                  const profilGroups = Object.values(itemsByProfil)
 
                   return (
                     <div key={order.id} className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--border)", background: "var(--card)" }}>
-                      <button onClick={() => setExpandedOrder(isExpanded ? null : order.id)}
-                        className="w-full p-3 flex items-center justify-between text-left">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: st.bg, color: st.color }}>
-                              {st.dot} {st.label}
-                            </span>
-                            <span className="text-xs" style={{ color: "var(--ink-soft)" }}>
-                              {childNames.length > 0 ? `${childNames.join(", ")} · ` : ""}#{order.order_number}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-sm font-semibold">{fmtPrice(order.total_cents)}</span>
-                            <span className="text-xs" style={{ color: "var(--ink-soft)" }}>
-                              · {order.order_items?.length || 0} article(s)
-                            </span>
-                          </div>
-                        </div>
-                        <span className="text-lg" style={{ color: "var(--ink-soft)" }}>{isExpanded ? "▲" : "▼"}</span>
-                      </button>
+                      {/* B-β — sous-blocs par profil dans la card */}
+                      <div className="px-3 pt-3 pb-2 space-y-3">
+                        {profilGroups.map((g, gi) => (
+                          <div key={gi}>
+                            <p className="text-xs font-bold uppercase tracking-wide mb-2 flex items-center justify-between" style={{ color: "var(--accent)" }}>
+                              <span>🧒 {g.name}</span>
+                              <span style={{ color: "var(--ink)" }}>{fmtPrice(g.total)}</span>
+                            </p>
+                            <div className="space-y-2 pl-2 border-l-2" style={{ borderColor: "var(--border)" }}>
+                              {g.items.map(item => {
+                                const lineModifiable = canModify
+                                const formulaName = item.menu_formulas?.name
+                                const platName = item.catalog_items?.name
+                                const toppingNames = (item.topping_ids || [])
+                                  .map(tid => toppings.find(t => t.id === tid)?.name)
+                                  .filter((n): n is string => Boolean(n))
+                                const hasFormula = !!item.menu_formula_id
+                                const hasCatalog = !!item.catalog_item_id
+                                const isEditable = lineModifiable && hasFormula && hasCatalog
+                                const isEditing = editingItemId === item.id
 
-                      {/* FIX 2 — Bouton Payer + H2.1 Bouton Ajouter pour pending_payment */}
+                                if (isEditing) {
+                                  const platOptions = getEditPlatOptions(item)
+                                  const cascadeTops = getCascadeToppings()
+                                  return (
+                                    <div key={item.id} className="rounded-lg p-3 border-2" style={{ background: "var(--card)", borderColor: "var(--accent)" }}>
+                                      <p className="text-xs font-bold mb-2" style={{ color: "var(--accent)" }}>
+                                        ✏️ MODIFIER · {formulaName?.toUpperCase()}
+                                      </p>
+                                      <label className="text-xs font-medium block mb-1" style={{ color: "var(--ink-soft)" }}>Plat principal</label>
+                                      <select value={editPlatSku} onChange={(e) => setEditPlatSku(e.target.value)}
+                                        className="w-full px-3 py-2 rounded-lg border text-sm mb-3"
+                                        style={{ borderColor: "var(--border)", background: "var(--bg)" }}>
+                                        {platOptions.length === 0 && <option value="">Aucune alternative compatible</option>}
+                                        {platOptions.map(opt => (<option key={opt.id} value={opt.sku || ""}>{opt.name}</option>))}
+                                      </select>
+                                      {cascadeTops.length > 0 && (
+                                        <div className="mb-3">
+                                          <label className="text-xs font-medium block mb-1" style={{ color: "var(--ink-soft)" }}>Garnitures</label>
+                                          <div className="space-y-1">
+                                            {cascadeTops.map(t => {
+                                              const checked = editToppingIds.includes(t.id)
+                                              return (
+                                                <label key={t.id} className="flex items-center gap-2 text-xs cursor-pointer">
+                                                  <input type="checkbox" checked={checked} onChange={() => toggleEditTopping(t.id)} className="w-4 h-4" style={{ accentColor: "var(--accent)" }} />
+                                                  <span>{t.emoji && `${t.emoji} `}{t.name}</span>
+                                                </label>
+                                              )
+                                            })}
+                                          </div>
+                                        </div>
+                                      )}
+                                      <p className="text-xs italic mb-3" style={{ color: "var(--ink-soft)" }}>
+                                        + Boisson : infusion maison glacée du jour · Dessert : du jour
+                                      </p>
+                                      <div className="flex gap-2">
+                                        <button onClick={cancelEdit} disabled={editSubmitting}
+                                          className="flex-1 h-9 rounded-lg text-xs font-semibold border disabled:opacity-50"
+                                          style={{ borderColor: "var(--border)", color: "var(--ink-soft)" }}>
+                                          Annuler
+                                        </button>
+                                        <button onClick={handleEditValidate} disabled={editSubmitting || !editPlatSku}
+                                          className="flex-1 h-9 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
+                                          style={{ background: "var(--accent)" }}>
+                                          {editSubmitting ? "Enregistrement..." : "Valider"}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )
+                                }
+
+                                return (
+                                  <div key={item.id} className="rounded-lg p-2" style={{ background: "var(--bg-alt)" }}>
+                                    <div className="flex justify-between items-start gap-2">
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium">
+                                          {hasFormula && hasCatalog && formulaName && platName ? (
+                                            <><strong style={{ textTransform: "uppercase" }}>{formulaName}</strong><span> — {platName}</span></>
+                                          ) : hasFormula && formulaName ? formulaName : platName ? platName : item.notes}
+                                        </p>
+                                        {toppingNames.length > 0 && (
+                                          <p className="text-xs italic mt-0.5" style={{ color: "var(--ink-soft)" }}>+ {toppingNames.join(", ")}</p>
+                                        )}
+                                        {item.takeaway && (
+                                          <p className="text-xs mt-0.5" style={{ color: "var(--ink-soft)" }}>· À emporter</p>
+                                        )}
+                                      </div>
+                                      <span className="font-semibold text-sm shrink-0">{fmtPrice(item.line_total_cents)}</span>
+                                    </div>
+                                    {/* B-β — Modifier/Retirer masqués si jour passé */}
+                                    {lineModifiable && (
+                                      <div className="flex gap-2 mt-2">
+                                        {isEditable && (
+                                          <button onClick={() => startEdit(item)}
+                                            className="flex-1 text-center px-3 py-1.5 rounded-md text-xs font-semibold border"
+                                            style={{ borderColor: "var(--accent)", color: "var(--accent)", background: "var(--card)" }}
+                                            title="Modifier le plat dans cette commande">
+                                            ✏️ Modifier
+                                          </button>
+                                        )}
+                                        <button onClick={() => handleDeleteItem(item.id)}
+                                          className={`${isEditable ? "flex-1" : "w-full"} text-center px-3 py-1.5 rounded-md text-xs font-semibold text-white`}
+                                          style={{ background: "#DC2626" }}>
+                                          🗑️ Retirer
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {order.special_request && (
+                        <div className="mx-3 mb-2 p-2 rounded-lg text-xs" style={{ background: "var(--bg-alt)" }}>
+                          <strong>Note :</strong> {order.special_request}
+                        </div>
+                      )}
+
+                      {/* B-β — Boutons "Ajouter / Payer" : MASQUÉS si passé sauf Payer (parent peut payer hors app) */}
                       {order.status === "pending_payment" && (
-                        <div className="px-3 pb-3 border-t space-y-2 mt-3" style={{ borderColor: "var(--border)" }}>
+                        <div className="px-3 pb-3 border-t space-y-2 pt-3" style={{ borderColor: "var(--border)" }}>
                           {canModify && (
-                            <button
-                              onClick={() => openAddItem(order)}
+                            <button onClick={() => openAddItem(order)}
                               className="flex items-center justify-center w-full h-10 rounded-lg text-sm font-semibold border"
-                              style={{ borderColor: "var(--accent)", color: "var(--accent)", background: "var(--card)" }}
-                            >
+                              style={{ borderColor: "var(--accent)", color: "var(--accent)", background: "var(--card)" }}>
                               Ajouter un repas
                             </button>
                           )}
@@ -448,171 +587,23 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
                         </div>
                       )}
 
-                      {isExpanded && (
-                        <div className="px-3 pb-3 border-t" style={{ borderColor: "var(--border)" }}>
-                          <div className="space-y-2 mt-2">
-                            {order.order_items?.map(item => {
-                              const lineModifiable = canModify
-                              const formulaName = item.menu_formulas?.name
-                              const platName = item.catalog_items?.name
-                              const toppingNames = (item.topping_ids || [])
-                                .map(tid => toppings.find(t => t.id === tid)?.name)
-                                .filter((n): n is string => Boolean(n))
-                              const hasFormula = !!item.menu_formula_id
-                              const hasCatalog = !!item.catalog_item_id
-                              // B-α-ter — bouton "Modifier" visible uniquement formula+plat
-                              const isEditable = lineModifiable && hasFormula && hasCatalog
-                              const isEditing = editingItemId === item.id
-
-                              if (isEditing) {
-                                // Mode édition inline (transformation de la card)
-                                const platOptions = getEditPlatOptions(item)
-                                const cascadeTops = getCascadeToppings()
-                                return (
-                                  <div key={item.id} className="rounded-lg p-3 border-2" style={{ background: "var(--card)", borderColor: "var(--accent)" }}>
-                                    <p className="text-xs font-bold mb-2" style={{ color: "var(--accent)" }}>
-                                      ✏️ MODIFIER · {formulaName?.toUpperCase()}
-                                    </p>
-                                    {/* Plat principal */}
-                                    <label className="text-xs font-medium block mb-1" style={{ color: "var(--ink-soft)" }}>Plat principal</label>
-                                    <select
-                                      value={editPlatSku}
-                                      onChange={(e) => setEditPlatSku(e.target.value)}
-                                      className="w-full px-3 py-2 rounded-lg border text-sm mb-3"
-                                      style={{ borderColor: "var(--border)", background: "var(--bg)" }}
-                                    >
-                                      {platOptions.length === 0 && <option value="">Aucune alternative compatible</option>}
-                                      {platOptions.map(opt => (
-                                        <option key={opt.id} value={opt.sku || ""}>{opt.name}</option>
-                                      ))}
-                                    </select>
-
-                                    {/* Garnitures cascade */}
-                                    {cascadeTops.length > 0 && (
-                                      <div className="mb-3">
-                                        <label className="text-xs font-medium block mb-1" style={{ color: "var(--ink-soft)" }}>Garnitures</label>
-                                        <div className="space-y-1">
-                                          {cascadeTops.map(t => {
-                                            const checked = editToppingIds.includes(t.id)
-                                            return (
-                                              <label key={t.id} className="flex items-center gap-2 text-xs cursor-pointer">
-                                                <input type="checkbox" checked={checked} onChange={() => toggleEditTopping(t.id)} className="w-4 h-4" style={{ accentColor: "var(--accent)" }} />
-                                                <span>{t.emoji && `${t.emoji} `}{t.name}</span>
-                                              </label>
-                                            )
-                                          })}
-                                        </div>
-                                      </div>
-                                    )}
-
-                                    {/* Boisson + dessert : lecture seule */}
-                                    <p className="text-xs italic mb-3" style={{ color: "var(--ink-soft)" }}>
-                                      + Boisson : infusion maison glacée du jour · Dessert : du jour
-                                    </p>
-
-                                    {/* Boutons Annuler / Valider */}
-                                    <div className="flex gap-2">
-                                      <button
-                                        onClick={cancelEdit}
-                                        disabled={editSubmitting}
-                                        className="flex-1 h-9 rounded-lg text-xs font-semibold border disabled:opacity-50"
-                                        style={{ borderColor: "var(--border)", color: "var(--ink-soft)" }}
-                                      >
-                                        Annuler
-                                      </button>
-                                      <button
-                                        onClick={handleEditValidate}
-                                        disabled={editSubmitting || !editPlatSku}
-                                        className="flex-1 h-9 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
-                                        style={{ background: "var(--accent)" }}
-                                      >
-                                        {editSubmitting ? "Enregistrement..." : "Valider"}
-                                      </button>
-                                    </div>
-                                  </div>
-                                )
-                              }
-
-                              // Mode lecture (affichage normal)
-                              return (
-                                <div key={item.id} className="rounded-lg p-2" style={{ background: "var(--bg-alt)" }}>
-                                  <div className="flex justify-between items-start gap-2">
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-sm font-medium">
-                                        {hasFormula && hasCatalog && formulaName && platName ? (
-                                          <>
-                                            <strong style={{ textTransform: "uppercase" }}>{formulaName}</strong>
-                                            <span> — {platName}</span>
-                                          </>
-                                        ) : hasFormula && formulaName ? (
-                                          formulaName
-                                        ) : platName ? (
-                                          platName
-                                        ) : (
-                                          item.notes
-                                        )}
-                                      </p>
-                                      {toppingNames.length > 0 && (
-                                        <p className="text-xs italic mt-0.5" style={{ color: "var(--ink-soft)" }}>
-                                          + {toppingNames.join(", ")}
-                                        </p>
-                                      )}
-                                      <p className="text-xs mt-0.5" style={{ color: "var(--ink-soft)" }}>
-                                        {item.profils?.prenom || item.prenom_libre}
-                                        {item.takeaway ? " · À emporter" : ""}
-                                      </p>
-                                    </div>
-                                    <span className="font-semibold text-sm shrink-0">{fmtPrice(item.line_total_cents)}</span>
-                                  </div>
-                                  {lineModifiable && (
-                                    <div className="flex gap-2 mt-2">
-                                      {/* B-α-ter — bouton Modifier UNIQUEMENT pour formula+plat (édition inline) */}
-                                      {isEditable && (
-                                        <button
-                                          onClick={() => startEdit(item)}
-                                          className="flex-1 text-center px-3 py-1.5 rounded-md text-xs font-semibold border"
-                                          style={{ borderColor: "var(--accent)", color: "var(--accent)", background: "var(--card)" }}
-                                          title="Modifier le plat dans cette commande"
-                                        >
-                                          ✏️ Modifier
-                                        </button>
-                                      )}
-                                      <button
-                                        onClick={() => handleDeleteItem(item.id)}
-                                        className={`${isEditable ? "flex-1" : "w-full"} text-center px-3 py-1.5 rounded-md text-xs font-semibold text-white`}
-                                        style={{ background: "#DC2626" }}
-                                      >
-                                        🗑️ Retirer
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
-                              )
-                            })}
-                          </div>
-
-                          {order.special_request && (
-                            <div className="mt-2 p-2 rounded-lg text-xs" style={{ background: "var(--bg-alt)" }}>
-                              <strong>Note :</strong> {order.special_request}
-                            </div>
-                          )}
-
-                          {canCancel && (
-                            <div className="flex gap-2 mt-3 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
-                              <button className="flex-1 h-9 rounded-lg text-xs font-semibold text-white" style={{ background: "#DC2626" }}
-                                onClick={() => handleCancel(order.id)}>
-                                Annuler toute la commande
-                              </button>
-                            </div>
-                          )}
+                      {/* B-β — "Annuler toute la commande" MASQUÉ si passé */}
+                      {canCancel && (
+                        <div className="px-3 pb-3 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
+                          <button className="w-full h-9 rounded-lg text-xs font-semibold text-white" style={{ background: "#DC2626" }}
+                            onClick={() => handleCancel(order.id)}>
+                            Annuler toute la commande
+                          </button>
                         </div>
                       )}
+
                     </div>
                   )
                 })}
               </div>
-            </div>
-          ))}
+              </div>
+            )
+          })}
         </div>
       )}
 
