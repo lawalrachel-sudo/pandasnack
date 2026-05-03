@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useRef } from "react"
+import { useState, useMemo, useRef, useEffect } from "react"
 import Link from "next/link"
 import { Navbar } from "@/components/Navbar"
 import { HeaderMetier } from "@/components/HeaderMetier"
@@ -101,7 +101,25 @@ function todayMartinique(): string {
 
 export function PanierClient({ account, profils, orders, wallet, upcomingSlots, pendingCount, catalogItems, toppings }: Props) {
   const [selectedProfilId, setSelectedProfilId] = useState<string>("all")
-  // expandedOrder state supprimé en B-β (plus de mode expand/collapse — tout visible par défaut)
+  // B-β+γ — expand/collapse PAR JOUR (Bug 1 reintroduit chevron) + multi-sélection (Bug 2)
+  const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set())
+  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set())
+  const [payingMulti, setPayingMulti] = useState(false)
+
+  function toggleCollapseDate(date: string) {
+    setCollapsedDates(prev => {
+      const next = new Set(prev)
+      if (next.has(date)) next.delete(date); else next.add(date)
+      return next
+    })
+  }
+  function toggleSelectOrder(orderId: string) {
+    setSelectedOrderIds(prev => {
+      const next = new Set(prev)
+      if (next.has(orderId)) next.delete(orderId); else next.add(orderId)
+      return next
+    })
+  }
   const printRef = useRef<HTMLDivElement>(null)
 
   // H2.1 — modal "Ajouter un repas" à une commande pending
@@ -235,8 +253,9 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
     })
   }, [upcomingSlots, orders, profils, selectedProfilId])
 
+  // BUG 3 — /panier ne montre QUE les pending_payment (paid/cancelled/refunded disparaissent)
   const filteredOrders = useMemo(() => {
-    const visible = orders.filter(o => o.status !== "cancelled" && o.status !== "refunded")
+    const visible = orders.filter(o => o.status === "pending_payment")
     if (selectedProfilId === "all") return visible
     return visible.filter(o => o.order_items?.some(item => item.profil_id === selectedProfilId))
   }, [orders, selectedProfilId])
@@ -266,6 +285,58 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
   function scrollToDate(date: string) {
     const el = document.getElementById(`day-${date}`)
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
+  }
+
+  // B-β+γ — initial state au mount : tous les pending cochés + passés repliés par défaut
+  useEffect(() => {
+    const initialSel = new Set<string>()
+    const initialCollapsed = new Set<string>()
+    for (const o of orders) {
+      if (o.status === "pending_payment") initialSel.add(o.id)
+    }
+    for (const [d] of groupedOrders) {
+      if (d !== "sans-date" && d < todayMQ) initialCollapsed.add(d)
+    }
+    setSelectedOrderIds(initialSel)
+    setCollapsedDates(initialCollapsed)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // B-γ — somme des orders sélectionnées
+  const selectedSum = useMemo(() => {
+    return orders
+      .filter(o => o.status === "pending_payment" && selectedOrderIds.has(o.id))
+      .reduce((s, o) => s + (o.total_cents || 0), 0)
+  }, [orders, selectedOrderIds])
+
+  // B-γ — handler paiement multi
+  async function handlePayMulti() {
+    if (selectedOrderIds.size === 0 || payingMulti) return
+    setPayingMulti(true)
+    try {
+      const res = await fetch("/api/checkout-multi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderIds: Array.from(selectedOrderIds),
+          paymentMethod: "wallet_card",
+        }),
+      })
+      const data = await res.json()
+      if (data.success && data.redirect) {
+        if (data.redirect.startsWith("http")) {
+          window.location.href = data.redirect
+        } else {
+          window.location.href = data.redirect
+        }
+      } else {
+        alert(data.error || "Erreur lors du paiement")
+        setPayingMulti(false)
+      }
+    } catch {
+      alert("Erreur réseau")
+      setPayingMulti(false)
+    }
   }
 
   function handlePrint() {
@@ -364,24 +435,22 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
         </div>
       )}
 
-      {/* FIX 3 — Bouton groupé Tout payer (>= 2 pending) */}
-      {(() => {
-        const pendingOrders = orders.filter(o => o.status === "pending_payment")
-        if (pendingOrders.length < 2) return null
-        const totalSum = pendingOrders.reduce((s, o) => s + (o.total_cents || 0), 0)
-        const oldestFirst = [...pendingOrders].sort((a, b) =>
-          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        )[0]
-        return (
-          <div className="mx-4 mb-4">
-            <Link href={`/checkout?order=${oldestFirst.id}`}
-              className="flex items-center justify-center w-full h-12 rounded-xl font-bold text-white shadow-lg active:scale-[0.98] transition-transform text-center px-3"
-              style={{ background: "var(--accent)" }}>
-              💳 Payer mes {pendingOrders.length} commandes en attente · {fmtPrice(totalSum)}
-            </Link>
+      {/* B-γ — GRAND TOTAL + bouton Payer mes N commandes (multi-checkout Stripe) */}
+      {selectedOrderIds.size > 0 && (
+        <div className="mx-4 mb-4 p-3 rounded-xl border-2 shadow-md" style={{ borderColor: "var(--accent)", background: "var(--card)" }}>
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--ink-soft)" }}>
+              GRAND TOTAL · {selectedOrderIds.size} cmd
+            </span>
+            <span className="text-lg font-bold" style={{ color: "var(--accent)" }}>{fmtPrice(selectedSum)}</span>
           </div>
-        )
-      })()}
+          <button onClick={handlePayMulti} disabled={payingMulti}
+            className="flex items-center justify-center w-full h-12 rounded-xl font-bold text-white shadow-lg active:scale-[0.98] transition-transform text-center px-3 disabled:opacity-50"
+            style={{ background: "var(--accent)" }}>
+            {payingMulti ? "Redirection..." : `💳 Payer mes ${selectedOrderIds.size} commande${selectedOrderIds.size > 1 ? "s" : ""}`}
+          </button>
+        </div>
+      )}
 
       {wallet && (
         <div className="mx-4 mb-4 rounded-xl p-3 flex items-center gap-3" style={{ background: "var(--bg-alt)" }}>
@@ -417,19 +486,56 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
             // B-β — détection passé + total date + groupage items par profil
             const isPast = date !== "sans-date" && date < todayMQ
             const dateTotal = dateOrders.reduce((s, o) => s + (o.total_cents || 0), 0)
+            const isCollapsed = collapsedDates.has(date)
+            // BUG 2 — checkbox par jour (= toggle de toutes les orders du jour)
+            const dayOrderIds = dateOrders.map(o => o.id)
+            const allDaySelected = !isPast && dayOrderIds.every(id => selectedOrderIds.has(id))
             return (
               <div key={date} id={`day-${date}`} className="scroll-mt-4">
-                {/* Header date */}
-                <h3 className="font-bold text-sm mb-1 flex items-center justify-between" style={{ color: "var(--ink)" }}>
-                  <span>🗓️ {date !== "sans-date" ? fmtDateLong(date) : "Sans date"}</span>
-                  <span style={{ color: "var(--accent)" }}>{fmtPrice(dateTotal)}</span>
-                </h3>
+                {/* Header date avec chevron + checkbox (BUG 1 + BUG 2) */}
+                <div className="flex items-center gap-2 mb-1">
+                  {!isPast && (
+                    <input
+                      type="checkbox"
+                      checked={allDaySelected}
+                      onChange={() => {
+                        // toggle all orders du jour
+                        setSelectedOrderIds(prev => {
+                          const next = new Set(prev)
+                          if (allDaySelected) {
+                            dayOrderIds.forEach(id => next.delete(id))
+                          } else {
+                            dayOrderIds.forEach(id => next.add(id))
+                          }
+                          return next
+                        })
+                      }}
+                      className="w-4 h-4"
+                      style={{ accentColor: "var(--accent)" }}
+                      aria-label={`Sélectionner ${date}`}
+                    />
+                  )}
+                  <button
+                    onClick={() => toggleCollapseDate(date)}
+                    className="flex-1 flex items-center justify-between text-left"
+                    aria-label={`Replier/déplier ${date}`}
+                  >
+                    <span className="font-bold text-sm" style={{ color: "var(--ink)" }}>
+                      🗓️ {date !== "sans-date" ? fmtDateLong(date) : "Sans date"}
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <span className="font-bold text-sm" style={{ color: "var(--accent)" }}>{fmtPrice(dateTotal)}</span>
+                      <span className="text-lg" style={{ color: "var(--ink-soft)" }}>{isCollapsed ? "▼" : "▲"}</span>
+                    </span>
+                  </button>
+                </div>
                 {/* Bandeau orange si jour passé (Brief B-β) */}
-                {isPast && (
+                {isPast && !isCollapsed && (
                   <div className="rounded-lg p-2 mb-2 text-xs font-semibold" style={{ background: "#FFF3E0", border: "1px solid #F5D5A0", color: "#92400E" }}>
                     ⚠️ Commande non payée à temps
                   </div>
                 )}
+              {!isCollapsed && (
               <div className="space-y-3" style={{ opacity: isPast ? 0.6 : 1 }}>
                 {dateOrders.map(order => {
                   const canModify = !isPast && (order.status === "paid" || order.status === "pending_payment") && isBeforeCutoff(order.service_slots?.orders_cutoff_at)
@@ -569,21 +675,15 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
                         </div>
                       )}
 
-                      {/* B-β — Boutons "Ajouter / Payer" : MASQUÉS si passé sauf Payer (parent peut payer hors app) */}
-                      {order.status === "pending_payment" && (
+                      {/* B-β+γ — bouton "Payer cette commande" individuel SUPPRIMÉ — paiement via bouton groupé bottom */}
+                      {/* "Ajouter un repas" : MASQUÉ si passé */}
+                      {canModify && (
                         <div className="px-3 pb-3 border-t space-y-2 pt-3" style={{ borderColor: "var(--border)" }}>
-                          {canModify && (
-                            <button onClick={() => openAddItem(order)}
-                              className="flex items-center justify-center w-full h-10 rounded-lg text-sm font-semibold border"
-                              style={{ borderColor: "var(--accent)", color: "var(--accent)", background: "var(--card)" }}>
-                              Ajouter un repas
-                            </button>
-                          )}
-                          <Link href={`/checkout?order=${order.id}`}
-                            className="flex items-center justify-center w-full h-11 rounded-lg text-sm font-semibold text-white"
-                            style={{ background: "var(--accent-2)" }}>
-                            💳 Payer cette commande · {fmtPrice(order.total_cents)}
-                          </Link>
+                          <button onClick={() => openAddItem(order)}
+                            className="flex items-center justify-center w-full h-10 rounded-lg text-sm font-semibold border"
+                            style={{ borderColor: "var(--accent)", color: "var(--accent)", background: "var(--card)" }}>
+                            Ajouter un repas
+                          </button>
                         </div>
                       )}
 
@@ -601,6 +701,7 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
                   )
                 })}
               </div>
+              )}
               </div>
             )
           })}

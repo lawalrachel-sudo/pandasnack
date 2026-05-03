@@ -141,6 +141,24 @@ export async function POST(request: Request) {
           .eq("id", orderId)
           .eq("status", "pending_payment")
       }
+    } else if (session.metadata?.type === "multi_order_payment") {
+      // ===== Brief 3-E B-γ : multi-order payment (1 session Stripe pour N orders) =====
+      const orderIdsCsv = session.metadata.order_ids || ""
+      const orderIds = orderIdsCsv.split(",").map(s => s.trim()).filter(Boolean)
+      if (orderIds.length > 0) {
+        // Mark each order as paid (idempotent via .eq("status", "pending_payment"))
+        for (const oid of orderIds) {
+          await supabaseAdmin
+            .from("orders")
+            .update({
+              status: "paid",
+              paid_at: new Date().toISOString(),
+              stripe_checkout_session_id: session.id,
+            })
+            .eq("id", oid)
+            .eq("status", "pending_payment")
+        }
+      }
     }
   }
 
