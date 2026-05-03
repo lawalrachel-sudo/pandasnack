@@ -9,7 +9,7 @@ export default async function PanierPage() {
 
   const { data: account } = await supabase
     .from("accounts")
-    .select("id, nom_compte, source_group")
+    .select("id, nom_compte, source_group, source_detail")
     .eq("auth_user_id", user.id)
     .single()
   if (!account) redirect("/onboarding")
@@ -28,7 +28,7 @@ export default async function PanierPage() {
     .from("orders")
     .select(`
       id, order_number, status, total_cents, payment_method, created_at, paid_at, special_request,
-      service_slots!inner(service_date, day_type, orders_cutoff_at, delivery_points(name)),
+      service_slots!inner(id, service_date, day_type, orders_cutoff_at, delivery_points(name)),
       order_items(id, notes, quantity, unit_price_cents, line_total_cents, takeaway, profil_id, prenom_libre, catalog_item_id, menu_formula_id, topping_ids, catalog_items(id, name, sku), menu_formulas(id, name, code), profils(prenom))
     `)
     .eq("account_id", account.id)
@@ -50,19 +50,20 @@ export default async function PanierPage() {
     .order("service_date")
     .limit(30)
 
-  // H2.1 — catalog à-la-carte items pour modal "Ajouter un repas"
+  // H2.1 — catalog items (sellable_alone OU sellable_in_menu) pour modal "Ajouter" + édition inline B-α-ter
   const { data: catalogItems } = await supabase
     .from("catalog_items")
-    .select("id, sku, name, emoji, price_alone_cents, image_url, sellable_alone, active, ui_group, sort_order")
+    .select("id, sku, name, emoji, description, price_alone_cents, image_url, sellable_alone, sellable_in_menu, active, ui_group, sort_order, category_id")
     .eq("active", true)
-    .eq("sellable_alone", true)
+    .or("sellable_alone.eq.true,sellable_in_menu.eq.true")
     .order("sort_order")
 
-  // Phase 2 (Brief 3-E) — toppings pour afficher les noms des garnitures dans la sous-ligne
+  // Phase 2 (Brief 3-E) — toppings + applies_to_category_ids pour cascade B-α-ter
   const { data: toppings } = await supabase
     .from("toppings")
-    .select("id, name")
+    .select("id, name, emoji, applies_to_category_ids")
     .eq("active", true)
+    .order("sort_order")
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pendingCount = (orders || []).filter((o: any) => o.status === "pending_payment").length

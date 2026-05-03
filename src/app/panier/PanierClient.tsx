@@ -36,7 +36,7 @@ interface OrderItem {
   profils: { prenom: string } | null
 }
 
-interface Topping { id: string; name: string }
+interface Topping { id: string; name: string; emoji?: string | null; applies_to_category_ids?: string[] | null }
 
 interface Order {
   id: string; order_number: string; status: string; total_cents: number
@@ -48,10 +48,14 @@ interface Order {
 
 interface Profil { id: string; prenom: string; classe: string | null; is_default: boolean; active: boolean }
 interface Slot { id: string; service_date: string; day_type: string; orders_cutoff_at: string | null }
-interface CatalogItem { id: string; sku: string | null; name: string; emoji: string | null; price_alone_cents: number | null; image_url: string | null; ui_group: string | null }
+interface CatalogItem {
+  id: string; sku: string | null; name: string; emoji: string | null; description?: string | null
+  price_alone_cents: number | null; image_url: string | null; ui_group: string | null
+  sellable_alone?: boolean; sellable_in_menu?: boolean; category_id?: string | null
+}
 
 interface Props {
-  account: { id: string; nom_compte: string; source_group: string | null }
+  account: { id: string; nom_compte: string; source_group: string | null; source_detail?: string | null }
   profils: Profil[]
   orders: Order[]
   wallet: { balance_cents: number } | null
@@ -59,6 +63,32 @@ interface Props {
   pendingCount: number
   catalogItems: CatalogItem[]
   toppings: Topping[]
+}
+
+// B-α-ter — visForSource dupliquée de CommanderClient pour filtrage plats par sg/sd
+function isAllowedForMetier(sku: string, sg: string | null, sd: string | null | undefined): boolean {
+  if (!sku) return false
+  if (sku === "BENTO-TOUPITI-CARTE") return false
+  if (sku === "SAND-VOLAILLE") return false
+  if (sg === "ecole_la_patience") {
+    if (sku.startsWith("CROQ-")) return false
+    if (sku === "DRINK-BBL") return false
+    if (sku.startsWith("SAL-")) return false
+    if (sd === "fond_lahaye" && sku === "SAND-C") return false
+    if (sd === "fond_lahaye" && sku === "SAND-A") return false
+  }
+  if (sg === "pandattitude") {
+    if (sku.startsWith("SAL-")) return false
+  }
+  if (sg === "panda_guest") {
+    if (sku.startsWith("SAL-")) return false
+    if (sku === "DRINK-BBL") return false
+  }
+  return true
+}
+
+function skuPrefix(sku: string | null | undefined): string {
+  return (sku || "").split("-")[0]
 }
 
 export function PanierClient({ account, profils, orders, wallet, upcomingSlots, pendingCount, catalogItems, toppings }: Props) {
@@ -72,46 +102,76 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
   const [addItemTakeaway, setAddItemTakeaway] = useState(false)
   const [addItemSubmitting, setAddItemSubmitting] = useState(false)
 
-  // T4 (Brief 3-E) — modal swap inline d'un item solo (catalog_item)
-  const [swapItem, setSwapItem] = useState<OrderItem | null>(null)
-  const [swapSubmitting, setSwapSubmitting] = useState(false)
+  // B-α-ter (Brief 3-E) — édition INLINE pure dans la card pour formula+plat
+  // 1 seul item éditable à la fois. Switch fluide : ouvrir B annule A automatiquement.
+  const [editingItemId, setEditingItemId] = useState<string | null>(null)
+  const [editPlatSku, setEditPlatSku] = useState<string>("")
+  const [editToppingIds, setEditToppingIds] = useState<string[]>([])
+  const [editSubmitting, setEditSubmitting] = useState(false)
 
-  function getCurrentItemSku(item: OrderItem): string | null {
-    if (!item.catalog_item_id) return null
-    const ci = catalogItems.find(c => c.id === item.catalog_item_id)
-    return ci?.sku || null
+  function startEdit(item: OrderItem) {
+    setEditingItemId(item.id)
+    // Initial plat = celui actuellement choisi
+    const currentSku = item.catalog_items?.sku || ""
+    setEditPlatSku(currentSku)
+    setEditToppingIds(item.topping_ids || [])
   }
 
-  function getSwapOptions(item: OrderItem): CatalogItem[] {
-    const sku = getCurrentItemSku(item)
-    if (!sku) return []
-    const prefix = sku.split("-")[0]
-    return catalogItems.filter(c =>
-      c.sku && c.sku !== sku &&
-      c.sku.split("-")[0] === prefix &&
-      c.price_alone_cents != null
-    )
+  function cancelEdit() {
+    setEditingItemId(null)
+    setEditPlatSku("")
+    setEditToppingIds([])
   }
 
-  async function handleSwapItem(itemId: string, newSku: string) {
-    setSwapSubmitting(true)
+  // Plats compatibles pour formula+plat : sellable_in_menu + visForSource(sg/sd) + même prefix catégorie que le plat actuel
+  function getEditPlatOptions(item: OrderItem): CatalogItem[] {
+    const currentSku = item.catalog_items?.sku || ""
+    const currentPrefix = skuPrefix(currentSku)
+    return catalogItems.filter(c => {
+      if (!c.sku || !c.sellable_in_menu) return false
+      if (skuPrefix(c.sku) !== currentPrefix) return false
+      if (!isAllowedForMetier(c.sku, account.source_group, account.source_detail)) return false
+      return true
+    })
+  }
+
+  // Toppings cascadés selon le plat actuellement édité (catégorie SKU prefix)
+  function getCascadeToppings(): Topping[] {
+    const cat = skuPrefix(editPlatSku) || null
+    return toppings.filter(t => {
+      if (!t.applies_to_category_ids || t.applies_to_category_ids.length === 0) return true
+      return cat ? t.applies_to_category_ids.includes(cat) : false
+    })
+  }
+
+  function toggleEditTopping(tid: string) {
+    setEditToppingIds(prev => prev.includes(tid) ? prev.filter(x => x !== tid) : [...prev, tid])
+  }
+
+  async function handleEditValidate() {
+    if (!editingItemId || !editPlatSku) return
+    setEditSubmitting(true)
     try {
       const res = await fetch("/api/order-item", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderItemId: itemId, newSku }),
+        body: JSON.stringify({
+          orderItemId: editingItemId,
+          newSku: editPlatSku,
+          selectedToppings: editToppingIds,
+        }),
       })
       const data = await res.json()
-      if (data.success) {
-        setSwapItem(null)
+      if (res.ok && data.success) {
+        // Refresh des données pour afficher le nouveau contenu — full reload car PanierClient n'a pas de state mutable
         window.location.reload()
       } else {
-        alert(data.error || "Erreur swap")
-        setSwapSubmitting(false)
+        alert(data.error || "Erreur modification")
+        setEditSubmitting(false)
       }
     } catch {
       alert("Erreur réseau")
-      setSwapSubmitting(false)
+      setEditSubmitting(false)
     }
   }
 
@@ -393,7 +453,6 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
                           <div className="space-y-2 mt-2">
                             {order.order_items?.map(item => {
                               const lineModifiable = canModify
-                              // Phase 2 (Brief 3-E) — label structuré formula/plat + sous-ligne toppings
                               const formulaName = item.menu_formulas?.name
                               const platName = item.catalog_items?.name
                               const toppingNames = (item.topping_ids || [])
@@ -401,6 +460,80 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
                                 .filter((n): n is string => Boolean(n))
                               const hasFormula = !!item.menu_formula_id
                               const hasCatalog = !!item.catalog_item_id
+                              // B-α-ter — bouton "Modifier" visible uniquement formula+plat
+                              const isEditable = lineModifiable && hasFormula && hasCatalog
+                              const isEditing = editingItemId === item.id
+
+                              if (isEditing) {
+                                // Mode édition inline (transformation de la card)
+                                const platOptions = getEditPlatOptions(item)
+                                const cascadeTops = getCascadeToppings()
+                                return (
+                                  <div key={item.id} className="rounded-lg p-3 border-2" style={{ background: "var(--card)", borderColor: "var(--accent)" }}>
+                                    <p className="text-xs font-bold mb-2" style={{ color: "var(--accent)" }}>
+                                      ✏️ MODIFIER · {formulaName?.toUpperCase()}
+                                    </p>
+                                    {/* Plat principal */}
+                                    <label className="text-xs font-medium block mb-1" style={{ color: "var(--ink-soft)" }}>Plat principal</label>
+                                    <select
+                                      value={editPlatSku}
+                                      onChange={(e) => setEditPlatSku(e.target.value)}
+                                      className="w-full px-3 py-2 rounded-lg border text-sm mb-3"
+                                      style={{ borderColor: "var(--border)", background: "var(--bg)" }}
+                                    >
+                                      {platOptions.length === 0 && <option value="">Aucune alternative compatible</option>}
+                                      {platOptions.map(opt => (
+                                        <option key={opt.id} value={opt.sku || ""}>{opt.name}</option>
+                                      ))}
+                                    </select>
+
+                                    {/* Garnitures cascade */}
+                                    {cascadeTops.length > 0 && (
+                                      <div className="mb-3">
+                                        <label className="text-xs font-medium block mb-1" style={{ color: "var(--ink-soft)" }}>Garnitures</label>
+                                        <div className="space-y-1">
+                                          {cascadeTops.map(t => {
+                                            const checked = editToppingIds.includes(t.id)
+                                            return (
+                                              <label key={t.id} className="flex items-center gap-2 text-xs cursor-pointer">
+                                                <input type="checkbox" checked={checked} onChange={() => toggleEditTopping(t.id)} className="w-4 h-4" style={{ accentColor: "var(--accent)" }} />
+                                                <span>{t.emoji && `${t.emoji} `}{t.name}</span>
+                                              </label>
+                                            )
+                                          })}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Boisson + dessert : lecture seule */}
+                                    <p className="text-xs italic mb-3" style={{ color: "var(--ink-soft)" }}>
+                                      + Boisson : infusion maison glacée du jour · Dessert : du jour
+                                    </p>
+
+                                    {/* Boutons Annuler / Valider */}
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={cancelEdit}
+                                        disabled={editSubmitting}
+                                        className="flex-1 h-9 rounded-lg text-xs font-semibold border disabled:opacity-50"
+                                        style={{ borderColor: "var(--border)", color: "var(--ink-soft)" }}
+                                      >
+                                        Annuler
+                                      </button>
+                                      <button
+                                        onClick={handleEditValidate}
+                                        disabled={editSubmitting || !editPlatSku}
+                                        className="flex-1 h-9 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
+                                        style={{ background: "var(--accent)" }}
+                                      >
+                                        {editSubmitting ? "Enregistrement..." : "Valider"}
+                                      </button>
+                                    </div>
+                                  </div>
+                                )
+                              }
+
+                              // Mode lecture (affichage normal)
                               return (
                                 <div key={item.id} className="rounded-lg p-2" style={{ background: "var(--bg-alt)" }}>
                                   <div className="flex justify-between items-start gap-2">
@@ -433,28 +566,20 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
                                   </div>
                                   {lineModifiable && (
                                     <div className="flex gap-2 mt-2">
-                                      {item.catalog_item_id && !item.menu_formula_id ? (
+                                      {/* B-α-ter — bouton Modifier UNIQUEMENT pour formula+plat (édition inline) */}
+                                      {isEditable && (
                                         <button
-                                          onClick={() => setSwapItem(item)}
+                                          onClick={() => startEdit(item)}
                                           className="flex-1 text-center px-3 py-1.5 rounded-md text-xs font-semibold border"
                                           style={{ borderColor: "var(--accent)", color: "var(--accent)", background: "var(--card)" }}
-                                          title="Échanger contre un autre article de la même catégorie"
+                                          title="Modifier le plat dans cette commande"
                                         >
                                           ✏️ Modifier
                                         </button>
-                                      ) : (
-                                        <Link
-                                          href="/commander"
-                                          className="flex-1 text-center px-3 py-1.5 rounded-md text-xs font-semibold border"
-                                          style={{ borderColor: "var(--accent)", color: "var(--accent)", background: "var(--card)" }}
-                                          title="Pour modifier un menu, retire-le et ré-ajoute-le depuis Le Menu"
-                                        >
-                                          ✏️ Modifier
-                                        </Link>
                                       )}
                                       <button
                                         onClick={() => handleDeleteItem(item.id)}
-                                        className="flex-1 text-center px-3 py-1.5 rounded-md text-xs font-semibold text-white"
+                                        className={`${isEditable ? "flex-1" : "w-full"} text-center px-3 py-1.5 rounded-md text-xs font-semibold text-white`}
                                         style={{ background: "#DC2626" }}
                                       >
                                         🗑️ Retirer
@@ -525,63 +650,7 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
         </table>
       </div>
 
-      {/* T4 (Brief 3-E) — Modal swap inline d'un item solo */}
-      {swapItem && (() => {
-        const options = getSwapOptions(swapItem)
-        return (
-          <div className="fixed inset-0 z-50 bg-black/50 flex items-end justify-center">
-            <div className="w-full max-w-lg rounded-t-2xl max-h-[85vh] overflow-y-auto" style={{ background: "var(--card)" }}>
-              <div className="sticky top-0 z-10 flex justify-between items-center px-5 py-4 border-b" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-lg">Modifier l&apos;article</h3>
-                  <p className="text-xs" style={{ color: "var(--ink-soft)" }}>
-                    Actuel : <strong>{swapItem.notes}</strong>
-                  </p>
-                </div>
-                <button onClick={() => setSwapItem(null)} className="text-2xl leading-none" aria-label="Fermer">&times;</button>
-              </div>
-              <div className="p-5 space-y-3">
-                {options.length === 0 ? (
-                  <p className="text-sm text-center py-6" style={{ color: "var(--ink-soft)" }}>
-                    Aucune alternative dans la même catégorie.
-                  </p>
-                ) : (
-                  <>
-                    <p className="text-xs font-semibold mb-2" style={{ color: "var(--ink-soft)" }}>
-                      Remplacer par un autre article de la même catégorie :
-                    </p>
-                    <div className="grid grid-cols-2 gap-3">
-                      {options.map(opt => (
-                        <button
-                          key={opt.id}
-                          onClick={() => opt.sku && handleSwapItem(swapItem.id, opt.sku)}
-                          disabled={swapSubmitting}
-                          className="rounded-xl border p-3 text-left active:scale-[0.98] transition-transform disabled:opacity-50"
-                          style={{ borderColor: "var(--border)", background: "var(--card)" }}
-                        >
-                          {opt.image_url ? (
-                            <div className="aspect-[4/3] overflow-hidden rounded-lg mb-2">
-                              <img src={opt.image_url} alt={opt.name} className="w-full h-full object-cover" loading="lazy" />
-                            </div>
-                          ) : (
-                            <div className="aspect-[4/3] flex items-center justify-center rounded-lg mb-2 text-3xl" style={{ background: "var(--bg-alt)" }}>
-                              {opt.emoji || "🐼"}
-                            </div>
-                          )}
-                          <p className="text-sm font-semibold">{opt.name}</p>
-                          {opt.price_alone_cents != null && (
-                            <p className="text-sm font-bold mt-1" style={{ color: "var(--accent)" }}>{fmtPrice(opt.price_alone_cents)}</p>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        )
-      })()}
+      {/* T4 modal swap supprimé en B-α-ter (édition inline dans la card) */}
 
       {/* H2.1 — Modal Ajouter un repas à une commande pending */}
       {addItemOrderId && (

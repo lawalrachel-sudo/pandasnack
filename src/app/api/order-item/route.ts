@@ -1,26 +1,37 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabase as createClient } from "@/lib/supabase/server"
 
-// PATCH /api/order-item — Brief 3-E T4 : swap plat solo (catalog_item_id) par newSku, même catégorie
-// Body: { orderItemId, newSku }
+// PATCH /api/order-item — swap plat (item solo OU plat dans formula) + toppings
+// Body: { orderItemId, newSku, selectedToppings? }
+// - Solo : update catalog_item_id, unit_price_cents (du nouveau plat), line_total_cents, notes
+// - Formula+plat (Brief 3-E B-α-ter) : update catalog_item_id + formula_choices.plat_sku + topping_ids, prix formula INCHANGÉ
+// - Validation : same-category prefix (SAND/CROQ/PASTA/SAL) MVP
 export async function PATCH(req: NextRequest) {
   try {
     const supabase: any = await createClient()
     const { data: { user }, error: authErr } = await supabase.auth.getUser()
     if (authErr || !user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 })
 
-    const { orderItemId, newSku } = await req.json()
+    const { orderItemId, newSku, selectedToppings } = await req.json() as {
+      orderItemId: string
+      newSku: string
+      selectedToppings?: string[]
+    }
     if (!orderItemId || !newSku) {
       return NextResponse.json({ error: "Données manquantes" }, { status: 400 })
     }
 
     // Get the order_item
     const { data: item } = await supabase.from("order_items")
-      .select("id, order_id, catalog_item_id, menu_formula_id")
+      .select("id, order_id, catalog_item_id, menu_formula_id, formula_choices, unit_price_cents")
       .eq("id", orderItemId).single()
     if (!item) return NextResponse.json({ error: "Article introuvable" }, { status: 404 })
-    if (!item.catalog_item_id || item.menu_formula_id) {
-      return NextResponse.json({ error: "Modification inline non supportée — retire et ré-ajoute depuis Le Menu" }, { status: 400 })
+
+    const isFormulaPlat = !!item.menu_formula_id  // formula avec ou sans plat
+    const isSolo = !!item.catalog_item_id && !item.menu_formula_id
+
+    if (!isFormulaPlat && !isSolo) {
+      return NextResponse.json({ error: "Article inéligible à la modification" }, { status: 400 })
     }
 
     // Get order + ownership + cutoff
@@ -48,45 +59,75 @@ export async function PATCH(req: NextRequest) {
     }
 
     // Original item to compare category
-    const { data: originalItem } = await supabase.from("catalog_items")
-      .select("sku").eq("id", item.catalog_item_id).single()
-    const origPrefix = (originalItem?.sku || "").split("-")[0]
+    let origPrefix = ""
+    if (item.catalog_item_id) {
+      const { data: originalItem } = await supabase.from("catalog_items")
+        .select("sku").eq("id", item.catalog_item_id).single()
+      origPrefix = (originalItem?.sku || "").split("-")[0]
+    } else if (item.formula_choices?.plat_sku) {
+      origPrefix = String(item.formula_choices.plat_sku).split("-")[0]
+    }
 
-    // New item validation
+    // New item validation : selon le mode, sellable_alone ou sellable_in_menu
     const { data: newItem } = await supabase.from("catalog_items")
-      .select("id, name, sku, price_alone_cents, sellable_alone, active")
+      .select("id, name, sku, price_alone_cents, sellable_alone, sellable_in_menu, active")
       .eq("sku", newSku).single()
-    if (!newItem || !newItem.active || !newItem.sellable_alone || newItem.price_alone_cents == null) {
+    if (!newItem || !newItem.active) {
       return NextResponse.json({ error: "Article cible invalide" }, { status: 400 })
+    }
+    if (isSolo && (!newItem.sellable_alone || newItem.price_alone_cents == null)) {
+      return NextResponse.json({ error: "Article cible non vendable seul" }, { status: 400 })
+    }
+    if (isFormulaPlat && !newItem.sellable_in_menu) {
+      return NextResponse.json({ error: "Article cible non disponible dans le menu" }, { status: 400 })
     }
     const newPrefix = (newItem.sku || "").split("-")[0]
     if (origPrefix && newPrefix && origPrefix !== newPrefix) {
-      return NextResponse.json({ error: "Catégorie incompatible (ex: sandwich → croque interdit)" }, { status: 400 })
+      return NextResponse.json({ error: "Catégorie incompatible" }, { status: 400 })
     }
 
-    // Update order_item
+    if (isSolo) {
+      // Mode solo : update catalog_item_id + prix
+      await supabase.from("order_items").update({
+        catalog_item_id: newItem.id,
+        unit_price_cents: newItem.price_alone_cents,
+        line_total_cents: newItem.price_alone_cents,
+        notes: newItem.name,
+      }).eq("id", orderItemId)
+
+      // Recalc order totals (prix change pour solo)
+      const { data: items } = await supabase.from("order_items")
+        .select("line_total_cents").eq("order_id", order.id)
+      const newSubtotal = (items || []).reduce((s: number, r: { line_total_cents: number }) => s + r.line_total_cents, 0)
+      const vatRate = Number(order.vat_rate) || 2.10
+      const newVat = Math.round(newSubtotal * vatRate / 100)
+      const newTotal = newSubtotal + newVat
+
+      await supabase.from("orders").update({
+        subtotal_cents: newSubtotal,
+        vat_cents: newVat,
+        total_cents: newTotal,
+      }).eq("id", order.id)
+
+      return NextResponse.json({ success: true, newTotal })
+    }
+
+    // Mode formula+plat : update catalog_item_id (vrai plat) + formula_choices.plat_sku + topping_ids
+    // Prix formula INCHANGÉ → pas de recalc totals
+    const newToppings = selectedToppings && selectedToppings.length > 0 ? selectedToppings : null
+    const newFormulaChoices = {
+      ...(item.formula_choices && typeof item.formula_choices === "object" ? item.formula_choices : {}),
+      plat_sku: newItem.sku,
+      toppings: selectedToppings || [],
+    }
+
     await supabase.from("order_items").update({
       catalog_item_id: newItem.id,
-      unit_price_cents: newItem.price_alone_cents,
-      line_total_cents: newItem.price_alone_cents,
-      notes: newItem.name,
+      formula_choices: newFormulaChoices,
+      topping_ids: newToppings,
     }).eq("id", orderItemId)
 
-    // Recalc order totals
-    const { data: items } = await supabase.from("order_items")
-      .select("line_total_cents").eq("order_id", order.id)
-    const newSubtotal = (items || []).reduce((s: number, r: { line_total_cents: number }) => s + r.line_total_cents, 0)
-    const vatRate = Number(order.vat_rate) || 2.10
-    const newVat = Math.round(newSubtotal * vatRate / 100)
-    const newTotal = newSubtotal + newVat
-
-    await supabase.from("orders").update({
-      subtotal_cents: newSubtotal,
-      vat_cents: newVat,
-      total_cents: newTotal,
-    }).eq("id", order.id)
-
-    return NextResponse.json({ success: true, newTotal })
+    return NextResponse.json({ success: true })
   } catch (err) {
     console.error("Swap order item error:", err)
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
