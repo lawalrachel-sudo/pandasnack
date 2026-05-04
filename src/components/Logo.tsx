@@ -14,15 +14,16 @@ const LOGO_BASE = "https://res.cloudinary.com/dbkpvp9ts/image/upload"
 const LOGO_VERSION = "v1777335338"
 const LOGO_FILE = "PANDA_SNACK_LOGO_transparent.png"
 
-// UX 4 — crop top+bottom 12% chacun (h_0.76 = on garde 76% du milieu) avant le resize
-// → supprime l'espace blanc cosmétique haut/bas du PNG source
-const CROP = "c_crop,g_center,h_0.76,w_1.0"
+// POINT 1 — e_trim auto-rogne les pixels transparents en bordure SANS modifier
+// les proportions internes (au contraire du c_crop précédent qui a stretché).
+// trim_tolerance 10 = inclut les pixels quasi-transparents en bordure.
+const TRIM = "e_trim:10"
 const SIZES: Record<"sm" | "md" | "lg" | "xl" | "2xl", { height: number; transform: string }> = {
-  sm: { height: 40, transform: `${CROP}/h_80,q_auto,f_auto` },
-  md: { height: 80, transform: `${CROP}/h_160,q_auto,f_auto` },
-  lg: { height: 150, transform: `${CROP}/h_300,q_auto,f_auto` },
-  xl: { height: 250, transform: `${CROP}/h_500,q_auto,f_auto` },
-  "2xl": { height: 320, transform: `${CROP}/h_640,q_auto,f_auto` },
+  sm: { height: 40, transform: `${TRIM}/h_80,q_auto,f_auto` },
+  md: { height: 80, transform: `${TRIM}/h_160,q_auto,f_auto` },
+  lg: { height: 150, transform: `${TRIM}/h_300,q_auto,f_auto` },
+  xl: { height: 250, transform: `${TRIM}/h_500,q_auto,f_auto` },
+  "2xl": { height: 320, transform: `${TRIM}/h_640,q_auto,f_auto` },
 }
 
 interface LogoProps {

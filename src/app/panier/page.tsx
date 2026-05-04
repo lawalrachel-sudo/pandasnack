@@ -2,6 +2,9 @@ import { createServerSupabase as createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { PanierClient } from "./PanierClient"
 
+// POINT 6 — force-dynamic : pas de cache, données fraîches au retour Stripe
+export const dynamic = "force-dynamic"
+
 export default async function PanierPage() {
   const supabase: any = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

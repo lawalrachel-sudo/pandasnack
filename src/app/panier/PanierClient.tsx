@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useEffect } from "react"
 import Link from "next/link"
 import { Navbar } from "@/components/Navbar"
 import { HeaderMetier } from "@/components/HeaderMetier"
+import { useCart } from "@/lib/cart-context"
 
 const WALLET_IMG = "https://res.cloudinary.com/dbkpvp9ts/image/upload/v1776714727/PANDA_WALLET.jpg"
 const STATUS_LABELS: Record<string, { label: string; color: string; bg: string; dot: string }> = {
@@ -100,6 +101,9 @@ function todayMartinique(): string {
 }
 
 export function PanierClient({ account, profils, orders, wallet, upcomingSlots, pendingCount, catalogItems, toppings }: Props) {
+  const { refreshPendingCount } = useCart()
+  // POINT 6 — refresh badge cart au mount (retour Stripe peut laisser BottomNav stale)
+  useEffect(() => { refreshPendingCount() }, [refreshPendingCount])
   // BUG C — filtrer profils par metier de la page (1 profil = 1 seul metier)
   const pageMetier = (() => {
     const sg = account.source_group
@@ -296,12 +300,14 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
   }
 
-  // B-β+γ — initial state au mount : tous les pending cochés + passés repliés par défaut
+  // POINT 4 — initial state : SEULEMENT pending FUTURS sont cochés (passés exclus du GRAND TOTAL)
   useEffect(() => {
     const initialSel = new Set<string>()
     const initialCollapsed = new Set<string>()
     for (const o of orders) {
-      if (o.status === "pending_payment") initialSel.add(o.id)
+      const sd = o.service_slots?.service_date
+      const isPast = sd && sd < todayMQ
+      if (o.status === "pending_payment" && !isPast) initialSel.add(o.id)
     }
     for (const [d] of groupedOrders) {
       if (d !== "sans-date" && d < todayMQ) initialCollapsed.add(d)
@@ -311,12 +317,37 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // B-γ — somme des orders sélectionnées
+  // POINT 4 — GRAND TOTAL exclut les commandes périmées (cohérent avec /api/checkout-multi)
   const selectedSum = useMemo(() => {
     return orders
-      .filter(o => o.status === "pending_payment" && selectedOrderIds.has(o.id))
+      .filter(o => {
+        if (o.status !== "pending_payment") return false
+        if (!selectedOrderIds.has(o.id)) return false
+        const sd = o.service_slots?.service_date
+        if (sd && sd < todayMQ) return false  // passé exclu
+        return true
+      })
       .reduce((s, o) => s + (o.total_cents || 0), 0)
-  }, [orders, selectedOrderIds])
+  }, [orders, selectedOrderIds, todayMQ])
+
+  // POINT 5 — handler "Retirer du panier" pour orders périmées
+  async function handleRemoveExpired(orderId: string) {
+    if (!confirm("Retirer cette commande périmée du panier ?")) return
+    try {
+      const res = await fetch("/api/cancel-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId }),
+      })
+      if (res.ok) window.location.reload()
+      else {
+        const data = await res.json()
+        alert(data.error || "Erreur")
+      }
+    } catch {
+      alert("Erreur réseau")
+    }
+  }
 
   // B-γ — handler paiement multi
   async function handlePayMulti() {
@@ -348,35 +379,11 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
     }
   }
 
+  // POINT 7 — print direct via window.print() en s'appuyant sur le CSS @media print
+  // injecté en bas de page (cache tout sauf #panier-print). Plus fiable mobile/Safari
+  // que window.open + document.write (qui rendait souvent about:blank).
   function handlePrint() {
-    const el = printRef.current
-    if (!el) return
-    const w = window.open("", "_blank")
-    if (!w) return
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
-      <title>Ma commande - Panda Snack</title>
-      <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 24px; color: #3A2A20; font-size: 13px; }
-        h1 { font-size: 18px; margin-bottom: 4px; }
-        .header { margin-bottom: 16px; border-bottom: 2px solid #C85A3C; padding-bottom: 12px; }
-        .meta { color: #6B5742; font-size: 11px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-        th { background: #F0E6D6; text-align: left; padding: 8px 6px; font-size: 11px; border-bottom: 2px solid #E8D6BF; }
-        td { padding: 6px; border-bottom: 1px solid #E8D6BF; font-size: 12px; }
-        .paid { color: #166534; } .pending { color: #B45309; }
-        @media print { body { padding: 12px; } }
-        @page { size: A4 portrait; margin: 15mm; }
-      </style>
-    </head><body>
-      <div class="header">
-        <h1>Panda Snack - Ma commande</h1>
-        <p class="meta">Compte : ${account.nom_compte}</p>
-        <p class="meta">pandasnack.online</p>
-      </div>
-      ${el.innerHTML}
-    </body></html>`)
-    w.document.close()
-    setTimeout(() => { w.print() }, 300)
+    window.print()
   }
 
   return (
@@ -706,6 +713,19 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
                         </div>
                       )}
 
+                      {/* POINT 5 — bouton "Retirer du panier" pour orders périmées (jamais payées) */}
+                      {isPast && order.status === "pending_payment" && (
+                        <div className="px-3 pb-3 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
+                          <button
+                            className="w-full h-9 rounded-lg text-xs font-semibold text-white"
+                            style={{ background: "#6B7280" }}
+                            onClick={() => handleRemoveExpired(order.id)}
+                          >
+                            🗑️ Retirer du panier
+                          </button>
+                        </div>
+                      )}
+
                     </div>
                   )
                 })}
@@ -717,8 +737,14 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
         </div>
       )}
 
-      {/* Tableau imprimable cache */}
-      <div ref={printRef} style={{ display: "none" }}>
+      {/* POINT 7 — section imprimable visible UNIQUEMENT en mode print via @media print
+          (hide-on-print masque tout le reste, panier-print devient visible). */}
+      <div ref={printRef} id="panier-print" className="panier-print">
+        <div className="panier-print-header">
+          <h1>Panda Snack — Mon panier</h1>
+          <p>Compte&nbsp;: {account.nom_compte}</p>
+          <p>pandasnack.online</p>
+        </div>
         <table>
           <thead>
             <tr>
@@ -750,6 +776,24 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
           </tbody>
         </table>
       </div>
+      {/* POINT 7 — CSS @media print : on cache tout le wrapper sauf #panier-print */}
+      <style jsx global>{`
+        .panier-print { display: none; }
+        @media print {
+          body * { visibility: hidden !important; }
+          #panier-print, #panier-print * { visibility: visible !important; }
+          #panier-print { display: block !important; position: absolute; left: 0; top: 0; width: 100%; padding: 16px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; color: #3A2A20; font-size: 12px; }
+          #panier-print .panier-print-header { margin-bottom: 16px; border-bottom: 2px solid #C85A3C; padding-bottom: 12px; }
+          #panier-print h1 { font-size: 18px; margin: 0 0 4px; }
+          #panier-print p { color: #6B5742; font-size: 11px; margin: 2px 0; }
+          #panier-print table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+          #panier-print th { background: #F0E6D6; text-align: left; padding: 8px 6px; font-size: 11px; border-bottom: 2px solid #E8D6BF; }
+          #panier-print td { padding: 6px; border-bottom: 1px solid #E8D6BF; font-size: 11px; }
+          #panier-print .paid { color: #166534; }
+          #panier-print .pending { color: #B45309; }
+          @page { size: A4 portrait; margin: 15mm; }
+        }
+      `}</style>
 
       {/* T4 modal swap supprimé en B-α-ter (édition inline dans la card) */}
 

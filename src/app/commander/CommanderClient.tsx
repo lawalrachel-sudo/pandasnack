@@ -440,6 +440,13 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
           </p>
         </div>
       )}
+      {/* POINT 3 — état vide : aucun profil pour ce metier → invitation à en créer */}
+      {activeProfils.length === 0 && (
+        <div className="mx-4 mt-2 rounded-xl p-3 text-sm" style={{ background: "#FEF3E2", border: "1px solid #F5D5A0", color: "#92400E" }}>
+          Aucun profil pour ce métier.{" "}
+          <Link href="/mon-espace?tab=profils" className="underline font-semibold">Créer un profil</Link>
+        </div>
+      )}
 
       {/* Slot */}
       <div className="px-4 py-2">

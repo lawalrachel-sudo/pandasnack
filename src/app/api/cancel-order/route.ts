@@ -27,8 +27,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Commande non annulable" }, { status: 400 })
     }
 
-    // Vérifier heure limite via orders_cutoff_at du slot (source unique de vérité)
-    if (order.service_slot_id) {
+    // POINT 5 — cutoff ne s'applique QUE si la commande est payée (ferme).
+    // Si pending_payment (jamais payée), on autorise la suppression même périmée
+    // (sinon une commande "fantôme" reste coincée pour toujours dans le panier).
+    if (order.status === "paid" && order.service_slot_id) {
       const { data: slot } = await supabase
         .from("service_slots").select("orders_cutoff_at").eq("id", order.service_slot_id).single()
 

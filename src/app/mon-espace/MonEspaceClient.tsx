@@ -254,9 +254,8 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
                   <button onClick={() => toggleProfil(p.id, false)} className="text-xs underline" style={{ color: "var(--ink-soft)" }}>Désactiver</button>
                   <button
                     onClick={() => setPendingDelete(p)}
-                    disabled={profils.length <= 1}
-                    title={profils.length <= 1 ? "Au moins 1 profil obligatoire" : "Supprimer ce profil"}
-                    className="text-xs underline disabled:opacity-40 disabled:cursor-not-allowed"
+                    title="Supprimer ce profil"
+                    className="text-xs underline"
                     style={{ color: "#DC2626" }}
                   >
                     🗑️ Supprimer

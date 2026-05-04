@@ -99,13 +99,9 @@ export async function DELETE(req: NextRequest) {
   if (!existing) return NextResponse.json({ error: "Profil introuvable" }, { status: 404 })
   if (existing.archived_at) return NextResponse.json({ error: "Profil déjà archivé" }, { status: 400 })
 
-  // Garde-fou backend : count profils non archivés > 1
-  const { count } = await supabase
-    .from("profils").select("id", { count: "exact", head: true })
-    .eq("account_id", account.id).is("archived_at", null)
-  if ((count ?? 0) <= 1) {
-    return NextResponse.json({ error: "Au moins 1 profil obligatoire" }, { status: 400 })
-  }
+  // POINT 3 — guard "≥ 1 profil" retiré : un compte peut avoir 0 profil le temps
+  // d'en re-créer un (utilisateur peut vouloir supprimer son seul profil).
+  // Le sélecteur "Commande pour" gère gracieusement le cas vide.
 
   const { error } = await supabase
     .from("profils")
