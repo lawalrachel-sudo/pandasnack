@@ -7,7 +7,15 @@ import Link from 'next/link'
 import { Logo } from '@/components/Logo'
 
 type SourceGroup = 'ecole_la_patience' | 'pandattitude' | 'panda_guest'
-type Classe = 'maternelle' | 'primaire' | 'college' | 'lycee' | 'prof'
+type Metier = 'ecole' | 'pandattitude' | 'panda_guest'
+// BUG B — classe = scolaire (ecole) OU créneau (pandattitude) OU null (panda_guest)
+type Classe = 'maternelle' | 'primaire' | 'college' | 'lycee' | 'prof' | 'mercredi' | 'vendredi' | 'samedi'
+
+function sgToMetier(sg: SourceGroup): Metier {
+  if (sg === 'ecole_la_patience') return 'ecole'
+  if (sg === 'pandattitude') return 'pandattitude'
+  return 'panda_guest'
+}
 
 interface Profil {
   prenom: string
@@ -89,6 +97,10 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
         setError(`Merci de choisir la classe pour ${profils[i].prenom}.`)
         return false
       }
+      if (sourceGroup === 'pandattitude' && !profils[i].classe) {
+        setError(`Merci de choisir le créneau (Mer/Ven/Sam) pour ${profils[i].prenom}.`)
+        return false
+      }
     }
     if (!acceptCgu) {
       setError('Tu dois accepter les CGU/CGV pour continuer.')
@@ -128,11 +140,13 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
 
       if (accErr) throw accErr
 
-      // 2. Créer les profils
+      // 2. Créer les profils — metier dérivé du sourceGroup choisi étape 1
+      const metier: Metier = sgToMetier(sourceGroup!)
       const profilRows = profils.map((p, i) => ({
         account_id: account.id,
         prenom: p.prenom.trim(),
         classe: p.classe,
+        metier,
         notes_allergies: p.notes_allergies.trim() || null,
         is_default: i === 0,
       }))
@@ -178,7 +192,16 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
     college: 'Collège',
     lycee: 'Lycée',
     prof: 'Professeur / Équipe',
+    mercredi: 'Mercredi',
+    vendredi: 'Vendredi',
+    samedi: 'Samedi',
   }
+  // BUG B — options classe selon le métier choisi étape 1
+  const classeOptionsForMetier: Classe[] = (() => {
+    if (sourceGroup === 'ecole_la_patience') return ['maternelle','primaire','college','lycee','prof']
+    if (sourceGroup === 'pandattitude') return ['mercredi','vendredi','samedi']
+    return []
+  })()
 
   // === RENDU ===
   return (
@@ -296,10 +319,10 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
                   />
                 </label>
 
-                {/* Classe — seulement pour école */}
-                {sourceGroup === 'ecole_la_patience' && (
+                {/* BUG B — Classe (école) ou Créneau (pandattitude). Panda Guest : pas de champ. */}
+                {classeOptionsForMetier.length > 0 && (
                   <label style={S.label}>
-                    Classe
+                    {sourceGroup === 'pandattitude' ? 'Créneau cours dessin' : 'Classe'}
                     <select
                       value={p.classe || ''}
                       onChange={(e) =>
@@ -308,7 +331,7 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
                       style={S.input}
                     >
                       <option value="">Choisir…</option>
-                      {(Object.keys(classeLabels) as Classe[]).map((c) => (
+                      {classeOptionsForMetier.map((c) => (
                         <option key={c} value={c}>
                           {classeLabels[c]}
                         </option>

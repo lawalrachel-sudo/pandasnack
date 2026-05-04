@@ -14,13 +14,15 @@ const LOGO_BASE = "https://res.cloudinary.com/dbkpvp9ts/image/upload"
 const LOGO_VERSION = "v1777335338"
 const LOGO_FILE = "PANDA_SNACK_LOGO_transparent.png"
 
-// Cloudinary transform : h_X (2x render height pour retina) + q_auto,f_auto
+// UX 4 — crop top+bottom 12% chacun (h_0.76 = on garde 76% du milieu) avant le resize
+// → supprime l'espace blanc cosmétique haut/bas du PNG source
+const CROP = "c_crop,g_center,h_0.76,w_1.0"
 const SIZES: Record<"sm" | "md" | "lg" | "xl" | "2xl", { height: number; transform: string }> = {
-  sm: { height: 40, transform: "h_80,q_auto,f_auto" },
-  md: { height: 80, transform: "h_160,q_auto,f_auto" },
-  lg: { height: 150, transform: "h_300,q_auto,f_auto" },
-  xl: { height: 250, transform: "h_500,q_auto,f_auto" },
-  "2xl": { height: 320, transform: "h_640,q_auto,f_auto" },
+  sm: { height: 40, transform: `${CROP}/h_80,q_auto,f_auto` },
+  md: { height: 80, transform: `${CROP}/h_160,q_auto,f_auto` },
+  lg: { height: 150, transform: `${CROP}/h_300,q_auto,f_auto` },
+  xl: { height: 250, transform: `${CROP}/h_500,q_auto,f_auto` },
+  "2xl": { height: 320, transform: `${CROP}/h_640,q_auto,f_auto` },
 }
 
 interface LogoProps {

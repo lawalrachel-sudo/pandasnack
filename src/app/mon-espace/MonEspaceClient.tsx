@@ -7,7 +7,8 @@ import { Navbar } from "@/components/Navbar"
 import { HeaderMetier } from "@/components/HeaderMetier"
 
 const WALLET_IMG = "https://res.cloudinary.com/dbkpvp9ts/image/upload/v1776714727/PANDA_WALLET.jpg"
-const CL: Record<string, string> = { maternelle: "Maternelle", primaire: "Primaire", college: "Collège", lycee: "Lycée", prof: "Prof/Équipe" }
+// BUG B — labels classe scolaires + créneaux pandattitude
+const CL: Record<string, string> = { maternelle: "Maternelle", primaire: "Primaire", college: "Collège", lycee: "Lycée", prof: "Prof/Équipe", mercredi: "Mercredi", vendredi: "Vendredi", samedi: "Samedi" }
 const SG_LABELS: Record<string, string> = { ecole_la_patience: "École", pandattitude: "Pandattitude", panda_guest: "Panda Guest" }
 const TX_LABELS: Record<string, { label: string; color: string }> = {
   credit_purchase: { label: "Recharge", color: "#166534" },
@@ -36,7 +37,7 @@ function EyeIcon({ open }: { open: boolean }) {
   )
 }
 
-interface Profil { id: string; prenom: string; classe: string | null; is_default: boolean; active: boolean; notes_allergies: string | null }
+interface Profil { id: string; prenom: string; classe: string | null; metier: string; is_default: boolean; active: boolean; notes_allergies: string | null }
 interface WalletTx { id: string; type: string; amount_cents: number; balance_after_cents: number; description: string | null; created_at: string }
 
 interface Props {
@@ -290,18 +291,39 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
                 <input type="text" value={newPrenom} onChange={e => setNewPrenom(e.target.value)} placeholder="Prénom de l'enfant"
                   className="w-full mt-1 h-10 px-3 rounded-lg border text-sm" style={{ borderColor: "var(--border)" }} />
               </div>
-              <div>
-                <label className="text-xs font-medium" style={{ color: "var(--ink-soft)" }}>Classe</label>
-                <select value={newClasse} onChange={e => setNewClasse(e.target.value)}
-                  className="w-full mt-1 h-10 px-3 rounded-lg border text-sm" style={{ borderColor: "var(--border)", background: "var(--bg)" }}>
-                  <option value="">— choisir —</option>
-                  <option value="maternelle">Maternelle</option>
-                  <option value="primaire">Primaire</option>
-                  <option value="college">Collège</option>
-                  <option value="lycee">Lycée</option>
-                  <option value="prof">Prof / Équipe</option>
-                </select>
-              </div>
+              {/* BUG B — dropdown contextualisé selon metier du compte */}
+              {(() => {
+                const sg = account.source_group
+                const isEcole = sg === "ecole_la_patience"
+                const isPanda = sg === "pandattitude"
+                if (!isEcole && !isPanda) return null  // Panda Guest : pas de classe
+                return (
+                  <div>
+                    <label className="text-xs font-medium" style={{ color: "var(--ink-soft)" }}>
+                      {isPanda ? "Créneau cours dessin" : "Classe"}
+                    </label>
+                    <select value={newClasse} onChange={e => setNewClasse(e.target.value)}
+                      className="w-full mt-1 h-10 px-3 rounded-lg border text-sm" style={{ borderColor: "var(--border)", background: "var(--bg)" }}>
+                      <option value="">— choisir —</option>
+                      {isEcole ? (
+                        <>
+                          <option value="maternelle">Maternelle</option>
+                          <option value="primaire">Primaire</option>
+                          <option value="college">Collège</option>
+                          <option value="lycee">Lycée</option>
+                          <option value="prof">Prof / Équipe</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="mercredi">Mercredi</option>
+                          <option value="vendredi">Vendredi</option>
+                          <option value="samedi">Samedi</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
+                )
+              })()}
               <div>
                 <label className="text-xs font-medium" style={{ color: "var(--ink-soft)" }}>Allergies / notes</label>
                 <input type="text" value={newAllergies} onChange={e => setNewAllergies(e.target.value)} placeholder="Ex: sans gluten, allergie arachide..."

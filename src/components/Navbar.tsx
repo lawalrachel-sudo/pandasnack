@@ -11,9 +11,11 @@ interface NavbarProps {
   lastRechargeCents?: number
   /** @deprecated Brief 3-E : caddie déplacé en BottomNav avec badge cart Context. Conservé en prop pour compat ascendante uniquement. */
   pendingCount?: number
+  /** UX 3 — Phrase bienvenue affichée sous le logo, au-dessus de la pastille Wallet */
+  greeting?: string
 }
 
-export function Navbar({ walletBalance, lastRechargeCents }: NavbarProps) {
+export function Navbar({ walletBalance, lastRechargeCents, greeting }: NavbarProps) {
   const balanceDisplay = walletBalance != null
     ? `${(walletBalance / 100).toFixed(2).replace('.', ',')} €`
     : null
@@ -33,6 +35,13 @@ export function Navbar({ walletBalance, lastRechargeCents }: NavbarProps) {
       <div className="px-4 pt-2 pb-1 flex items-center justify-center">
         <Logo size="2xl" link />
       </div>
+
+      {/* UX 3 — Phrase "Bienvenue" gros/gras sous logo, au-dessus pastille Wallet */}
+      {greeting && (
+        <p className="px-4 pb-1 text-center font-bold text-base" style={{ color: "var(--ink)" }}>
+          {greeting}
+        </p>
+      )}
 
       {/* Row 2 — Wallet pill seul (caddie déplacé en BottomNav, Brief 3-E) */}
       <div className="px-4 pb-2 flex items-center justify-center">

@@ -13,7 +13,9 @@ import { HeaderMetier } from "@/components/HeaderMetier"
 // ============================================================================
 
 type SourceGroup = "ecole_la_patience" | "pandattitude" | "panda_guest"
-type Classe = "maternelle" | "primaire" | "college" | "lycee" | "prof"
+type Metier = "ecole" | "pandattitude" | "panda_guest"
+// BUG B — classe = scolaire OU créneau pandattitude (mer/ven/sam) OU null pour panda_guest
+type Classe = "maternelle" | "primaire" | "college" | "lycee" | "prof" | "mercredi" | "vendredi" | "samedi"
 
 interface CatalogItem {
   id: string; sku: string | null; code: string | null; name: string
@@ -25,7 +27,7 @@ interface CatalogItem {
 interface Category { id: string; name: string; emoji: string | null; sort_order: number; morning_available: boolean | null; catalog_items: CatalogItem[] }
 interface MenuFormula { id: string; code: string; name: string; description: string | null; price_cents: number; image_url: string | null; emoji: string | null; active: boolean; sort_order: number }
 interface Topping { id: string; name: string; emoji: string | null; active: boolean; sort_order: number; applies_to_category_ids: string[] | null }
-interface Profil { id: string; account_id: string; prenom: string; classe: Classe | null; is_default: boolean; active: boolean; notes_allergies: string | null }
+interface Profil { id: string; account_id: string; prenom: string; classe: Classe | null; metier: Metier; is_default: boolean; active: boolean; notes_allergies: string | null }
 interface Account { id: string; nom_compte: string; email: string; source_group: SourceGroup | null; source_detail: string | null }
 interface Wallet { balance_cents: number }
 interface DeliveryPoint { id: string; name: string; address: string | null; delivery_time_local: string | null }
@@ -66,8 +68,16 @@ function skuCat(sku: string): string | null {
   if (sku.startsWith("PASTA-")) return "PASTA"
   return null
 }
-const CL: Record<string, string> = { maternelle: "Mat.", primaire: "Prim.", college: "Coll.", lycee: "Lyc.", prof: "Prof" }
-const CLF: Record<string, string> = { maternelle: "Maternelle", primaire: "Primaire", college: "Collège", lycee: "Lycée", prof: "Prof/Équipe" }
+// BUG B — labels classe pour 3 métiers (scolaire + créneaux pandattitude)
+const CL: Record<string, string> = { maternelle: "Mat.", primaire: "Prim.", college: "Coll.", lycee: "Lyc.", prof: "Prof", mercredi: "Mer.", vendredi: "Ven.", samedi: "Sam." }
+const CLF: Record<string, string> = { maternelle: "Maternelle", primaire: "Primaire", college: "Collège", lycee: "Lycée", prof: "Prof/Équipe", mercredi: "Mercredi", vendredi: "Vendredi", samedi: "Samedi" }
+// Mapping account.source_group → profil.metier (compat ascendante)
+function sgToMetier(sg: string | null | undefined): Metier {
+  if (sg === "ecole_la_patience") return "ecole"
+  if (sg === "pandattitude") return "pandattitude"
+  if (sg === "panda_guest") return "panda_guest"
+  return "ecole"
+}
 const WALLET_IMG = "https://res.cloudinary.com/dbkpvp9ts/image/upload/v1776714727/PANDA_WALLET.jpg"
 
 // Crop Cloudinary pour retirer watermark Gemini
@@ -149,7 +159,9 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
 
 
   const selectedSlot = useMemo(() => slots.find((s) => s.id === selectedSlotId) || null, [slots, selectedSlotId])
-  const activeProfils = useMemo(() => profils.filter((p) => p.active), [profils])
+  // BUG C — filtrer profils par metier de la page courante (un profil = un seul metier)
+  const pageMetier = useMemo<Metier>(() => sgToMetier(account.source_group), [account.source_group])
+  const activeProfils = useMemo(() => profils.filter((p) => p.active && p.metier === pageMetier), [profils, pageMetier])
   const selectedProfil = useMemo(() => {
     if (selectedProfilId) return activeProfils.find((p) => p.id === selectedProfilId) || activeProfils[0] || null
     return activeProfils.find((p) => p.is_default) || activeProfils[0] || null
@@ -390,12 +402,8 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
 
   return (
     <div className="min-h-screen pb-20 max-w-lg mx-auto overflow-x-hidden">
-      <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} pendingCount={pendingCount} />
-
-      {/* Texte de bienvenue permanent (remplace l'ancien bandeau commande en attente) */}
-      <p className="px-4 mt-2 text-xs text-center" style={{ color: "var(--ink-soft)" }}>
-        Bienvenue chez Panda Snack 🐼 — Compose ton menu, choisis tes jours, c&apos;est prêt.
-      </p>
+      <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} pendingCount={pendingCount}
+        greeting="Bienvenue chez Panda Snack 🐼 — Compose ton menu, choisis tes jours, c'est prêt." />
 
       {/* T3 (3-E) — HeaderMetier composant réutilisable */}
       <HeaderMetier sg={sg} />
@@ -485,8 +493,8 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
           <div className="px-4 mb-6">
             {/* P0a #6 — titre section École en bleu */}
             <h2 className="font-bold text-lg mb-1 text-center" style={{ color: "#1D4ED8" }}>Menu Panda du jour</h2>
-            {/* P0a #9 — description Menu Panda rouge brique gras plus grande */}
-            <p className="text-sm font-bold mb-1" style={{ color: "#B91C1C" }}>Composition : plat + infusion maison glacée + dessert</p>
+            {/* UX 1 — sous-titre composition unifiée */}
+            <p className="text-sm font-bold mb-1" style={{ color: "#B91C1C" }}>PLAT (au choix) + BOISSON (bubble tea au choix sur place) + DESSERT DU JOUR</p>
             <p className="text-xs mb-3" style={{ color: "var(--accent-2)" }}>Infusion maison glacée offerte avec chaque menu.</p>
             {bento && (
               <div className="rounded-2xl overflow-hidden mb-3" style={{ background: "var(--card)", boxShadow: "0 2px 16px var(--shadow)" }}>
@@ -497,7 +505,8 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-bold text-lg">{bento.name}</h3>
-                      <p className="text-xs mt-1" style={{ color: "var(--ink-soft)" }}>{bento.description}</p>
+                      {/* UX 2 — descr override invitation à changer de plat */}
+                      <p className="text-xs mt-1" style={{ color: "var(--ink-soft)" }}>Clique sur &laquo;&nbsp;Changer de plat&nbsp;&raquo; si tu veux autre chose à la place dans le MENU PANDA&nbsp;!</p>
                     </div>
                     <span className="font-bold text-xl">{fmtPrice(bento.price_cents)}</span>
                   </div>
@@ -523,7 +532,8 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
         return (
           <div className="px-4 mb-6">
             <h2 className="font-bold text-lg mb-1 text-center" style={{ color: "#1D4ED8" }}>Menu Panda du jour</h2>
-            <p className="text-sm font-bold mb-1" style={{ color: "#B91C1C" }}>Bento du jour + boisson + dessert</p>
+            {/* UX 1 — sous-titre composition unifiée */}
+            <p className="text-sm font-bold mb-1" style={{ color: "#B91C1C" }}>PLAT (au choix) + BOISSON (bubble tea au choix sur place) + DESSERT DU JOUR</p>
             <p className="text-xs mb-3" style={{ color: "var(--accent-2)" }}>Infusion maison glacée offerte avec chaque menu.</p>
             {bento && (
               <div className="rounded-2xl overflow-hidden mb-3" style={{ background: "var(--card)", boxShadow: "0 2px 16px var(--shadow)" }}>
@@ -538,7 +548,8 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-bold text-lg">{bento.name}</h3>
-                      <p className="text-xs mt-1" style={{ color: "var(--ink-soft)" }}>{bento.description}</p>
+                      {/* UX 2 — descr override invitation à changer de plat */}
+                      <p className="text-xs mt-1" style={{ color: "var(--ink-soft)" }}>Clique sur &laquo;&nbsp;Changer de plat&nbsp;&raquo; si tu veux autre chose à la place dans le MENU PANDA&nbsp;!</p>
                     </div>
                     <span className="font-bold text-xl">{fmtPrice(bento.price_cents)}</span>
                   </div>
@@ -564,7 +575,8 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
         return (
           <div className="px-4 mb-6">
             <h2 className="font-bold text-lg mb-1 text-center" style={{ color: "#1D4ED8" }}>Menu Panda du jour</h2>
-            <p className="text-sm font-bold mb-1" style={{ color: "#B91C1C" }}>Bento du jour + boisson + dessert</p>
+            {/* UX 1 — sous-titre composition unifiée */}
+            <p className="text-sm font-bold mb-1" style={{ color: "#B91C1C" }}>PLAT (au choix) + BOISSON (bubble tea au choix sur place) + DESSERT DU JOUR</p>
             <p className="text-xs mb-3" style={{ color: "var(--accent-2)" }}>Infusion maison glacée offerte avec chaque menu.</p>
             {bento && (
               <div className="rounded-2xl overflow-hidden mb-3" style={{ background: "var(--card)", boxShadow: "0 2px 16px var(--shadow)" }}>
@@ -579,7 +591,8 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-bold text-lg">{bento.name}</h3>
-                      <p className="text-xs mt-1" style={{ color: "var(--ink-soft)" }}>{bento.description}</p>
+                      {/* UX 2 — descr override invitation à changer de plat */}
+                      <p className="text-xs mt-1" style={{ color: "var(--ink-soft)" }}>Clique sur &laquo;&nbsp;Changer de plat&nbsp;&raquo; si tu veux autre chose à la place dans le MENU PANDA&nbsp;!</p>
                     </div>
                     <span className="font-bold text-xl">{fmtPrice(bento.price_cents)}</span>
                   </div>

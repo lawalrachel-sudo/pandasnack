@@ -16,7 +16,7 @@ export default async function PanierPage() {
 
   const { data: profils } = await supabase
     .from("profils")
-    .select("id, prenom, classe, is_default, active")
+    .select("id, prenom, classe, metier, is_default, active")
     .eq("account_id", account.id)
     .eq("active", true)
     .order("is_default", { ascending: false })

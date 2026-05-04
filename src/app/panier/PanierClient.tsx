@@ -46,7 +46,7 @@ interface Order {
   order_items: OrderItem[]
 }
 
-interface Profil { id: string; prenom: string; classe: string | null; is_default: boolean; active: boolean }
+interface Profil { id: string; prenom: string; classe: string | null; metier: string; is_default: boolean; active: boolean }
 interface Slot { id: string; service_date: string; day_type: string; orders_cutoff_at: string | null }
 interface CatalogItem {
   id: string; sku: string | null; name: string; emoji: string | null; description?: string | null
@@ -100,6 +100,15 @@ function todayMartinique(): string {
 }
 
 export function PanierClient({ account, profils, orders, wallet, upcomingSlots, pendingCount, catalogItems, toppings }: Props) {
+  // BUG C — filtrer profils par metier de la page (1 profil = 1 seul metier)
+  const pageMetier = (() => {
+    const sg = account.source_group
+    if (sg === "ecole_la_patience") return "ecole"
+    if (sg === "pandattitude") return "pandattitude"
+    if (sg === "panda_guest") return "panda_guest"
+    return "ecole"
+  })()
+  const profilsForMetier = useMemo(() => profils.filter(p => p.metier === pageMetier), [profils, pageMetier])
   const [selectedProfilId, setSelectedProfilId] = useState<string>("all")
   // B-β+γ — expand/collapse PAR JOUR (Bug 1 reintroduit chevron) + multi-sélection (Bug 2)
   const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set())
@@ -239,7 +248,7 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
   }
 
   const calendarData = useMemo(() => {
-    const targetProfils = selectedProfilId === "all" ? profils : profils.filter(p => p.id === selectedProfilId)
+    const targetProfils = selectedProfilId === "all" ? profilsForMetier : profilsForMetier.filter(p => p.id === selectedProfilId)
     return upcomingSlots.slice(0, 14).map(slot => {
       const profilStatuses = targetProfils.map(profil => {
         const matchingOrder = orders.find(o =>
@@ -380,7 +389,7 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
         <p className="text-xs mb-4" style={{ color: "var(--ink-soft)" }}>Tes commandes en attente de paiement</p>
       </div>
 
-      {profils.length > 1 && (
+      {profilsForMetier.length > 1 && (
         <div className="px-4 mb-4">
           <div className="flex gap-2 overflow-x-auto pb-1">
             <button onClick={() => setSelectedProfilId("all")}
@@ -388,7 +397,7 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
               style={selectedProfilId === "all" ? { background: "var(--accent)" } : {}}>
               Tous
             </button>
-            {profils.map(p => {
+            {profilsForMetier.map(p => {
               const sel = selectedProfilId === p.id
               return (
                 <button key={p.id} onClick={() => setSelectedProfilId(p.id)}

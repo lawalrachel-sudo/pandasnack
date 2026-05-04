@@ -16,7 +16,7 @@ export default async function MonEspacePage() {
 
   const { data: profils } = await supabase
     .from("profils")
-    .select("id, prenom, classe, is_default, active, notes_allergies")
+    .select("id, prenom, classe, metier, is_default, active, notes_allergies")
     .eq("account_id", account.id)
     .is("archived_at", null)
     .order("is_default", { ascending: false })

@@ -8,16 +8,26 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 })
 
   const { data: account } = await supabase
-    .from("accounts").select("id").eq("auth_user_id", user.id).single()
+    .from("accounts").select("id, source_group").eq("auth_user_id", user.id).single()
   if (!account) return NextResponse.json({ error: "Compte introuvable" }, { status: 404 })
 
-  const { prenom, classe, notes_allergies } = await req.json()
+  const { prenom, classe, notes_allergies, metier } = await req.json()
   if (!prenom?.trim()) return NextResponse.json({ error: "Prénom requis" }, { status: 400 })
 
-  // Vérifier si c'est le premier profil (sera default)
+  // BUG B — metier dérivé du source_group du compte si non fourni
+  // Mapping : ecole_la_patience -> ecole, autres conservés
+  const derivedMetier = (() => {
+    if (metier && ["ecole","pandattitude","panda_guest"].includes(metier)) return metier
+    if (account.source_group === "ecole_la_patience") return "ecole"
+    if (account.source_group === "pandattitude") return "pandattitude"
+    if (account.source_group === "panda_guest") return "panda_guest"
+    return "ecole"
+  })()
+
+  // Vérifier si c'est le premier profil de ce metier (sera default pour ce metier)
   const { count } = await supabase
     .from("profils").select("id", { count: "exact", head: true })
-    .eq("account_id", account.id).eq("active", true)
+    .eq("account_id", account.id).eq("metier", derivedMetier).eq("active", true)
 
   const { data: profil, error } = await supabase
     .from("profils")
@@ -26,10 +36,11 @@ export async function POST(req: NextRequest) {
       prenom: prenom.trim(),
       classe: classe || null,
       notes_allergies: notes_allergies || null,
+      metier: derivedMetier,
       is_default: (count || 0) === 0,
       active: true,
     })
-    .select("id, prenom")
+    .select("id, prenom, metier")
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
