@@ -161,7 +161,14 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   const selectedSlot = useMemo(() => slots.find((s) => s.id === selectedSlotId) || null, [slots, selectedSlotId])
   // BUG C — filtrer profils par metier de la page courante (un profil = un seul metier)
   const pageMetier = useMemo<Metier>(() => sgToMetier(account.source_group), [account.source_group])
-  const activeProfils = useMemo(() => profils.filter((p) => p.active && p.metier === pageMetier), [profils, pageMetier])
+  // Bug 2+3 — exclure le profil parent (classe NULL sur ecole/pandattitude). Sur panda_guest,
+  // tout le monde commande (pas de notion parent/enfant). Le parent reste éditable via /mon-espace.
+  const activeProfils = useMemo(() => profils.filter((p) => {
+    if (!p.active) return false
+    if (p.metier !== pageMetier) return false
+    if (pageMetier === "panda_guest") return true
+    return !!p.classe  // ecole/pandattitude : seulement les profils avec classe/créneau renseigné
+  }), [profils, pageMetier])
   const selectedProfil = useMemo(() => {
     if (selectedProfilId) return activeProfils.find((p) => p.id === selectedProfilId) || activeProfils[0] || null
     return activeProfils.find((p) => p.is_default) || activeProfils[0] || null

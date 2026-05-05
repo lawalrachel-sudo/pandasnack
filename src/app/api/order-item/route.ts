@@ -121,10 +121,23 @@ export async function PATCH(req: NextRequest) {
       toppings: selectedToppings || [],
     }
 
+    // Bug 7 — recompose `notes` après swap pour rester sync avec catalog_item_id.
+    // Récupère le nom de la formula + topping names pour reconstituer "Menu Panda — NomPlat (top1, top2)".
+    const { data: formula } = await supabase.from("menu_formulas")
+      .select("name").eq("id", item.menu_formula_id).single()
+    let topNames: string[] = []
+    if (newToppings && newToppings.length > 0) {
+      const { data: tops } = await supabase.from("toppings")
+        .select("name").in("id", newToppings)
+      topNames = (tops || []).map((t: { name: string }) => t.name)
+    }
+    const newNotes = `${formula?.name || "Menu"} — ${newItem.name}${topNames.length ? ` (${topNames.join(", ")})` : ""}`
+
     await supabase.from("order_items").update({
       catalog_item_id: newItem.id,
       formula_choices: newFormulaChoices,
       topping_ids: newToppings,
+      notes: newNotes,
     }).eq("id", orderItemId)
 
     return NextResponse.json({ success: true })

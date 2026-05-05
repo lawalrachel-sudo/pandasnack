@@ -34,9 +34,29 @@ export async function POST(request: Request) {
       process.env.STRIPE_WEBHOOK_SECRET!
     )
   } catch (err) {
-    console.error("Webhook signature verification failed:", err)
+    console.error("[Stripe webhook] signature verification failed:", err)
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
   }
+
+  // Bug 6 — idempotence GLOBALE par event.id (Stripe retry les events 5xx jusqu'à 3 jours)
+  // Insert with primary key conflict = event déjà processed → skip silently.
+  const sessionForLog = event.type === "checkout.session.completed"
+    ? (event.data.object as Stripe.Checkout.Session).id
+    : null
+  const { error: dupErr } = await supabaseAdmin
+    .from("stripe_webhook_events")
+    .insert({ event_id: event.id, event_type: event.type, session_id: sessionForLog })
+  if (dupErr) {
+    // Code 23505 = unique_violation → c'est un retry, déjà traité
+    if ((dupErr as { code?: string }).code === "23505") {
+      console.log(`[Stripe webhook] duplicate event ${event.id} (${event.type}) — skipped`)
+      return NextResponse.json({ received: true, duplicate: true })
+    }
+    console.error(`[Stripe webhook] failed to log event ${event.id}:`, dupErr)
+    // Continue quand même — ne pas bloquer le traitement
+  }
+
+  console.log(`[Stripe webhook] event ${event.id} (${event.type})`)
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session
@@ -131,7 +151,7 @@ export async function POST(request: Request) {
       const orderId = session.metadata.order_id
 
       if (orderId) {
-        await supabaseAdmin
+        const { data: updated, error: upErr } = await supabaseAdmin
           .from("orders")
           .update({
             status: "paid",
@@ -140,25 +160,51 @@ export async function POST(request: Request) {
           })
           .eq("id", orderId)
           .eq("status", "pending_payment")
+          .select("id, status")
+        if (upErr) console.error(`[Stripe webhook] order_payment ${orderId} update FAILED:`, upErr)
+        else console.log(`[Stripe webhook] order_payment ${orderId} → paid (rows=${updated?.length ?? 0})`)
+      } else {
+        console.warn(`[Stripe webhook] order_payment session=${session.id} HAS NO order_id in metadata`)
       }
     } else if (session.metadata?.type === "multi_order_payment") {
       // ===== Brief 3-E B-γ : multi-order payment (1 session Stripe pour N orders) =====
       const orderIdsCsv = session.metadata.order_ids || ""
       const orderIds = orderIdsCsv.split(",").map(s => s.trim()).filter(Boolean)
-      if (orderIds.length > 0) {
-        // Mark each order as paid (idempotent via .eq("status", "pending_payment"))
-        for (const oid of orderIds) {
-          await supabaseAdmin
-            .from("orders")
-            .update({
-              status: "paid",
-              paid_at: new Date().toISOString(),
-              stripe_checkout_session_id: session.id,
-            })
-            .eq("id", oid)
-            .eq("status", "pending_payment")
+      console.log(`[Stripe webhook] multi_order_payment session=${session.id} orderIds=[${orderIds.join(",")}]`)
+      if (orderIds.length === 0) {
+        console.warn(`[Stripe webhook] multi_order_payment session=${session.id} HAS NO order_ids in metadata`)
+      }
+      // Mark each order as paid (idempotent via .eq("status", "pending_payment")).
+      // Bug 6 — log précis par order : status avant + nb rows touchées par l'UPDATE.
+      for (const oid of orderIds) {
+        const { data: before } = await supabaseAdmin
+          .from("orders").select("id, status").eq("id", oid).single()
+        if (!before) {
+          console.error(`[Stripe webhook] order ${oid} introuvable (session ${session.id})`)
+          continue
+        }
+        if (before.status === "paid") {
+          console.log(`[Stripe webhook] order ${oid} déjà paid → skip`)
+          continue
+        }
+        const { data: updated, error: upErr } = await supabaseAdmin
+          .from("orders")
+          .update({
+            status: "paid",
+            paid_at: new Date().toISOString(),
+            stripe_checkout_session_id: session.id,
+          })
+          .eq("id", oid)
+          .eq("status", "pending_payment")
+          .select("id, status")
+        if (upErr) {
+          console.error(`[Stripe webhook] order ${oid} update FAILED:`, upErr)
+        } else {
+          console.log(`[Stripe webhook] order ${oid} ${before.status} → paid (rows=${updated?.length ?? 0})`)
         }
       }
+    } else {
+      console.log(`[Stripe webhook] session ${session.id} type unknown:`, session.metadata?.type)
     }
   }
 

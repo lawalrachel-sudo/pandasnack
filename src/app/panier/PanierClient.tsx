@@ -112,7 +112,12 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
     if (sg === "panda_guest") return "panda_guest"
     return "ecole"
   })()
-  const profilsForMetier = useMemo(() => profils.filter(p => p.metier === pageMetier), [profils, pageMetier])
+  // Bug 2+3 — sur ecole/pandattitude, exclure le profil parent (classe NULL). panda_guest = tous.
+  const profilsForMetier = useMemo(() => profils.filter(p => {
+    if (p.metier !== pageMetier) return false
+    if (pageMetier === "panda_guest") return true
+    return !!p.classe
+  }), [profils, pageMetier])
   const [selectedProfilId, setSelectedProfilId] = useState<string>("all")
   // B-β+γ — expand/collapse PAR JOUR (Bug 1 reintroduit chevron) + multi-sélection (Bug 2)
   const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set())
