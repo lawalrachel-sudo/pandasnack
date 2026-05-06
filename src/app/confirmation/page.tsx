@@ -15,12 +15,18 @@ export default async function ConfirmationPage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/connexion")
 
-  // Si Stripe session_id présent, confirmer le paiement
-  if (params.session_id && params.session_id !== "SIMULATED_TEST") {
+  // Niveau 1 fix multi-checkout : marquer TOUTES les orders rattachées à cette session
+  // paid (pas juste celle dans ?order=). En multi, la session Stripe couvre N orders mais
+  // success_url ne référence qu'une (firstOrderId) — sans ce filtre par session_id, les N-1
+  // autres restaient pending alors que Stripe avait bien encaissé l'intégralité.
+  // Idempotence garantie par .eq("status","pending_payment") : un refresh ne re-trigge rien.
+  if (params.session_id && params.session_id !== "SIMULATED_TEST" && params.session_id !== "SIMULATED_TEST_MULTI") {
     await supabase.from("orders").update({
       status: "paid",
       paid_at: new Date().toISOString(),
-    }).eq("id", orderId).eq("status", "pending_payment")
+    })
+    .eq("stripe_checkout_session_id", params.session_id)
+    .eq("status", "pending_payment")
   }
 
   // Récupérer la commande + items
