@@ -39,7 +39,7 @@ export default async function CGVPage() {
 
           <h2 className="text-base font-bold mt-6 mb-2">5. Prix et paiement</h2>
           <p className="text-sm mb-3">
-            Les prix sont indiqués TTC en euros. TVA applicable : 2,1 % (restauration DOM).
+            Les prix sont indiqués en euros, toutes taxes comprises (TTC). Le prix affiché est le prix final.
             Le paiement s&apos;effectue par carte bancaire via Stripe ou par débit du Pass Panda.
           </p>
 

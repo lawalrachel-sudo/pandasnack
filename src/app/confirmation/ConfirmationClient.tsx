@@ -78,14 +78,9 @@ export function ConfirmationClient({ order, items, remainingPendingCount = 0, ne
             </div>
           ))}
         </div>
-        <div className="border-t mt-3 pt-3 space-y-1" style={{ borderColor: "var(--border)" }}>
-          <div className="flex justify-between text-xs" style={{ color: "var(--ink-soft)" }}>
-            <span>Sous-total</span><span>{fmtPrice(order.subtotal_cents)}</span>
-          </div>
-          <div className="flex justify-between text-xs" style={{ color: "var(--ink-soft)" }}>
-            <span>TVA ({2.10}%)</span><span>{fmtPrice(order.vat_cents)}</span>
-          </div>
-          <div className="flex justify-between font-bold text-base pt-1">
+        {/* Récap ticket — Prix vitrine TTC, pas de ligne TVA visible (B2C art. L112-1) */}
+        <div className="border-t mt-3 pt-3" style={{ borderColor: "var(--border)" }}>
+          <div className="flex justify-between font-bold text-base">
             <span>Total</span><span>{fmtPrice(order.total_cents)}</span>
           </div>
         </div>

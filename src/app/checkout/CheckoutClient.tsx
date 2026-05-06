@@ -308,21 +308,11 @@ export function CheckoutClient({ order, items, wallet, account, cutoffPassed, wa
         </div>
       </div>
 
-      {/* Price breakdown */}
+      {/* Price breakdown — Prix vitrine = TTC final, pas de ligne TVA visible (B2C art. L112-1) */}
       <div className="rounded-xl border p-4 mb-4" style={{ borderColor: "var(--border)" }}>
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm" style={{ color: "var(--ink-soft)" }}>
-            <span>Sous-total ({items.length} article{items.length > 1 ? "s" : ""})</span>
-            <span>{fmtPrice(order.subtotal_cents)}</span>
-          </div>
-          <div className="flex justify-between text-sm" style={{ color: "var(--ink-soft)" }}>
-            <span>TVA {order.vat_rate}%</span>
-            <span>{fmtPrice(order.vat_cents)}</span>
-          </div>
-          <div className="flex justify-between font-bold text-lg pt-2 border-t" style={{ borderColor: "var(--border)" }}>
-            <span>Total TTC</span>
-            <span style={{ color: "var(--accent)" }}>{fmtPrice(order.total_cents)}</span>
-          </div>
+        <div className="flex justify-between font-bold text-lg">
+          <span>Total · {items.length} article{items.length > 1 ? "s" : ""}</span>
+          <span style={{ color: "var(--accent)" }}>{fmtPrice(order.total_cents)}</span>
         </div>
       </div>
 
@@ -415,7 +405,6 @@ export function CheckoutClient({ order, items, wallet, account, cutoffPassed, wa
         En payant, tu acceptes nos{" "}
         <Link href="/cgv" className="underline">CGV</Link> et{" "}
         <Link href="/cgu" className="underline">CGU</Link>.
-        <br />TVA {order.vat_rate}% DOM Martinique.
       </p>
     </div>
   )

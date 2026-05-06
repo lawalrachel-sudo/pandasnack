@@ -47,10 +47,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Prix vitrine = TTC. Pas de TVA ajoutée par-dessus (B2C art. L112-1 Code conso).
+    // LTC pas redevable TVA en v1.0 (art. 293B CGI). Colonnes vat_* gardées pour archive future.
     const subtotalCents = items.reduce((sum, i) => sum + i.priceCents * (i.quantity || 1), 0)
-    const vatRate = 2.10
-    const vatCents = Math.round(subtotalCents * vatRate / 100)
-    const totalCents = subtotalCents + vatCents
+    const vatRate = 0
+    const vatCents = 0
+    const totalCents = subtotalCents
 
     const { data: order, error: orderErr } = await supabase
       .from("orders")

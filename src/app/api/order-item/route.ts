@@ -95,17 +95,15 @@ export async function PATCH(req: NextRequest) {
         notes: newItem.name,
       }).eq("id", orderItemId)
 
-      // Recalc order totals (prix change pour solo)
+      // Recalc order totals (prix change pour solo) — TTC sans TVA ajoutée (art. L112-1)
       const { data: items } = await supabase.from("order_items")
         .select("line_total_cents").eq("order_id", order.id)
       const newSubtotal = (items || []).reduce((s: number, r: { line_total_cents: number }) => s + r.line_total_cents, 0)
-      const vatRate = Number(order.vat_rate) || 2.10
-      const newVat = Math.round(newSubtotal * vatRate / 100)
-      const newTotal = newSubtotal + newVat
+      const newTotal = newSubtotal
 
       await supabase.from("orders").update({
         subtotal_cents: newSubtotal,
-        vat_cents: newVat,
+        vat_cents: 0,
         total_cents: newTotal,
       }).eq("id", order.id)
 
@@ -216,7 +214,7 @@ export async function POST(req: NextRequest) {
           service_slot_id: slotId,
           status: "pending_payment",
           subtotal_cents: 0,
-          vat_rate: 2.10,
+          vat_rate: 0,
           vat_cents: 0,
           total_cents: 0,
           payment_method: "draft",
@@ -296,17 +294,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Erreur ajout article" }, { status: 500 })
     }
 
-    // Recalc totals
+    // Recalc totals — TTC sans TVA ajoutée (B2C art. L112-1)
     const { data: items } = await supabase
       .from("order_items").select("line_total_cents").eq("order_id", order.id)
     const newSubtotal = (items || []).reduce((s: number, r: { line_total_cents: number }) => s + r.line_total_cents, 0)
-    const vatRate = Number(order.vat_rate) || 2.10
-    const newVat = Math.round(newSubtotal * vatRate / 100)
-    const newTotal = newSubtotal + newVat
+    const newTotal = newSubtotal
 
     await supabase.from("orders").update({
       subtotal_cents: newSubtotal,
-      vat_cents: newVat,
+      vat_cents: 0,
       total_cents: newTotal,
     }).eq("id", order.id)
 
@@ -411,14 +407,13 @@ export async function DELETE(req: NextRequest) {
       .eq("order_id", order.id)
 
     const newSubtotal = (remaining || []).reduce((s: number, r: { line_total_cents: number }) => s + r.line_total_cents, 0)
-    const vatRate = Number(order.vat_rate) || 2.10
-    const newVat = Math.round(newSubtotal * vatRate / 100)
-    const newTotal = newSubtotal + newVat
+    // TTC sans TVA ajoutée (B2C art. L112-1)
+    const newTotal = newSubtotal
     const diffCents = order.total_cents - newTotal
 
     await supabase.from("orders").update({
       subtotal_cents: newSubtotal,
-      vat_cents: newVat,
+      vat_cents: 0,
       total_cents: newTotal,
     }).eq("id", order.id)
 
