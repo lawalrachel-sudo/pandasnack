@@ -29,7 +29,9 @@ export async function updateSession(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   // Redirect to /auth if not logged in (except public pages)
-  const publicPaths = ['/auth', '/allergenes', '/nos-prix-shop', '/cgv', '/cgu']
+  // /api/stripe/webhook : POST sans cookies de la part de Stripe → ne JAMAIS rediriger vers /auth
+  // (sinon Stripe reçoit 307 au lieu d'atteindre le handler → 21/21 failed observés en prod)
+  const publicPaths = ['/auth', '/allergenes', '/nos-prix-shop', '/cgv', '/cgu', '/api/stripe/webhook']
   const isPublic = publicPaths.some(p => request.nextUrl.pathname.startsWith(p))
 
   if (!user && !isPublic && request.nextUrl.pathname !== '/') {
