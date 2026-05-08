@@ -294,10 +294,26 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
           </div>
           <div className="flex items-center gap-3 no-print">
             <Link
-              href={`/admin/etiquettes/${today}`}
+              href={`/admin/profils`}
+              className="px-3 py-2 bg-white text-gray-700 text-sm font-semibold rounded-lg border border-gray-200 hover:bg-gray-50"
+            >
+              👥 Profils
+            </Link>
+            {/* T2 — Imprimer liste : visible seulement si onglet jour spécifique. Transmet sourceGroup. */}
+            {activeDayTab !== "all" && (
+              <Link
+                href={`/admin/liste/${activeDayTab}${sourceGroup ? `?source_group=${sourceGroup}` : ""}`}
+                className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700"
+              >
+                🖨️ Imprimer liste
+              </Link>
+            )}
+            {/* T3 — Étiquettes : transmet le filtre métier actif via ?metier= */}
+            <Link
+              href={`/admin/etiquettes/${activeDayTab !== "all" ? activeDayTab : today}${sourceGroup ? `?metier=${sourceGroup}` : ""}`}
               className="px-4 py-2 bg-orange-600 text-white text-sm font-semibold rounded-lg hover:bg-orange-700"
             >
-              🏷️ Étiquettes du jour
+              🏷️ Étiquettes
             </Link>
             <button
               onClick={() => window.print()}

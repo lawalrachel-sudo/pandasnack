@@ -2,6 +2,14 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { useRouter, useSearchParams } from "next/navigation"
+
+const METIER_OPTIONS: { value: string; label: string }[] = [
+  { value: "", label: "TOUS" },
+  { value: "pandattitude", label: "Pandattitude" },
+  { value: "ecole_la_patience", label: "La Patience" },
+  { value: "panda_guest", label: "Panda Guest" },
+]
 
 interface Label {
   order_number: string
@@ -32,15 +40,28 @@ function fmtDateTimeShort(iso: string): string {
 }
 
 export function EtiquettesClient({ serviceDate }: { serviceDate: string }) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const metier = searchParams.get("metier") || ""
   const [labels, setLabels] = useState<Label[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  function setMetier(value: string) {
+    const qs = new URLSearchParams(searchParams.toString())
+    if (value) qs.set("metier", value)
+    else qs.delete("metier")
+    router.replace(`/admin/etiquettes/${serviceDate}${qs.toString() ? "?" + qs.toString() : ""}`)
+  }
+
   useEffect(() => {
     let cancel = false
     async function load() {
+      setLoading(true); setError(null)
       try {
-        const res = await fetch(`/api/admin/labels?service_date=${serviceDate}`)
+        const qs = new URLSearchParams({ service_date: serviceDate })
+        if (metier) qs.set("source_group", metier)
+        const res = await fetch(`/api/admin/labels?${qs.toString()}`)
         const json = await res.json()
         if (!res.ok) throw new Error(json.error || "Erreur labels")
         if (!cancel) setLabels(json.labels || [])
@@ -52,7 +73,7 @@ export function EtiquettesClient({ serviceDate }: { serviceDate: string }) {
     }
     load()
     return () => { cancel = true }
-  }, [serviceDate])
+  }, [serviceDate, metier])
 
   return (
     <div>
@@ -147,18 +168,34 @@ export function EtiquettesClient({ serviceDate }: { serviceDate: string }) {
         }
       `}</style>
 
-      <div className="no-print bg-white border-b border-gray-200 px-6 py-4 sticky top-0 z-10 flex items-center justify-between">
-        <div>
-          <Link href="/admin/dashboard" className="text-sm text-blue-600 hover:underline">← Retour dashboard</Link>
-          <h1 className="text-xl font-bold mt-1">Étiquettes — {serviceDate}</h1>
-          <p className="text-xs text-gray-500">{labels.length} étiquette(s) · format Office Star OS43425 (105 × 57 mm, 10/A4)</p>
+      <div className="no-print bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="px-6 py-4 flex items-center justify-between">
+          <div>
+            <Link href="/admin/dashboard" className="text-sm text-blue-600 hover:underline">← Retour dashboard</Link>
+            <h1 className="text-xl font-bold mt-1">Étiquettes — {serviceDate}</h1>
+            <p className="text-xs text-gray-500">{labels.length} étiquette(s) · format Office Star OS43425 (105 × 57 mm, 10/A4)</p>
+          </div>
+          <button
+            onClick={() => window.print()}
+            className="px-4 py-2 bg-orange-600 text-white text-sm font-semibold rounded-lg hover:bg-orange-700"
+          >
+            🖨️ Imprimer
+          </button>
         </div>
-        <button
-          onClick={() => window.print()}
-          className="px-4 py-2 bg-orange-600 text-white text-sm font-semibold rounded-lg hover:bg-orange-700"
-        >
-          🖨️ Imprimer
-        </button>
+        <div className="px-6 pb-3 flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-semibold text-gray-700 uppercase">Métier</span>
+          {METIER_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => setMetier(opt.value)}
+              className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors ${
+                metier === opt.value ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {loading && <p className="text-center py-8 text-gray-500">Chargement…</p>}

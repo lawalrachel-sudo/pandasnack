@@ -15,7 +15,7 @@ const NAV_ITEMS = [
 export function BottomNav() {
   const pathname = usePathname()
   const { pendingCount } = useCart()
-  if (pathname?.startsWith("/auth") || pathname?.startsWith("/onboarding") || pathname?.startsWith("/connexion")) return null
+  if (pathname?.startsWith("/auth") || pathname?.startsWith("/onboarding") || pathname?.startsWith("/connexion") || pathname?.startsWith("/admin")) return null
 
   return (
     <>
