@@ -64,6 +64,67 @@ function ymd(d: Date): string {
 
 type Preset = "today" | "week" | "7days" | "month" | "custom"
 
+// Composant tableau réutilisable (mode flat ou en section sous un en-tête métier)
+function OrdersTable({ orders, loading = false }: { orders: OrderRow[]; loading?: boolean }) {
+  return (
+    <table className="w-full text-sm">
+      <thead className="bg-gray-50 text-xs uppercase text-gray-600">
+        <tr>
+          <th className="text-left px-3 py-2.5 font-semibold">Date</th>
+          <th className="text-left px-3 py-2.5 font-semibold">N°</th>
+          <th className="text-left px-3 py-2.5 font-semibold">Métier</th>
+          <th className="text-left px-3 py-2.5 font-semibold">Parent</th>
+          <th className="text-left px-3 py-2.5 font-semibold">Profils</th>
+          <th className="text-left px-3 py-2.5 font-semibold">Composition</th>
+          <th className="text-left px-3 py-2.5 font-semibold">Note</th>
+          <th className="text-left px-3 py-2.5 font-semibold">Paiement</th>
+          <th className="text-left px-3 py-2.5 font-semibold no-print">Hist.</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-gray-100">
+        {orders.length === 0 && !loading && (
+          <tr><td colSpan={9} className="px-3 py-6 text-center text-gray-500">Aucune commande.</td></tr>
+        )}
+        {orders.map(o => {
+          const profilNames = Array.from(new Set(o.items.map(i => i.profil_prenom).filter(Boolean))).join(", ")
+          const compoCompact = o.items.map(i => {
+            const name = i.menu_formula_name || i.catalog_item_name || "Article"
+            return `1 ${name}`
+          }).slice(0, 2).join(" + ")
+          const compoFull = o.items.map(i => {
+            const name = i.menu_formula_name && i.catalog_item_name
+              ? `${i.menu_formula_name} — ${i.catalog_item_name}`
+              : (i.menu_formula_name || i.catalog_item_name || "Article")
+            return `${name}${i.profil_prenom ? ` (${i.profil_prenom})` : ""}`
+          }).join("\n")
+          const more = o.items.length > 2 ? ` +${o.items.length - 2}` : ""
+          const statusIcon = o.status === "paid" ? "✅" : o.status === "pending_payment" ? "❌" : "⚪"
+          const statusColor = o.status === "paid" ? "text-green-700" : o.status === "pending_payment" ? "text-red-600" : "text-gray-500"
+          return (
+            <tr key={o.id} className="hover:bg-gray-50">
+              <td className="px-3 py-2 whitespace-nowrap font-medium">{fmtServiceDate(o.service_date)}</td>
+              <td className="px-3 py-2 font-mono text-xs">{o.order_number}</td>
+              <td className="px-3 py-2 text-xs">{o.source_label}</td>
+              <td className="px-3 py-2" title={o.account.email}>{o.account.nom_compte}</td>
+              <td className="px-3 py-2 text-xs">{profilNames || "—"}</td>
+              <td className="px-3 py-2 text-xs" title={compoFull}>{compoCompact}{more}</td>
+              <td className="px-3 py-2 text-center">
+                {o.special_request ? <span title={o.special_request}>📝</span> : ""}
+              </td>
+              <td className={`px-3 py-2 font-medium ${statusColor}`}>{statusIcon} {fmtPrice(o.total_cents)}</td>
+              <td className="px-3 py-2 no-print">
+                <Link href={`/admin/historique/${o.account.id}`} className="text-xs text-blue-600 hover:underline">
+                  Voir →
+                </Link>
+              </td>
+            </tr>
+          )
+        })}
+      </tbody>
+    </table>
+  )
+}
+
 function presetRange(preset: Preset): { from: string; to: string } {
   const now = new Date()
   if (preset === "today") return { from: ymd(now), to: ymd(now) }
@@ -99,26 +160,37 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [productionOpen, setProductionOpen] = useState(true)
+  // Onglets jour : "all" = période complète, "YYYY-MM-DD" = un jour précis
+  const [activeDayTab, setActiveDayTab] = useState<string>("all")
 
   function applyPreset(p: Preset) {
     setPreset(p)
+    setActiveDayTab("all")  // reset onglet jour quand période change
     if (p !== "custom") {
       const r = presetRange(p)
       setFrom(r.from); setTo(r.to)
     }
   }
+  // Reset onglet aussi quand from/to changent en custom
+  useEffect(() => { setActiveDayTab("all") }, [from, to])
 
+  // /api/admin/orders : toujours sur la période complète (pour avoir uniqueDays).
+  // /api/admin/recap : soit période, soit jour spécifique selon activeDayTab.
   useEffect(() => {
     let cancel = false
     async function load() {
       if (!from || !to) return
       setLoading(true); setError(null)
       try {
-        const qs = new URLSearchParams({ from, to })
-        if (sourceGroup) qs.set("source_group", sourceGroup)
+        const qsOrders = new URLSearchParams({ from, to })
+        if (sourceGroup) qsOrders.set("source_group", sourceGroup)
+        const recapFrom = activeDayTab === "all" ? from : activeDayTab
+        const recapTo = activeDayTab === "all" ? to : activeDayTab
+        const qsRecap = new URLSearchParams({ from: recapFrom, to: recapTo })
+        if (sourceGroup) qsRecap.set("source_group", sourceGroup)
         const [oRes, rRes] = await Promise.all([
-          fetch(`/api/admin/orders?${qs.toString()}`),
-          fetch(`/api/admin/recap?${qs.toString()}`),
+          fetch(`/api/admin/orders?${qsOrders.toString()}`),
+          fetch(`/api/admin/recap?${qsRecap.toString()}`),
         ])
         const oJson = await oRes.json()
         const rJson = await rRes.json()
@@ -136,32 +208,73 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
     }
     load()
     return () => { cancel = true }
-  }, [from, to, sourceGroup])
+  }, [from, to, sourceGroup, activeDayTab])
+
+  // Jours uniques présents dans les orders de la période → onglets dynamiques
+  const uniqueDays = useMemo(() => {
+    const set = new Set<string>()
+    for (const o of orders) if (o.service_date) set.add(o.service_date)
+    return Array.from(set).sort()
+  }, [orders])
+
+  // Orders filtrées par onglet jour
+  const filteredOrders = useMemo(() => {
+    if (activeDayTab === "all") return orders
+    return orders.filter(o => o.service_date === activeDayTab)
+  }, [orders, activeDayTab])
+
+  // Sections par métier : seulement si onglet jour spécifique ET pas de filtre métier
+  const sectionsByMetier = useMemo(() => {
+    if (activeDayTab === "all" || sourceGroup) return null
+    const groups = new Map<string, { label: string; orders: OrderRow[] }>()
+    for (const o of filteredOrders) {
+      const key = o.source_group || "unknown"
+      const entry = groups.get(key) || { label: o.source_label || key, orders: [] }
+      entry.orders.push(o)
+      groups.set(key, entry)
+    }
+    // Sort orders intra-section par order_number
+    for (const g of groups.values()) {
+      g.orders.sort((a, b) => a.order_number.localeCompare(b.order_number))
+    }
+    // Ordre des sections : pandattitude, ecole_la_patience, panda_guest, autres
+    const order = ["pandattitude", "ecole_la_patience", "panda_guest"]
+    return Array.from(groups.entries())
+      .sort(([a], [b]) => {
+        const ia = order.indexOf(a); const ib = order.indexOf(b)
+        if (ia === -1 && ib === -1) return a.localeCompare(b)
+        if (ia === -1) return 1
+        if (ib === -1) return -1
+        return ia - ib
+      })
+      .map(([key, g]) => ({ key, ...g }))
+  }, [activeDayTab, sourceGroup, filteredOrders])
 
   const today = useMemo(() => ymd(new Date()), [])
 
-  // Décomposition par métier (si TOUS sélectionné)
+  // Totaux dérivés de filteredOrders (reflète onglet + filtre métier)
+  const totals = useMemo(() => {
+    const paid = filteredOrders.filter(o => o.status === "paid")
+    const pending = filteredOrders.filter(o => o.status === "pending_payment")
+    const revenue = paid.reduce((s, o) => s + o.total_cents, 0)
+    return { paidCount: paid.length, pendingCount: pending.length, revenue }
+  }, [filteredOrders])
+
+  // Décomposition par métier (visible si pas de filtre Métier ET ≥ 2 métiers présents)
   const revenueBreakdown = useMemo(() => {
-    if (!recap || sourceGroup) return null
-    const entries = Object.entries(recap.totals.revenue_by_source)
-    if (entries.length <= 1) return null
-    const labels: Record<string, string> = {
-      pandattitude: "Pandattitude",
-      ecole_la_patience: "La Patience",
-      panda_guest: "Panda Guest",
+    if (sourceGroup) return null
+    const map = new Map<string, { count: number; cents: number; label: string }>()
+    for (const o of filteredOrders.filter(x => x.status === "paid")) {
+      const key = o.source_group
+      const entry = map.get(key) || { count: 0, cents: 0, label: o.source_label || key }
+      entry.count += 1
+      entry.cents += o.total_cents
+      map.set(key, entry)
     }
-    return entries.map(([key, cents]) => {
-      const [sg, ...rest] = key.split("_")
-      const detail = rest.join("_")
-      const baseLabel = labels[sg] || labels[key] || key
-      const label = detail ? `${baseLabel} (${detail})` : baseLabel
-      const count = orders.filter(o => {
-        if (sg === "ecole" && o.source_group === "ecole_la_patience") return o.status === "paid"
-        return o.source_group === key && o.status === "paid"
-      }).length
-      return { label, count, cents }
-    })
-  }, [recap, sourceGroup, orders])
+    const arr = Array.from(map.values())
+    if (arr.length <= 1) return null
+    return arr.sort((a, b) => b.cents - a.cents)
+  }, [sourceGroup, filteredOrders])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -244,23 +357,49 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
         </div>
       </header>
 
+      {/* Onglets jour (sticky sous le header de filtres) */}
+      <div className="bg-white border-b border-gray-200 px-6 py-2 sticky top-[136px] z-[5] no-print">
+        <div className="max-w-7xl mx-auto flex items-center gap-2 overflow-x-auto">
+          <span className="text-xs font-semibold text-gray-700 uppercase shrink-0">Jour</span>
+          <button
+            onClick={() => setActiveDayTab("all")}
+            className={`px-3 py-1.5 text-xs rounded-md font-medium whitespace-nowrap transition-colors ${
+              activeDayTab === "all" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            }`}
+          >
+            Tous
+          </button>
+          {uniqueDays.map(d => (
+            <button
+              key={d}
+              onClick={() => setActiveDayTab(d)}
+              className={`px-3 py-1.5 text-xs rounded-md font-medium whitespace-nowrap transition-colors ${
+                activeDayTab === d ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              {fmtServiceDate(d)}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <main className="max-w-7xl mx-auto px-6 py-6">
         {/* Cadre totaux */}
         <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
           {loading && <p className="text-sm text-gray-500">Chargement…</p>}
           {error && <p className="text-sm text-red-600">⚠ {error}</p>}
-          {recap && (
+          {!error && (
             <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2">
               <div>
                 <p className="text-xs uppercase text-gray-500 font-semibold">Commandes payées</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {recap.totals.orders_paid} <span className="text-base font-medium text-gray-600">· {fmtPrice(recap.totals.revenue_cents)}</span>
+                  {totals.paidCount} <span className="text-base font-medium text-gray-600">· {fmtPrice(totals.revenue)}</span>
                 </p>
               </div>
-              {recap.totals.orders_pending > 0 && (
+              {totals.pendingCount > 0 && (
                 <div>
                   <p className="text-xs uppercase text-gray-500 font-semibold">En attente</p>
-                  <p className="text-2xl font-bold text-amber-600">{recap.totals.orders_pending}</p>
+                  <p className="text-2xl font-bold text-amber-600">{totals.pendingCount}</p>
                 </div>
               )}
               {revenueBreakdown && (
@@ -276,68 +415,34 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
           )}
         </div>
 
-        {/* Tableau commandes */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-xs uppercase text-gray-600">
-              <tr>
-                <th className="text-left px-3 py-2.5 font-semibold">Date</th>
-                <th className="text-left px-3 py-2.5 font-semibold">N°</th>
-                <th className="text-left px-3 py-2.5 font-semibold">Métier</th>
-                <th className="text-left px-3 py-2.5 font-semibold">Parent</th>
-                <th className="text-left px-3 py-2.5 font-semibold">Profils</th>
-                <th className="text-left px-3 py-2.5 font-semibold">Composition</th>
-                <th className="text-left px-3 py-2.5 font-semibold">Note</th>
-                <th className="text-left px-3 py-2.5 font-semibold">Paiement</th>
-                <th className="text-left px-3 py-2.5 font-semibold no-print">Hist.</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {orders.length === 0 && !loading && (
-                <tr><td colSpan={9} className="px-3 py-6 text-center text-gray-500">Aucune commande sur cette période.</td></tr>
-              )}
-              {orders.map(o => {
-                const profilNames = Array.from(new Set(o.items.map(i => i.profil_prenom).filter(Boolean))).join(", ")
-                const compoCompact = o.items.map(i => {
-                  const name = i.menu_formula_name || i.catalog_item_name || "Article"
-                  return `1 ${name.replace(/^Menu Panda$/i, "Menu Panda")}`
-                }).slice(0, 2).join(" + ")
-                const compoFull = o.items.map(i => {
-                  const name = i.menu_formula_name && i.catalog_item_name
-                    ? `${i.menu_formula_name} — ${i.catalog_item_name}`
-                    : (i.menu_formula_name || i.catalog_item_name || "Article")
-                  return `${name}${i.profil_prenom ? ` (${i.profil_prenom})` : ""}`
-                }).join("\n")
-                const more = o.items.length > 2 ? ` +${o.items.length - 2}` : ""
-                const statusIcon = o.status === "paid" ? "✅"
-                  : o.status === "pending_payment" ? "❌"
-                  : "⚪"
-                const statusColor = o.status === "paid" ? "text-green-700"
-                  : o.status === "pending_payment" ? "text-red-600"
-                  : "text-gray-500"
-                return (
-                  <tr key={o.id} className="hover:bg-gray-50">
-                    <td className="px-3 py-2 whitespace-nowrap font-medium">{fmtServiceDate(o.service_date)}</td>
-                    <td className="px-3 py-2 font-mono text-xs">{o.order_number}</td>
-                    <td className="px-3 py-2 text-xs">{o.source_label}</td>
-                    <td className="px-3 py-2" title={o.account.email}>{o.account.nom_compte}</td>
-                    <td className="px-3 py-2 text-xs">{profilNames || "—"}</td>
-                    <td className="px-3 py-2 text-xs" title={compoFull}>{compoCompact}{more}</td>
-                    <td className="px-3 py-2 text-center">
-                      {o.special_request ? <span title={o.special_request}>📝</span> : ""}
-                    </td>
-                    <td className={`px-3 py-2 font-medium ${statusColor}`}>{statusIcon} {fmtPrice(o.total_cents)}</td>
-                    <td className="px-3 py-2 no-print">
-                      <Link href={`/admin/historique/${o.account.id}`} className="text-xs text-blue-600 hover:underline">
-                        Voir →
-                      </Link>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+        {/* Tableau commandes — soit à plat, soit en sections par métier (onglet jour + métier=Tous) */}
+        {sectionsByMetier ? (
+          <div className="space-y-6 mb-6">
+            {sectionsByMetier.length === 0 && !loading && (
+              <div className="bg-white rounded-xl border border-gray-200 px-3 py-6 text-center text-gray-500">
+                Aucune commande sur ce jour.
+              </div>
+            )}
+            {sectionsByMetier.map(section => {
+              const sectionPaid = section.orders.filter(o => o.status === "paid")
+              const sectionRev = sectionPaid.reduce((s, o) => s + o.total_cents, 0)
+              return (
+                <div key={section.key} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="bg-gray-50 px-4 py-2 border-l-4 border-blue-500">
+                    <span className="font-bold text-sm uppercase tracking-wide text-gray-800">
+                      ── {section.label} ({section.orders.length} commande{section.orders.length > 1 ? "s" : ""} · {fmtPrice(sectionRev)}) ──
+                    </span>
+                  </div>
+                  <OrdersTable orders={section.orders} />
+                </div>
+              )
+            })}
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
+            <OrdersTable orders={filteredOrders} loading={loading} />
+          </div>
+        )}
 
         {/* Récap production */}
         {recap && recap.totals.orders_paid > 0 && (
@@ -347,7 +452,11 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
               className="w-full px-5 py-3 flex items-center justify-between bg-gray-50 hover:bg-gray-100 border-b border-gray-200 no-print"
             >
               <span className="font-semibold text-gray-900">
-                📦 Récap production — {from === to ? fmtServiceDate(from) : `${fmtServiceDate(from)} → ${fmtServiceDate(to)}`} ({recap.totals.orders_paid} commandes payées)
+                📦 Récap production — {
+                  activeDayTab !== "all"
+                    ? fmtServiceDate(activeDayTab)
+                    : (from === to ? fmtServiceDate(from) : `${fmtServiceDate(from)} → ${fmtServiceDate(to)}`)
+                } ({recap.totals.orders_paid} commandes payées)
               </span>
               <span className="text-gray-500">{productionOpen ? "▲" : "▼"}</span>
             </button>
