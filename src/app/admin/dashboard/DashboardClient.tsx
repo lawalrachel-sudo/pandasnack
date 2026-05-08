@@ -46,8 +46,16 @@ interface RecapData {
     revenue_by_source: Record<string, number>
   }
   production: {
-    menus: { name: string; qty: number; details: { label: string; qty: number }[] }[]
-    items: { category: string; qty_total: number; details: { name: string; qty: number }[] }[]
+    menus: {
+      name: string; qty: number;
+      details: { label: string; qty: number }[]
+      items_detail: { note: string; qty: number }[]
+    }[]
+    items: {
+      category: string; qty_total: number;
+      details: { name: string; qty: number }[]
+      items_detail: { note: string; qty: number }[]
+    }[]
   }
 }
 
@@ -481,14 +489,17 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
                 {recap.production.menus.length > 0 && (
                   <div>
                     <h3 className="text-xs uppercase font-bold text-gray-700 mb-3">🍱 Menus</h3>
-                    <ul className="space-y-3">
+                    <ul className="space-y-4">
                       {recap.production.menus.map((m, i) => (
                         <li key={i}>
-                          <p className="font-semibold text-gray-900">{m.qty} × {m.name}</p>
-                          {m.details.length > 0 && (
-                            <ul className="ml-4 mt-1 space-y-0.5 text-sm text-gray-600">
-                              {m.details.map((d, j) => (
-                                <li key={j}>├─ {d.label} : <strong>{d.qty}</strong></li>
+                          <p className="font-bold text-gray-900">{m.qty} × {m.name}</p>
+                          {/* T5 — composition détaillée (plat + toppings) directement à partir des notes */}
+                          {m.items_detail && m.items_detail.length > 0 && (
+                            <ul className="ml-3 mt-1 space-y-0.5 text-sm text-gray-700">
+                              {m.items_detail.map((d, j) => (
+                                <li key={j}>
+                                  <strong>{d.qty}×</strong> {d.note}
+                                </li>
                               ))}
                             </ul>
                           )}
@@ -500,14 +511,16 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
                 {recap.production.items.length > 0 && (
                   <div>
                     <h3 className="text-xs uppercase font-bold text-gray-700 mb-3">🥪 À la carte</h3>
-                    <ul className="space-y-3">
+                    <ul className="space-y-4">
                       {recap.production.items.map((c, i) => (
                         <li key={i}>
-                          <p className="font-semibold text-gray-900">{c.qty_total} × {c.category}</p>
-                          {c.details.length > 0 && (
-                            <ul className="ml-4 mt-1 space-y-0.5 text-sm text-gray-600">
-                              {c.details.map((d, j) => (
-                                <li key={j}>├─ {d.name} : <strong>{d.qty}</strong></li>
+                          <p className="font-bold text-gray-900">{c.qty_total} × {c.category}</p>
+                          {c.items_detail && c.items_detail.length > 0 && (
+                            <ul className="ml-3 mt-1 space-y-0.5 text-sm text-gray-700">
+                              {c.items_detail.map((d, j) => (
+                                <li key={j}>
+                                  <strong>{d.qty}×</strong> {d.note}
+                                </li>
                               ))}
                             </ul>
                           )}

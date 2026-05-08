@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
       service_slots!inner(service_date),
       accounts!inner(source_group, source_detail),
       order_items(
-        id, formula_choices, topping_ids,
+        id, notes, formula_choices, topping_ids,
         menu_formulas(id, name, code),
         catalog_items(id, name, sku, category_id)
       )
@@ -76,32 +76,46 @@ export async function GET(req: NextRequest) {
   )
 
   // Production : 2 sections — menus (formula+plat composé) et items (vendus seuls).
-  // Map menu : key=formula_id → { name, qty, details: [{label, qty}] }
-  const menusMap = new Map<string, { name: string; qty: number; details: Map<string, number> }>()
-  // Map items : key=category_id → { catName, qty_total, details: Map<itemName, qty> }
-  const itemsMap = new Map<string, { category: string; qty_total: number; details: Map<string, number> }>()
+  // Pour T5 : on ajoute items_detail (notes dédupliquées) qui contient la composition exacte
+  // déjà formatée par /api/save-order et /api/order-item ("Menu Panda — Plat (Top1, Top2)").
+  // Le but : la cuisine voit chaque commande individuelle avec ses garnitures, pas juste un compteur.
+  const menusMap = new Map<string, { name: string; qty: number; details: Map<string, number>; notes: Map<string, number> }>()
+  const itemsMap = new Map<string, { category: string; qty_total: number; details: Map<string, number>; notes: Map<string, number> }>()
+
+  // T5 — Helper : nettoyer notes pour récap cuisine.
+  // notes brut = "Menu Panda — Steak de légumes (Tomates, Beurre)"
+  // → on retire le préfixe "Menu XXX — " pour le récap par formula (déjà groupé sous "Menu Panda :")
+  function stripFormulaPrefix(notes: string, formulaName: string): string {
+    if (!notes) return ""
+    const prefix = `${formulaName} — `
+    if (notes.startsWith(prefix)) return notes.slice(prefix.length)
+    return notes
+  }
 
   for (const o of paidOrders) {
     for (const it of (o.order_items || [])) {
       const formulaId = it.menu_formulas?.id
+      const rawNotes: string = it.notes || ""
       if (formulaId) {
-        // Menu composé : on agrège par formula, et le détail = plat choisi (catalog_item_name) + toppings
         const fname = it.menu_formulas?.name || "Menu"
-        const entry = menusMap.get(formulaId) || { name: fname, qty: 0, details: new Map() }
+        const entry = menusMap.get(formulaId) || { name: fname, qty: 0, details: new Map(), notes: new Map() }
         entry.qty += 1
-        // Détail principal = plat
         const platName = it.catalog_items?.name || "Plat libre"
-        const platLabel = `${platName}`
-        entry.details.set(platLabel, (entry.details.get(platLabel) || 0) + 1)
+        entry.details.set(platName, (entry.details.get(platName) || 0) + 1)
+        // Détail "notes" : composition complète sans le préfixe formula (sinon redondance)
+        const noteClean = stripFormulaPrefix(rawNotes, fname).trim() || "(plat libre du jour)"
+        entry.notes.set(noteClean, (entry.notes.get(noteClean) || 0) + 1)
         menusMap.set(formulaId, entry)
       } else if (it.catalog_items) {
-        // Item solo : agrégé par catégorie
         const catId = it.catalog_items.category_id || "uncategorized"
         const catName = catNames[catId] || catId
-        const entry = itemsMap.get(catId) || { category: catName, qty_total: 0, details: new Map() }
+        const entry = itemsMap.get(catId) || { category: catName, qty_total: 0, details: new Map(), notes: new Map() }
         entry.qty_total += 1
         const itemName = it.catalog_items.name || it.catalog_items.sku || "Article"
         entry.details.set(itemName, (entry.details.get(itemName) || 0) + 1)
+        // Pour items solo : notes contient déjà nom + éventuels toppings entre parenthèses
+        const noteClean = rawNotes.trim() || itemName
+        entry.notes.set(noteClean, (entry.notes.get(noteClean) || 0) + 1)
         itemsMap.set(catId, entry)
       }
     }
@@ -115,6 +129,10 @@ export async function GET(req: NextRequest) {
       details: Array.from(m.details.entries())
         .map(([label, qty]) => ({ label, qty }))
         .sort((a, b) => b.qty - a.qty),
+      // T5 — composition cuisine : 1 ligne par variante distincte (notes dédupliquées)
+      items_detail: Array.from(m.notes.entries())
+        .map(([note, qty]) => ({ note, qty }))
+        .sort((a, b) => b.qty - a.qty),
     }))
 
   const items = Array.from(itemsMap.values())
@@ -125,9 +143,11 @@ export async function GET(req: NextRequest) {
       details: Array.from(c.details.entries())
         .map(([name, qty]) => ({ name, qty }))
         .sort((a, b) => b.qty - a.qty),
+      items_detail: Array.from(c.notes.entries())
+        .map(([note, qty]) => ({ note, qty }))
+        .sort((a, b) => b.qty - a.qty),
     }))
 
-  // Suppression de la propriété toppings_unfiltered injectée par le SELECT (artefact)
   void topNames
 
   return NextResponse.json({
