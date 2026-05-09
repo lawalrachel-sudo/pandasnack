@@ -130,13 +130,15 @@ export function EtiquettesClient({ serviceDate }: { serviceDate: string }) {
           padding: 0;
         }
         /* T7 — étiquette densifiée 105×57mm, padding 4mm vertical 5mm horizontal,
-           zone utile 95×49mm, marge sécurité impression OK. */
+           zone utile 95×49mm, marge sécurité impression OK.
+           overflow:hidden = filet de sécurité si commande exceptionnelle dépasse. */
         .label {
           width: 105mm;
           height: 57mm;
           padding: 4mm 5mm;
           box-sizing: border-box;
           page-break-inside: avoid;
+          overflow: hidden;
           font-family: -apple-system, BlinkMacSystemFont, sans-serif;
           color: #1f2937;
           background: white;
@@ -176,10 +178,13 @@ export function EtiquettesClient({ serviceDate }: { serviceDate: string }) {
           font-size: 11pt;
           color: #1f2937;
           line-height: 1.15;
-          flex: 1;
           margin: 0;
           padding: 0;
           list-style: none;
+        }
+        /* Groupe bas (allergènes + footer) ancré en bas via margin-top:auto */
+        .label-bottom {
+          margin-top: auto;
         }
         .label-items.dense {
           font-size: 8pt;
@@ -297,13 +302,15 @@ export function EtiquettesClient({ serviceDate }: { serviceDate: string }) {
                   <li key={idx}>• {it.name}</li>
                 ))}
               </ul>
-              {l.allergens.length > 0 && (
-                <div className="label-allergens">
-                  ⚠️ Allergènes : {l.allergens.join(" · ")}
+              <div className="label-bottom">
+                {l.allergens.length > 0 && (
+                  <div className="label-allergens">
+                    ⚠️ Allergènes : {l.allergens.join(" · ")}
+                  </div>
+                )}
+                <div className="label-footer">
+                  Préparé le {fmtDateOnlyShort(l.prepared_at)} <span className="conservation">· À conserver au frais et consommer rapidement</span>
                 </div>
-              )}
-              <div className="label-footer">
-                Préparé le {fmtDateOnlyShort(l.prepared_at)} <span className="conservation">· À conserver au frais et consommer rapidement</span>
               </div>
             </div>
           )
