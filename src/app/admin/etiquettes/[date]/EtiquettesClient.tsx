@@ -15,12 +15,9 @@ interface Label {
   order_number: string
   metier: string
   service_date_short: string
-  piece_index: number
-  piece_total: number
   profil_prenom: string
   profil_classe: string | null
-  produit_principal: string
-  composition: string[]
+  items: { name: string }[]
   allergens: string[]
   prepared_at: string
   dlc_at: string
@@ -132,10 +129,12 @@ export function EtiquettesClient({ serviceDate }: { serviceDate: string }) {
           margin: 0 auto;
           padding: 0;
         }
+        /* T7 — étiquette densifiée 105×57mm, padding 4mm vertical 5mm horizontal,
+           zone utile 95×49mm, marge sécurité impression OK. */
         .label {
           width: 105mm;
           height: 57mm;
-          padding: 3mm;
+          padding: 4mm 5mm;
           box-sizing: border-box;
           page-break-inside: avoid;
           font-family: -apple-system, BlinkMacSystemFont, sans-serif;
@@ -149,59 +148,59 @@ export function EtiquettesClient({ serviceDate }: { serviceDate: string }) {
           display: flex;
           justify-content: space-between;
           align-items: baseline;
-          font-size: 11pt;
+          font-size: 9pt;
           font-weight: bold;
-          padding-bottom: 1mm;
-          border-bottom: 0.5px solid #e5e7eb;
+          color: #374151;
+          margin-bottom: 2mm;
         }
-        .label-piece {
-          font-size: 10pt;
+        .label-header .num {
           font-weight: 400;
           color: #6b7280;
+          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+          font-size: 8.5pt;
         }
         .label-prenom {
           font-size: 14pt;
           font-weight: 800;
-          margin-top: 1.5mm;
-          padding-bottom: 1.5mm;
-          border-bottom: 0.5px solid #e5e7eb;
+          line-height: 1.05;
+          margin-bottom: 2mm;
         }
         .label-prenom .classe {
-          font-size: 11pt;
+          font-size: 9pt;
+          font-style: italic;
           font-weight: 500;
-          color: #4b5563;
+          color: #6b7280;
           margin-left: 2mm;
         }
-        .label-produit {
+        .label-items {
           font-size: 11pt;
-          font-weight: bold;
-          text-transform: uppercase;
-          margin-top: 1.5mm;
+          color: #1f2937;
+          line-height: 1.15;
+          flex: 1;
+          margin: 0;
+          padding: 0;
+          list-style: none;
         }
-        .label-compo {
-          font-size: 9pt;
-          color: #374151;
-          margin-top: 0.5mm;
-          line-height: 1.2;
+        .label-items.dense {
+          font-size: 8pt;
+          line-height: 1.0;
+        }
+        .label-items li {
+          padding: 0;
+          margin: 0;
         }
         .label-allergens {
           font-size: 8pt;
-          background: #FFF8DC;
-          padding: 1.5mm;
-          margin-top: 1.5mm;
-          border-radius: 1mm;
-          line-height: 1.2;
+          font-style: italic;
+          color: #92400E;
+          margin-top: 2mm;
+          line-height: 1.15;
         }
         .label-footer {
-          font-size: 7pt;
-          color: #555;
-          margin-top: auto;
-          padding-top: 1mm;
-          border-top: 0.5px solid #e5e7eb;
-          line-height: 1.3;
-        }
-        .label-footer .num {
-          color: #9ca3af;
+          font-size: 8pt;
+          color: #4b5563;
+          margin-top: 1mm;
+          line-height: 1.2;
         }
         @media print {
           body { background: white !important; }
@@ -276,37 +275,35 @@ export function EtiquettesClient({ serviceDate }: { serviceDate: string }) {
       )}
 
       <div className="labels-sheet" style={{ marginTop: "13.5mm" }}>
-        {labels.map((l, i) => (
-          <div key={`${l.order_number}-${l.piece_index}`} className="label">
-            <div className="label-header">
-              <span>{l.metier} · {l.service_date_short}</span>
-              <span className="label-piece">Pièce {l.piece_index}/{l.piece_total}</span>
-            </div>
-            <div className="label-prenom">
-              {l.profil_prenom}
-              {l.profil_classe && <span className="classe">· {l.profil_classe}</span>}
-            </div>
-            <div className="label-produit">{l.produit_principal}</div>
-            {l.composition.length > 0 && (
-              <div className="label-compo">
-                {l.composition.map((c, ci) => (
-                  <span key={ci}>• {c}{ci < l.composition.length - 1 ? "  " : ""}</span>
+        {labels.map(l => {
+          // T7 — densification auto si > 5 items (cas rare, filet de sécurité)
+          const dense = l.items.length > 5
+          return (
+            <div key={l.order_number} className="label">
+              <div className="label-header">
+                <span>{l.metier} · {l.service_date_short}</span>
+                <span className="num">{l.order_number}</span>
+              </div>
+              <div className="label-prenom">
+                {l.profil_prenom}
+                {l.profil_classe && <span className="classe">({l.profil_classe})</span>}
+              </div>
+              <ul className={`label-items${dense ? " dense" : ""}`}>
+                {l.items.map((it, idx) => (
+                  <li key={idx}>• {it.name}</li>
                 ))}
+              </ul>
+              {l.allergens.length > 0 && (
+                <div className="label-allergens">
+                  ⚠️ Allergènes : {l.allergens.join(" · ")}
+                </div>
+              )}
+              <div className="label-footer">
+                Préparé : {fmtDateTimeShort(l.prepared_at)} &nbsp;·&nbsp; DLC : {fmtDateTimeShort(l.dlc_at)}
               </div>
-            )}
-            {l.allergens.length > 0 && (
-              <div className="label-allergens">
-                ⚠ {l.allergens.join(" · ")}
-              </div>
-            )}
-            <div className="label-footer">
-              <div>Préparé : {fmtDateTimeShort(l.prepared_at)} &nbsp;·&nbsp; DLC : {fmtDateTimeShort(l.dlc_at)}</div>
-              <div className="num">#{l.order_number}</div>
             </div>
-            {/* Force unique key for React */}
-            <span style={{ display: "none" }}>{i}</span>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
