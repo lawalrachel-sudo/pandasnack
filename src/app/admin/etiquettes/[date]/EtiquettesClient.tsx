@@ -24,16 +24,16 @@ interface Label {
   dlc_hours: number
 }
 
-function fmtDateTimeShort(iso: string): string {
+function fmtDateOnlyShort(iso: string): string {
+  // Format Martinique : DD/MM/YY (date seule, sans heure)
+  // Conversion UTC → Martinique (UTC-4) pour ne pas afficher la veille
+  // si prepared_at est à 08:00 Mqe = 12:00 UTC.
   const d = new Date(iso)
-  // Format Martinique : DD/MM/YY Hh
-  const day = String(d.getUTCDate()).padStart(2, "0")  // Note : pour vraie TZ Martinique on utiliserait Intl
-  const month = String(d.getUTCMonth() + 1).padStart(2, "0")
-  const year = String(d.getUTCFullYear()).slice(2)
-  const hour = d.getUTCHours()
-  // Conversion UTC → Martinique (UTC-4) approximative
-  const localHour = (hour - 4 + 24) % 24
-  return `${day}/${month}/${year} ${localHour}h`
+  const local = new Date(d.getTime() - 4 * 3600 * 1000)
+  const day = String(local.getUTCDate()).padStart(2, "0")
+  const month = String(local.getUTCMonth() + 1).padStart(2, "0")
+  const year = String(local.getUTCFullYear()).slice(2)
+  return `${day}/${month}/${year}`
 }
 
 export function EtiquettesClient({ serviceDate }: { serviceDate: string }) {
@@ -202,6 +202,10 @@ export function EtiquettesClient({ serviceDate }: { serviceDate: string }) {
           margin-top: 1mm;
           line-height: 1.2;
         }
+        .label-footer .conservation {
+          font-style: italic;
+          color: #6b7280;
+        }
         @media print {
           body { background: white !important; }
           .no-print { display: none !important; }
@@ -299,7 +303,7 @@ export function EtiquettesClient({ serviceDate }: { serviceDate: string }) {
                 </div>
               )}
               <div className="label-footer">
-                Préparé : {fmtDateTimeShort(l.prepared_at)} &nbsp;·&nbsp; DLC : {fmtDateTimeShort(l.dlc_at)}
+                Préparé le {fmtDateOnlyShort(l.prepared_at)} <span className="conservation">· À conserver au frais et consommer rapidement</span>
               </div>
             </div>
           )
