@@ -182,9 +182,11 @@ export function EtiquettesClient({ serviceDate }: { serviceDate: string }) {
           padding: 0;
           list-style: none;
         }
-        /* Groupe bas (allergènes + footer) ancré en bas via margin-top:auto */
+        /* Groupe bas (allergènes + footer) collé directement après les items.
+           Le vide naturel se reporte en bas de l'étiquette (zone d'impression
+           sécurisée, pas de débordement). */
         .label-bottom {
-          margin-top: auto;
+          margin-top: 0;
         }
         .label-items.dense {
           font-size: 8pt;
@@ -198,13 +200,13 @@ export function EtiquettesClient({ serviceDate }: { serviceDate: string }) {
           font-size: 8pt;
           font-style: italic;
           color: #92400E;
-          margin-top: 2mm;
+          margin-top: 1.5mm;
           line-height: 1.15;
         }
         .label-footer {
           font-size: 8pt;
           color: #4b5563;
-          margin-top: 1mm;
+          margin-top: 0.5mm;
           line-height: 1.2;
         }
         .label-footer .conservation {
