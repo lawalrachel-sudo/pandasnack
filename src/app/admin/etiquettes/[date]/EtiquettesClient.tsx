@@ -129,13 +129,14 @@ export function EtiquettesClient({ serviceDate }: { serviceDate: string }) {
           margin: 0 auto;
           padding: 0;
         }
-        /* T7 — étiquette densifiée 105×57mm, padding 4mm vertical 5mm horizontal,
-           zone utile 95×49mm, marge sécurité impression OK.
+        /* T7 — étiquette densifiée 105×57mm.
+           Padding top resserré à 2mm (Rachel : récupérer ~2 lignes en haut),
+           bottom 3mm pour zone d'impression sécurisée, sides 5mm.
            overflow:hidden = filet de sécurité si commande exceptionnelle dépasse. */
         .label {
           width: 105mm;
           height: 57mm;
-          padding: 4mm 5mm;
+          padding: 2mm 5mm 3mm 5mm;
           box-sizing: border-box;
           page-break-inside: avoid;
           overflow: hidden;
@@ -153,7 +154,7 @@ export function EtiquettesClient({ serviceDate }: { serviceDate: string }) {
           font-size: 9pt;
           font-weight: bold;
           color: #374151;
-          margin-bottom: 2mm;
+          margin-bottom: 1mm;
         }
         .label-header .num {
           font-weight: 400;
@@ -165,7 +166,7 @@ export function EtiquettesClient({ serviceDate }: { serviceDate: string }) {
           font-size: 14pt;
           font-weight: 800;
           line-height: 1.05;
-          margin-bottom: 2mm;
+          margin-bottom: 1mm;
         }
         .label-prenom .classe {
           font-size: 9pt;
