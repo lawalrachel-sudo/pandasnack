@@ -106,18 +106,25 @@ export function RechargerClient({ accountId, familyName, walletBalance, configs,
 
         <h2 className="font-bold text-lg mb-4" style={{ color: "var(--ink)" }}>Recharger mon Panda Wallet</h2>
 
-        {/* Pilules paliers — bonus_label + badge depuis DB */}
-        <div className="space-y-3 mb-4">
+        {/* Pilules paliers — bonus_label + badge depuis DB
+            Impeccable P1 A11y : role="radiogroup" + role="radio" + aria-checked
+            pour annoncer l'UI radio aux lecteurs écran (les boutons paraissent
+            sélectionnables mais sans cette sémantique). */}
+        <div className="space-y-3 mb-4" role="radiogroup" aria-label="Choisir un palier de recharge">
           {configs.map(c => {
             const isSelected = selectedRecharge === c.recharge_cents
+            const ariaLabel = `${c.label || `Recharger ${fmtPrice(c.recharge_cents)}`}${c.bonus_label ? `, ${c.bonus_label}` : ""}${c.badge ? `, ${c.badge}` : ""}`
 
             return (
               <button key={c.recharge_cents}
                 onClick={() => { setSelectedRecharge(isSelected ? null : c.recharge_cents); setCustomAmount("") }}
-                className="w-full rounded-xl border p-4 text-left transition-all relative"
+                role="radio"
+                aria-checked={isSelected}
+                aria-label={ariaLabel}
+                className="focus-ring w-full rounded-xl border p-4 text-left transition-all relative min-h-11"
                 style={{
                   borderColor: isSelected ? "var(--accent-2)" : "var(--border)",
-                  background: isSelected ? "#F0FDF4" : "var(--card)",
+                  background: isSelected ? "var(--status-paid-bg)" : "var(--card)",
                   boxShadow: isSelected ? "0 0 0 2px var(--accent-2)" : "none",
                 }}>
                 {c.badge && (
@@ -133,6 +140,7 @@ export function RechargerClient({ accountId, familyName, walletBalance, configs,
                     )}
                   </div>
                   <div className="w-6 h-6 rounded-full border-2 flex items-center justify-center"
+                    aria-hidden="true"
                     style={{ borderColor: isSelected ? "var(--accent-2)" : "var(--border)" }}>
                     {isSelected && <div className="w-3 h-3 rounded-full" style={{ background: "var(--accent-2)" }} />}
                   </div>
@@ -153,22 +161,30 @@ export function RechargerClient({ accountId, familyName, walletBalance, configs,
           <a href="mailto:team@pandasnack.online" className="font-semibold underline" style={{ color: "var(--accent)" }}>team@pandasnack.online</a>
         </p>
 
-        {/* Champ libre */}
+        {/* Champ libre — Impeccable P2 A11y : htmlFor + id pour lier label↔input */}
         <div className="rounded-xl border p-4 mb-6" style={{ borderColor: isCustom ? "var(--accent)" : "var(--border)", background: "var(--card)" }}>
-          <label className="text-sm font-semibold" style={{ color: "var(--ink)" }}>Montant libre (sans bonus)</label>
+          <label htmlFor="recharge-custom-amount" className="text-sm font-semibold" style={{ color: "var(--ink)" }}>Montant libre (sans bonus)</label>
           <div className="flex items-center gap-2 mt-2">
-            <input type="text" inputMode="decimal" value={customAmount}
+            <input id="recharge-custom-amount" type="text" inputMode="decimal" value={customAmount}
               onChange={e => { setCustomAmount(e.target.value); setSelectedRecharge(null) }}
-              placeholder="Ex: 75" className="flex-1 h-10 px-3 rounded-lg border text-sm" style={{ borderColor: "var(--border)" }} />
-            <span className="text-sm font-semibold" style={{ color: "var(--ink-soft)" }}>€</span>
+              placeholder="Ex: 75"
+              aria-describedby="recharge-custom-hint"
+              className="focus-ring flex-1 h-11 px-3 rounded-lg border text-sm" style={{ borderColor: "var(--border)" }} />
+            <span aria-hidden="true" className="text-sm font-semibold" style={{ color: "var(--ink-soft)" }}>€</span>
           </div>
-          <p className="text-[10px] mt-1" style={{ color: "var(--ink-soft)" }}>Min. 5 € · Max. 200 €</p>
+          <p id="recharge-custom-hint" className="text-[10px] mt-1" style={{ color: "var(--ink-soft)" }}>Min. 5 € · Max. 200 €</p>
         </div>
 
-        {error && <div className="rounded-lg p-3 mb-4 text-sm" style={{ background: "#FEF2F2", color: "#DC2626" }}>{error}</div>}
+        {error && (
+          <div role="alert" aria-live="polite" className="rounded-lg p-3 mb-4 text-sm" style={{ background: "var(--status-cancelled-bg)", color: "var(--status-cancelled)" }}>
+            {error}
+          </div>
+        )}
 
         <button onClick={handleRecharge} disabled={!canPay}
-          className="w-full h-12 rounded-xl font-semibold text-white text-center text-sm disabled:opacity-50" style={{ background: "var(--accent-2)" }}>
+          aria-label={selectedConfig?.recharge_cents === 20000 ? "Voir les infos de virement bancaire"
+            : `Recharger ${selectedConfig ? fmtPrice(selectedConfig.recharge_cents) : isCustom ? fmtPrice(customCents) : ""} par carte`}
+          className="focus-ring w-full h-12 rounded-xl font-semibold text-white text-center text-sm disabled:opacity-50" style={{ background: "var(--accent-2)" }}>
           {loading ? "Redirection vers Stripe..."
             : selectedConfig?.recharge_cents === 20000 ? "Voir les infos de virement"
             : `Recharger${selectedConfig ? ` ${fmtPrice(selectedConfig.recharge_cents)}` : isCustom ? ` ${fmtPrice(customCents)}` : ""} par carte`}
@@ -182,11 +198,11 @@ export function RechargerClient({ accountId, familyName, walletBalance, configs,
 
       {/* P0 patch — Modal RIB pour palier 200 € (virement uniquement) */}
       {showRib && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center px-4">
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center px-4" role="dialog" aria-modal="true" aria-labelledby="rib-modal-title">
           <div className="rounded-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto" style={{ background: "var(--card)" }}>
             <div className="flex justify-between items-start mb-4 gap-3">
-              <h3 className="font-bold text-lg" style={{ color: "var(--ink)" }}>Recharge 200 € par virement</h3>
-              <button onClick={() => setShowRib(false)} className="text-3xl leading-none -mt-1" aria-label="Fermer" style={{ color: "var(--ink-soft)" }}>&times;</button>
+              <h3 id="rib-modal-title" className="font-bold text-lg" style={{ color: "var(--ink)" }}>Recharge 200 € par virement</h3>
+              <button onClick={() => setShowRib(false)} className="focus-ring text-3xl leading-none -mt-1 min-w-11 min-h-11" aria-label="Fermer la fenêtre RIB" style={{ color: "var(--ink-soft)" }}>&times;</button>
             </div>
             <p className="text-sm mb-4" style={{ color: "var(--ink-soft)" }}>
               Pour les recharges de 200 € et plus (bonus 15 à 20%), effectue un virement :
@@ -200,20 +216,23 @@ export function RechargerClient({ accountId, familyName, walletBalance, configs,
                 {pandaId ? (
                   <span style={{ fontFamily: "ui-monospace, monospace", color: "var(--accent)" }}>PS-WALLET-{pandaId}</span>
                 ) : (
-                  <span style={{ color: "#DC2626" }}>Contacte team@pandasnack.online</span>
+                  <span style={{ color: "var(--status-cancelled)" }}>Contacte team@pandasnack.online</span>
                 )}
               </p>
             </div>
             <button
               onClick={copyIban}
-              className="w-full h-11 rounded-lg font-semibold text-white mb-2"
-              style={{ background: ribCopied ? "#16A34A" : "var(--accent)" }}
+              aria-live="polite"
+              aria-label={ribCopied ? "RIB copié dans le presse-papier" : "Copier le RIB dans le presse-papier"}
+              className="focus-ring w-full h-11 rounded-lg font-semibold text-white mb-2"
+              style={{ background: ribCopied ? "var(--status-paid)" : "var(--accent)" }}
             >
               {ribCopied ? "✓ Copié !" : "Copier le RIB"}
             </button>
             <button
               onClick={() => setShowRib(false)}
-              className="w-full h-10 rounded-lg text-sm font-medium border"
+              aria-label="Fermer la fenêtre RIB"
+              className="focus-ring w-full h-11 rounded-lg text-sm font-medium border"
               style={{ borderColor: "var(--border)", color: "var(--ink-soft)" }}
             >
               Fermer
