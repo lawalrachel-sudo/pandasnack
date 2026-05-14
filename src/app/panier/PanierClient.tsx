@@ -7,14 +7,16 @@ import { HeaderMetier } from "@/components/HeaderMetier"
 import { useCart } from "@/lib/cart-context"
 
 const WALLET_IMG = "https://res.cloudinary.com/dbkpvp9ts/image/upload/v1776714727/PANDA_WALLET.jpg"
+// Impeccable audit P1 Theming — couleurs status pointent vers les tokens CSS définis dans
+// globals.css (--status-*-bg/-text). Source de vérité unique pour évolutions palette.
 const STATUS_LABELS: Record<string, { label: string; color: string; bg: string; dot: string }> = {
-  pending_payment: { label: "En attente", color: "#B45309", bg: "#FEF3E2", dot: "🟡" },
-  paid: { label: "Payée", color: "#166534", bg: "#DCFCE7", dot: "🟢" },
-  in_preparation: { label: "En préparation", color: "#9333EA", bg: "#F3E8FF", dot: "🟢" },
-  ready: { label: "Prête", color: "#0E7490", bg: "#CFFAFE", dot: "🟢" },
-  delivered: { label: "Livrée", color: "#6B7280", bg: "#F3F4F6", dot: "🟢" },
-  cancelled: { label: "Annulée", color: "#DC2626", bg: "#FEE2E2", dot: "🔴" },
-  refunded: { label: "Remboursée", color: "#DC2626", bg: "#FEE2E2", dot: "🔴" },
+  pending_payment: { label: "En attente", color: "var(--status-pending)", bg: "var(--status-pending-bg)", dot: "🟡" },
+  paid: { label: "Payée", color: "var(--status-paid)", bg: "var(--status-paid-bg)", dot: "🟢" },
+  in_preparation: { label: "En préparation", color: "var(--status-prep)", bg: "var(--status-prep-bg)", dot: "🟢" },
+  ready: { label: "Prête", color: "var(--status-ready)", bg: "var(--status-ready-bg)", dot: "🟢" },
+  delivered: { label: "Livrée", color: "var(--status-delivered)", bg: "var(--status-delivered-bg)", dot: "🟢" },
+  cancelled: { label: "Annulée", color: "var(--status-cancelled)", bg: "var(--status-cancelled-bg)", dot: "🔴" },
+  refunded: { label: "Remboursée", color: "var(--status-cancelled)", bg: "var(--status-cancelled-bg)", dot: "🔴" },
 }
 
 function fmtPrice(c: number): string { return `${(c / 100).toFixed(2).replace(".", ",")} €` }
@@ -402,10 +404,12 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
       </div>
 
       {profilsForMetier.length > 1 && (
-        <div className="px-4 mb-4">
+        <div className="px-4 mb-4" role="radiogroup" aria-label="Filtrer le panier par profil">
           <div className="flex gap-2 overflow-x-auto pb-1">
             <button onClick={() => setSelectedProfilId("all")}
-              className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap border transition-colors ${selectedProfilId === "all" ? "text-white border-transparent" : "border-[var(--border)]"}`}
+              role="radio"
+              aria-checked={selectedProfilId === "all"}
+              className={`focus-ring min-h-11 px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap border transition-colors ${selectedProfilId === "all" ? "text-white border-transparent" : "border-[var(--border)]"}`}
               style={selectedProfilId === "all" ? { background: "var(--accent)" } : {}}>
               Tous
             </button>
@@ -413,7 +417,10 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
               const sel = selectedProfilId === p.id
               return (
                 <button key={p.id} onClick={() => setSelectedProfilId(p.id)}
-                  className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap border transition-colors ${sel ? "text-white border-transparent" : "border-[var(--border)]"}`}
+                  role="radio"
+                  aria-checked={sel}
+                  aria-label={`Filtrer par ${p.prenom}`}
+                  className={`focus-ring min-h-11 px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap border transition-colors ${sel ? "text-white border-transparent" : "border-[var(--border)]"}`}
                   style={sel ? { background: "var(--accent)" } : {}}>
                   {p.prenom}
                 </button>
@@ -439,10 +446,11 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
                 <button
                   key={date}
                   onClick={() => scrollToDate(date)}
-                  className="flex-shrink-0 flex flex-col items-center min-w-[60px] py-2 px-2 rounded-xl border text-center transition-opacity"
+                  aria-label={`Aller au ${fmtDateLong(date)}`}
+                  className="focus-ring flex-shrink-0 flex flex-col items-center min-w-[60px] min-h-11 py-2 px-2 rounded-xl border text-center transition-opacity"
                   style={{
                     borderColor: isPast ? "var(--border)" : isToday ? "var(--accent-2)" : "var(--accent)",
-                    background: isPast ? "var(--bg-alt)" : isToday ? "#E8F5E9" : "rgba(200,90,60,0.08)",
+                    background: isPast ? "var(--bg-alt)" : isToday ? "var(--status-paid-bg)" : "rgba(200,90,60,0.08)",
                     opacity: isPast ? 0.5 : 1,
                   }}
                 >
@@ -466,7 +474,8 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
             <span className="text-lg font-bold" style={{ color: "var(--accent)" }}>{fmtPrice(selectedSum)}</span>
           </div>
           <button onClick={handlePayMulti} disabled={payingMulti}
-            className="flex items-center justify-center w-full h-12 rounded-xl font-bold text-white shadow-lg active:scale-[0.98] transition-transform text-center px-3 disabled:opacity-50"
+            aria-label={`Payer ${selectedOrderIds.size} commande${selectedOrderIds.size > 1 ? "s" : ""} pour ${fmtPrice(selectedSum)}`}
+            className="focus-ring flex items-center justify-center w-full h-12 rounded-xl font-bold text-white shadow-lg active:scale-[0.98] transition-transform text-center px-3 disabled:opacity-50"
             style={{ background: "var(--accent)" }}>
             {payingMulti ? "Redirection..." : `💳 Payer mes ${selectedOrderIds.size} commande${selectedOrderIds.size > 1 ? "s" : ""}`}
           </button>
@@ -485,7 +494,9 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
 
       {groupedOrders.length > 0 && (
         <div className="px-4 mb-4">
-          <button onClick={handlePrint} className="w-full h-10 rounded-xl text-sm font-semibold border"
+          <button onClick={handlePrint}
+            aria-label="Imprimer ou télécharger en PDF la liste de mes commandes"
+            className="focus-ring w-full h-11 rounded-xl text-sm font-semibold border"
             style={{ borderColor: "var(--border)", color: "var(--ink-soft)" }}>
             Imprimer / Telecharger PDF
           </button>
@@ -538,8 +549,9 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
                   )}
                   <button
                     onClick={() => toggleCollapseDate(date)}
-                    className="flex-1 flex items-center justify-between text-left"
-                    aria-label={`Replier/déplier ${date}`}
+                    className="focus-ring flex-1 flex items-center justify-between text-left min-h-11 rounded-md"
+                    aria-label={`${isCollapsed ? "Déplier" : "Replier"} ${date !== "sans-date" ? fmtDateLong(date) : "Sans date"}`}
+                    aria-expanded={!isCollapsed}
                   >
                     <span className="font-bold text-sm" style={{ color: "var(--ink)" }}>
                       🗓️ {date !== "sans-date" ? fmtDateLong(date) : "Sans date"}
@@ -552,7 +564,7 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
                 </div>
                 {/* Bandeau orange si jour passé (Brief B-β) */}
                 {isPast && !isCollapsed && (
-                  <div className="rounded-lg p-2 mb-2 text-xs font-semibold" style={{ background: "#FFF3E0", border: "1px solid #F5D5A0", color: "#92400E" }}>
+                  <div className="rounded-lg p-2 mb-2 text-xs font-semibold" style={{ background: "var(--status-pending-bg)", border: "1px solid #F5D5A0", color: "var(--status-pending)" }}>
                     ⚠️ Commande non payée à temps
                   </div>
                 )}
@@ -632,12 +644,14 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
                                       </p>
                                       <div className="flex gap-2">
                                         <button onClick={cancelEdit} disabled={editSubmitting}
-                                          className="flex-1 h-9 rounded-lg text-xs font-semibold border disabled:opacity-50"
+                                          aria-label="Annuler la modification du plat"
+                                          className="focus-ring flex-1 h-11 rounded-lg text-xs font-semibold border disabled:opacity-50"
                                           style={{ borderColor: "var(--border)", color: "var(--ink-soft)" }}>
                                           Annuler
                                         </button>
                                         <button onClick={handleEditValidate} disabled={editSubmitting || !editPlatSku}
-                                          className="flex-1 h-9 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
+                                          aria-label="Valider la modification du plat"
+                                          className="focus-ring flex-1 h-11 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
                                           style={{ background: "var(--accent)" }}>
                                           {editSubmitting ? "Enregistrement..." : "Valider"}
                                         </button>
@@ -669,15 +683,17 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
                                       <div className="flex gap-2 mt-2">
                                         {isEditable && (
                                           <button onClick={() => startEdit(item)}
-                                            className="flex-1 text-center px-3 py-1.5 rounded-md text-xs font-semibold border"
+                                            className="focus-ring flex-1 text-center px-3 py-2 rounded-md text-xs font-semibold border min-h-9"
                                             style={{ borderColor: "var(--accent)", color: "var(--accent)", background: "var(--card)" }}
+                                            aria-label={`Modifier le plat ${item.notes || "de cette commande"}`}
                                             title="Modifier le plat dans cette commande">
                                             ✏️ Modifier
                                           </button>
                                         )}
                                         <button onClick={() => handleDeleteItem(item.id)}
-                                          className={`${isEditable ? "flex-1" : "w-full"} text-center px-3 py-1.5 rounded-md text-xs font-semibold text-white`}
-                                          style={{ background: "#DC2626" }}>
+                                          aria-label={`Retirer ${item.notes || "cet article"} du panier`}
+                                          className={`focus-ring ${isEditable ? "flex-1" : "w-full"} text-center px-3 py-1.5 rounded-md text-xs font-semibold text-white`}
+                                          style={{ background: "var(--status-cancelled)" }}>
                                           🗑️ Retirer
                                         </button>
                                       </div>
@@ -701,7 +717,8 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
                       {canModify && (
                         <div className="px-3 pb-3 border-t space-y-2 pt-3" style={{ borderColor: "var(--border)" }}>
                           <button onClick={() => openAddItem(order)}
-                            className="flex items-center justify-center w-full h-10 rounded-lg text-sm font-semibold border"
+                            aria-label={`Ajouter un repas à la commande ${order.order_number}`}
+                            className="focus-ring flex items-center justify-center w-full h-11 rounded-lg text-sm font-semibold border"
                             style={{ borderColor: "var(--accent)", color: "var(--accent)", background: "var(--card)" }}>
                             Ajouter un repas
                           </button>
@@ -711,7 +728,10 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
                       {/* B-β — "Annuler toute la commande" MASQUÉ si passé */}
                       {canCancel && (
                         <div className="px-3 pb-3 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
-                          <button className="w-full h-9 rounded-lg text-xs font-semibold text-white" style={{ background: "#DC2626" }}
+                          <button
+                            className="focus-ring w-full h-11 rounded-lg text-xs font-semibold text-white"
+                            style={{ background: "var(--status-cancelled)" }}
+                            aria-label={`Annuler toute la commande ${order.order_number}`}
                             onClick={() => handleCancel(order.id)}>
                             Annuler toute la commande
                           </button>
@@ -722,8 +742,9 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
                       {isPast && order.status === "pending_payment" && (
                         <div className="px-3 pb-3 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
                           <button
-                            className="w-full h-9 rounded-lg text-xs font-semibold text-white"
-                            style={{ background: "#6B7280" }}
+                            className="focus-ring w-full h-11 rounded-lg text-xs font-semibold text-white"
+                            style={{ background: "var(--status-delivered)" }}
+                            aria-label={`Retirer la commande périmée ${order.order_number} du panier`}
                             onClick={() => handleRemoveExpired(order.id)}
                           >
                             🗑️ Retirer du panier

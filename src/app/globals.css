@@ -16,6 +16,29 @@
   /* Menu Panda gradient (Palette C) */
   --menu-panda-start: #8B5E3C;
   --menu-panda-end: #6B8E4E;
+
+  /* Status tokens (Impeccable audit P1 Theming) — extraits du PanierClient.STATUS_LABELS
+     pour une seule source de vérité couleur cross-pages. */
+  --status-pending: #B45309;
+  --status-pending-bg: #FEF3E2;
+  --status-paid: #166534;
+  --status-paid-bg: #DCFCE7;
+  --status-prep: #9333EA;
+  --status-prep-bg: #F3E8FF;
+  --status-ready: #0E7490;
+  --status-ready-bg: #CFFAFE;
+  --status-delivered: #6B7280;
+  --status-delivered-bg: #F3F4F6;
+  --status-cancelled: #DC2626;
+  --status-cancelled-bg: #FEE2E2;
+}
+
+/* Impeccable audit P1 A11y — focus ring visible WCAG 2.4.7 pour clavier/lecteur écran.
+   Classe utility appliquée explicitement sur boutons critiques (panier, paiement, admin). */
+.focus-ring:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: inherit;
 }
 
 @theme inline {
