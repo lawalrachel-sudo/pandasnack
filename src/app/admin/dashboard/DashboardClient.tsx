@@ -76,22 +76,24 @@ type Preset = "today" | "week" | "7days" | "month" | "custom"
 function OrdersTable({ orders, loading = false }: { orders: OrderRow[]; loading?: boolean }) {
   return (
     <table className="w-full text-sm">
-      <thead className="bg-gray-50 text-xs uppercase text-gray-600">
+      <thead className="bg-[var(--bg-alt)] text-xs uppercase text-[var(--ink-soft)]">
         <tr>
-          <th className="text-left px-3 py-2.5 font-semibold">Date</th>
-          <th className="text-left px-3 py-2.5 font-semibold">N°</th>
-          <th className="text-left px-3 py-2.5 font-semibold">Métier</th>
-          <th className="text-left px-3 py-2.5 font-semibold">Parent</th>
-          <th className="text-left px-3 py-2.5 font-semibold">Profils</th>
-          <th className="text-left px-3 py-2.5 font-semibold">Composition</th>
-          <th className="text-left px-3 py-2.5 font-semibold">Note</th>
-          <th className="text-left px-3 py-2.5 font-semibold">Paiement</th>
-          <th className="text-left px-3 py-2.5 font-semibold no-print">Hist.</th>
+          {/* Impeccable P1 A11y — scope="col" pour annoncer correctement
+              les colonnes aux lecteurs écran (WCAG 1.3.1 Info & Relationships). */}
+          <th scope="col" className="text-left px-3 py-2.5 font-semibold">Date</th>
+          <th scope="col" className="text-left px-3 py-2.5 font-semibold">N°</th>
+          <th scope="col" className="text-left px-3 py-2.5 font-semibold">Métier</th>
+          <th scope="col" className="text-left px-3 py-2.5 font-semibold">Parent</th>
+          <th scope="col" className="text-left px-3 py-2.5 font-semibold">Profils</th>
+          <th scope="col" className="text-left px-3 py-2.5 font-semibold">Composition</th>
+          <th scope="col" className="text-left px-3 py-2.5 font-semibold">Note</th>
+          <th scope="col" className="text-left px-3 py-2.5 font-semibold">Paiement</th>
+          <th scope="col" className="text-left px-3 py-2.5 font-semibold no-print">Hist.</th>
         </tr>
       </thead>
-      <tbody className="divide-y divide-gray-100">
+      <tbody className="divide-y divide-[var(--border)]">
         {orders.length === 0 && !loading && (
-          <tr><td colSpan={9} className="px-3 py-6 text-center text-gray-500">Aucune commande.</td></tr>
+          <tr><td colSpan={9} className="px-3 py-6 text-center text-[var(--ink-soft)]">Aucune commande.</td></tr>
         )}
         {orders.map(o => {
           const profilNames = Array.from(new Set(o.items.map(i => i.profil_prenom).filter(Boolean))).join(", ")
@@ -106,10 +108,13 @@ function OrdersTable({ orders, loading = false }: { orders: OrderRow[]; loading?
             return `${name}${i.profil_prenom ? ` (${i.profil_prenom})` : ""}`
           }).join("\n")
           const more = o.items.length > 2 ? ` +${o.items.length - 2}` : ""
+          // Impeccable P1 A11y (WCAG 1.4.1) — texte explicite en plus de la couleur/icône
+          // pour daltoniens et lecteurs écran (le statut n'est plus porté que par la couleur).
           const statusIcon = o.status === "paid" ? "✅" : o.status === "pending_payment" ? "❌" : "⚪"
-          const statusColor = o.status === "paid" ? "text-green-700" : o.status === "pending_payment" ? "text-red-600" : "text-gray-500"
+          const statusText = o.status === "paid" ? "Payée" : o.status === "pending_payment" ? "En attente" : o.status === "cancelled" ? "Annulée" : o.status
+          const statusColor = o.status === "paid" ? "text-[var(--status-paid)]" : o.status === "pending_payment" ? "text-[var(--status-cancelled)]" : "text-[var(--ink-soft)]"
           return (
-            <tr key={o.id} className="hover:bg-gray-50">
+            <tr key={o.id} className="hover:bg-[var(--border)]">
               <td className="px-3 py-2 whitespace-nowrap font-medium">{fmtServiceDate(o.service_date)}</td>
               <td className="px-3 py-2 font-mono text-xs">{o.order_number}</td>
               <td className="px-3 py-2 text-xs">{o.source_label}</td>
@@ -119,9 +124,11 @@ function OrdersTable({ orders, loading = false }: { orders: OrderRow[]; loading?
               <td className="px-3 py-2 text-center">
                 {o.special_request ? <span title={o.special_request}>📝</span> : ""}
               </td>
-              <td className={`px-3 py-2 font-medium ${statusColor}`}>{statusIcon} {fmtPrice(o.total_cents)}</td>
+              <td className={`px-3 py-2 font-medium ${statusColor}`} aria-label={`${statusText} · ${fmtPrice(o.total_cents)}`}>
+                <span aria-hidden="true">{statusIcon}</span> <span className="sr-only">{statusText}</span> {fmtPrice(o.total_cents)}
+              </td>
               <td className="px-3 py-2 no-print">
-                <Link href={`/admin/historique/${o.account.id}`} className="text-xs text-blue-600 hover:underline">
+                <Link href={`/admin/historique/${o.account.id}`} className="text-xs text-[var(--accent)] hover:underline">
                   Voir →
                 </Link>
               </td>
@@ -285,7 +292,7 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
   }, [sourceGroup, filteredOrders])
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--bg-alt)]">
       <style jsx global>{`
         @media print {
           .no-print { display: none !important; }
@@ -294,16 +301,16 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
       `}</style>
 
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <header className="bg-white border-b border-[var(--border)] sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Admin Panda Snack</h1>
-            <p className="text-xs text-gray-500">{userEmail}</p>
+            <h1 className="text-xl font-bold text-[var(--ink)]">Admin Panda Snack</h1>
+            <p className="text-xs text-[var(--ink-soft)]">{userEmail}</p>
           </div>
           <div className="flex items-center gap-3 no-print">
             <Link
               href={`/admin/profils`}
-              className="px-3 py-2 bg-white text-gray-700 text-sm font-semibold rounded-lg border border-gray-200 hover:bg-gray-50"
+              className="focus-ring px-3 py-2 min-h-11 bg-white text-[var(--ink)] text-sm font-semibold rounded-lg border border-[var(--border)] hover:bg-[var(--border)]"
             >
               👥 Profils
             </Link>
@@ -311,7 +318,7 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
             {activeDayTab !== "all" && (
               <Link
                 href={`/admin/liste/${activeDayTab}${sourceGroup ? `?source_group=${sourceGroup}` : ""}`}
-                className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700"
+                className="focus-ring px-4 py-2 min-h-11 bg-[var(--accent)] text-white text-sm font-semibold rounded-lg hover:opacity-90"
               >
                 🖨️ Imprimer liste
               </Link>
@@ -319,13 +326,13 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
             {/* T3 — Étiquettes : transmet le filtre métier actif via ?metier= */}
             <Link
               href={`/admin/etiquettes/${activeDayTab !== "all" ? activeDayTab : today}${sourceGroup ? `?metier=${sourceGroup}` : ""}`}
-              className="px-4 py-2 bg-orange-600 text-white text-sm font-semibold rounded-lg hover:bg-orange-700"
+              className="focus-ring px-4 py-2 min-h-11 bg-[var(--accent)] text-white text-sm font-semibold rounded-lg hover:opacity-90"
             >
               🏷️ Étiquettes
             </Link>
             <button
               onClick={() => window.print()}
-              className="px-4 py-2 bg-gray-700 text-white text-sm font-semibold rounded-lg hover:bg-gray-800"
+              className="focus-ring px-4 py-2 min-h-11 bg-[var(--ink)] text-white text-sm font-semibold rounded-lg hover:opacity-90"
             >
               🖨️ Imprimer
             </button>
@@ -334,7 +341,8 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
                 await createClient().auth.signOut()
                 window.location.href = "/auth"
               }}
-              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900"
+              aria-label="Se déconnecter de l'espace admin"
+              className="focus-ring px-3 py-2 min-h-11 text-sm rounded-md text-[var(--ink-soft)] hover:text-[var(--ink)]"
             >
               Déconnexion
             </button>
@@ -342,15 +350,15 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
         </div>
 
         {/* Filtres sticky */}
-        <div className="border-t border-gray-100 bg-gray-50 px-6 py-3 no-print">
+        <div className="border-t border-[var(--border)] bg-[var(--bg-alt)] px-6 py-3 no-print">
           <div className="max-w-7xl mx-auto flex flex-wrap items-center gap-3">
-            <span className="text-xs font-semibold text-gray-700 uppercase">Période</span>
+            <span className="text-xs font-semibold text-[var(--ink)] uppercase">Période</span>
             {(["today","week","7days","month","custom"] as Preset[]).map(p => (
               <button
                 key={p}
                 onClick={() => applyPreset(p)}
-                className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors ${
-                  preset === p ? "bg-orange-600 text-white" : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-100"
+                className={`focus-ring px-3 py-2.5 min-h-11 text-xs rounded-md font-medium transition-colors ${
+                  preset === p ? "bg-[var(--accent)] text-white" : "bg-white text-[var(--ink)] border border-[var(--border)] hover:bg-[var(--border)]"
                 }`}
               >
                 {p === "today" ? "Aujourd'hui" : p === "week" ? "Cette semaine" : p === "7days" ? "7 jours" : p === "month" ? "Mois" : "Custom"}
@@ -359,19 +367,19 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
             {preset === "custom" && (
               <>
                 <input type="date" value={from} onChange={e => setFrom(e.target.value)}
-                  className="px-2 py-1 text-xs border border-gray-200 rounded" />
-                <span className="text-xs text-gray-500">→</span>
+                  className="px-2 py-1 text-xs border border-[var(--border)] rounded" />
+                <span className="text-xs text-[var(--ink-soft)]">→</span>
                 <input type="date" value={to} onChange={e => setTo(e.target.value)}
-                  className="px-2 py-1 text-xs border border-gray-200 rounded" />
+                  className="px-2 py-1 text-xs border border-[var(--border)] rounded" />
               </>
             )}
-            <span className="ml-4 text-xs font-semibold text-gray-700 uppercase">Métier</span>
+            <span className="ml-4 text-xs font-semibold text-[var(--ink)] uppercase">Métier</span>
             {SOURCE_OPTIONS.map(opt => (
               <button
                 key={opt.value}
                 onClick={() => setSourceGroup(opt.value)}
-                className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors ${
-                  sourceGroup === opt.value ? "bg-blue-600 text-white" : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-100"
+                className={`focus-ring px-3 py-2.5 min-h-11 text-xs rounded-md font-medium transition-colors ${
+                  sourceGroup === opt.value ? "bg-[var(--accent)] text-white" : "bg-white text-[var(--ink)] border border-[var(--border)] hover:bg-[var(--border)]"
                 }`}
               >
                 {opt.label}
@@ -382,13 +390,13 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
       </header>
 
       {/* Onglets jour (sticky sous le header de filtres) */}
-      <div className="bg-white border-b border-gray-200 px-6 py-2 sticky top-[136px] z-[5] no-print">
+      <div className="bg-white border-b border-[var(--border)] px-6 py-2 sticky top-[136px] z-[5] no-print">
         <div className="max-w-7xl mx-auto flex items-center gap-2 overflow-x-auto">
-          <span className="text-xs font-semibold text-gray-700 uppercase shrink-0">Jour</span>
+          <span className="text-xs font-semibold text-[var(--ink)] uppercase shrink-0">Jour</span>
           <button
             onClick={() => setActiveDayTab("all")}
-            className={`px-3 py-1.5 text-xs rounded-md font-medium whitespace-nowrap transition-colors ${
-              activeDayTab === "all" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            className={`focus-ring px-3 py-2.5 min-h-11 text-xs rounded-md font-medium whitespace-nowrap transition-colors ${
+              activeDayTab === "all" ? "bg-[var(--accent)] text-white" : "bg-[var(--bg-alt)] text-[var(--ink)] hover:bg-[var(--border)]"
             }`}
           >
             Tous
@@ -397,8 +405,8 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
             <button
               key={d}
               onClick={() => setActiveDayTab(d)}
-              className={`px-3 py-1.5 text-xs rounded-md font-medium whitespace-nowrap transition-colors ${
-                activeDayTab === d ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              className={`focus-ring px-3 py-2.5 min-h-11 text-xs rounded-md font-medium whitespace-nowrap transition-colors ${
+                activeDayTab === d ? "bg-[var(--accent)] text-white" : "bg-[var(--bg-alt)] text-[var(--ink)] hover:bg-[var(--border)]"
               }`}
             >
               {fmtServiceDate(d)}
@@ -409,27 +417,27 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
 
       <main className="max-w-7xl mx-auto px-6 py-6">
         {/* Cadre totaux */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
-          {loading && <p className="text-sm text-gray-500">Chargement…</p>}
-          {error && <p className="text-sm text-red-600">⚠ {error}</p>}
+        <div className="bg-white rounded-xl border border-[var(--border)] p-5 mb-6">
+          {loading && <p className="text-sm text-[var(--ink-soft)]">Chargement…</p>}
+          {error && <p className="text-sm text-[var(--status-cancelled)]">⚠ {error}</p>}
           {!error && (
             <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2">
               <div>
-                <p className="text-xs uppercase text-gray-500 font-semibold">Commandes payées</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {totals.paidCount} <span className="text-base font-medium text-gray-600">· {fmtPrice(totals.revenue)}</span>
+                <p className="text-xs uppercase text-[var(--ink-soft)] font-semibold">Commandes payées</p>
+                <p className="text-2xl font-bold text-[var(--ink)]">
+                  {totals.paidCount} <span className="text-base font-medium text-[var(--ink-soft)]">· {fmtPrice(totals.revenue)}</span>
                 </p>
               </div>
               {totals.pendingCount > 0 && (
                 <div>
-                  <p className="text-xs uppercase text-gray-500 font-semibold">En attente</p>
-                  <p className="text-2xl font-bold text-amber-600">{totals.pendingCount}</p>
+                  <p className="text-xs uppercase text-[var(--ink-soft)] font-semibold">En attente</p>
+                  <p className="text-2xl font-bold text-[var(--status-pending)]">{totals.pendingCount}</p>
                 </div>
               )}
               {revenueBreakdown && (
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 ml-auto">
                   {revenueBreakdown.map((r, i) => (
-                    <span key={i} className="text-sm text-gray-700">
+                    <span key={i} className="text-sm text-[var(--ink)]">
                       <strong>{r.label}</strong> : {r.count} · {fmtPrice(r.cents)}
                     </span>
                   ))}
@@ -443,7 +451,7 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
         {sectionsByMetier ? (
           <div className="space-y-6 mb-6">
             {sectionsByMetier.length === 0 && !loading && (
-              <div className="bg-white rounded-xl border border-gray-200 px-3 py-6 text-center text-gray-500">
+              <div className="bg-white rounded-xl border border-[var(--border)] px-3 py-6 text-center text-[var(--ink-soft)]">
                 Aucune commande sur ce jour.
               </div>
             )}
@@ -451,9 +459,9 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
               const sectionPaid = section.orders.filter(o => o.status === "paid")
               const sectionRev = sectionPaid.reduce((s, o) => s + o.total_cents, 0)
               return (
-                <div key={section.key} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                  <div className="bg-gray-50 px-4 py-2 border-l-4 border-blue-500">
-                    <span className="font-bold text-sm uppercase tracking-wide text-gray-800">
+                <div key={section.key} className="bg-white rounded-xl border border-[var(--border)] overflow-hidden">
+                  <div className="bg-[var(--bg-alt)] px-4 py-2 border-l-4 border-[var(--accent)]">
+                    <span className="font-bold text-sm uppercase tracking-wide text-[var(--ink)]">
                       ── {section.label} ({section.orders.length} commande{section.orders.length > 1 ? "s" : ""} · {fmtPrice(sectionRev)}) ──
                     </span>
                   </div>
@@ -463,39 +471,41 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
             })}
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
+          <div className="bg-white rounded-xl border border-[var(--border)] overflow-hidden mb-6">
             <OrdersTable orders={filteredOrders} loading={loading} />
           </div>
         )}
 
         {/* Récap production */}
         {recap && recap.totals.orders_paid > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="bg-white rounded-xl border border-[var(--border)] overflow-hidden">
             <button
               onClick={() => setProductionOpen(!productionOpen)}
-              className="w-full px-5 py-3 flex items-center justify-between bg-gray-50 hover:bg-gray-100 border-b border-gray-200 no-print"
+              aria-expanded={productionOpen}
+              aria-label={productionOpen ? "Replier le récap production" : "Déplier le récap production"}
+              className="focus-ring w-full px-5 py-3 flex items-center justify-between bg-[var(--bg-alt)] hover:bg-[var(--border)] border-b border-[var(--border)] no-print"
             >
-              <span className="font-semibold text-gray-900">
+              <span className="font-semibold text-[var(--ink)]">
                 📦 Récap production — {
                   activeDayTab !== "all"
                     ? fmtServiceDate(activeDayTab)
                     : (from === to ? fmtServiceDate(from) : `${fmtServiceDate(from)} → ${fmtServiceDate(to)}`)
                 } ({recap.totals.orders_paid} commandes payées)
               </span>
-              <span className="text-gray-500">{productionOpen ? "▲" : "▼"}</span>
+              <span className="text-[var(--ink-soft)]">{productionOpen ? "▲" : "▼"}</span>
             </button>
             {productionOpen && (
               <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
                 {recap.production.menus.length > 0 && (
                   <div>
-                    <h3 className="text-xs uppercase font-bold text-gray-700 mb-3">🍱 Menus</h3>
+                    <h3 className="text-xs uppercase font-bold text-[var(--ink)] mb-3">🍱 Menus</h3>
                     <ul className="space-y-4">
                       {recap.production.menus.map((m, i) => (
                         <li key={i}>
-                          <p className="font-bold text-gray-900">{m.qty} × {m.name}</p>
+                          <p className="font-bold text-[var(--ink)]">{m.qty} × {m.name}</p>
                           {/* T5 — composition détaillée (plat + toppings) directement à partir des notes */}
                           {m.items_detail && m.items_detail.length > 0 && (
-                            <ul className="ml-3 mt-1 space-y-0.5 text-sm text-gray-700">
+                            <ul className="ml-3 mt-1 space-y-0.5 text-sm text-[var(--ink)]">
                               {m.items_detail.map((d, j) => (
                                 <li key={j}>
                                   <strong>{d.qty}×</strong> {d.note}
@@ -510,13 +520,13 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
                 )}
                 {recap.production.items.length > 0 && (
                   <div>
-                    <h3 className="text-xs uppercase font-bold text-gray-700 mb-3">🥪 À la carte</h3>
+                    <h3 className="text-xs uppercase font-bold text-[var(--ink)] mb-3">🥪 À la carte</h3>
                     <ul className="space-y-4">
                       {recap.production.items.map((c, i) => (
                         <li key={i}>
-                          <p className="font-bold text-gray-900">{c.qty_total} × {c.category}</p>
+                          <p className="font-bold text-[var(--ink)]">{c.qty_total} × {c.category}</p>
                           {c.items_detail && c.items_detail.length > 0 && (
-                            <ul className="ml-3 mt-1 space-y-0.5 text-sm text-gray-700">
+                            <ul className="ml-3 mt-1 space-y-0.5 text-sm text-[var(--ink)]">
                               {c.items_detail.map((d, j) => (
                                 <li key={j}>
                                   <strong>{d.qty}×</strong> {d.note}
