@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabase as createClient } from "@/lib/supabase/server"
 import { getStripe } from "@/lib/stripe"
+import { resolveOrigin } from "@/lib/origin"
 
 // POST /api/recharger — create Stripe Checkout session for wallet recharge
 export async function POST(req: NextRequest) {
   try {
+    // P0 #1 — En production, refuser si pas de clé Stripe (au lieu de tomber dans le mode TEST
+    // qui crédite le wallet sans paiement réel). Le mode TEST reste OK pour dev/staging local.
+    if (process.env.NODE_ENV === "production" && !process.env.STRIPE_SECRET_KEY) {
+      console.error("[recharger] STRIPE_SECRET_KEY manquante en production — recharge refusée")
+      return NextResponse.json({ error: "Service de paiement non configuré" }, { status: 503 })
+    }
+
     const supabase: any = await createClient()
     const stripe = getStripe()
 
@@ -23,11 +31,23 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { amountCents, bonusCents = 0 } = body as { amountCents: number; bonusCents: number }
+    const { amountCents } = body as { amountCents: number }
 
     if (!amountCents || amountCents < 500 || amountCents > 20000) {
       return NextResponse.json({ error: "Montant invalide (5-200€)" }, { status: 400 })
     }
+
+    // P0 #2 — bonusCents NE VIENT PLUS du body client. Lookup server-side dans
+    // wallet_recharge_config : seul un palier configuré (active=true) attribue un bonus.
+    // Recharge custom (montant hors paliers) → bonusCents = 0. Évite l'exploit où un user
+    // envoyait {amountCents:500, bonusCents:9999900} pour s'auto-créditer.
+    const { data: cfg } = await supabase
+      .from("wallet_recharge_config")
+      .select("bonus_cents")
+      .eq("recharge_cents", amountCents)
+      .eq("active", true)
+      .maybeSingle()
+    const bonusCents: number = cfg?.bonus_cents ?? 0
 
     if (!stripe) {
       // Stripe not configured — simulate for test mode
@@ -74,7 +94,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Create Stripe Checkout session
-    const origin = req.headers.get("origin") || "https://pandasnack-five.vercel.app"
+    // P0 #4 — origin whitelist (cf src/lib/origin.ts), pas de Host header spoofable
+    const origin = resolveOrigin(req.headers.get("origin"))
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",

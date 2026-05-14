@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabase as createClient } from "@/lib/supabase/server"
+import { resolveOrigin } from "@/lib/origin"
 
 // POST /api/checkout-multi — Brief 3-E B-γ : paiement multi-orders en 1 session Stripe
 // Body: { orderIds: string[], paymentMethod: "wallet" | "card" | "wallet_card" }
@@ -96,7 +97,8 @@ export async function POST(req: NextRequest) {
     // Real Stripe flow
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const stripe = require("stripe")(stripeKey)
-    const origin = req.headers.get("origin") || "https://pandasnack-five.vercel.app"
+    // P0 #4 — origin whitelist (cf src/lib/origin.ts), pas de Host header spoofable
+    const origin = resolveOrigin(req.headers.get("origin"))
 
     // Build line_items : 1 line par order avec card_charge > 0
     const lineItems = needCardOrders.map(r => {

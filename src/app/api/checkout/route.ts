@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabase as createClient } from "@/lib/supabase/server"
+import { resolveOrigin } from "@/lib/origin"
 
 // POST /api/checkout
 // Body: { slotId, items: CartItem[], paymentMethod: "wallet" | "card" | "wallet_card" }
@@ -233,7 +234,8 @@ export async function POST(req: NextRequest) {
     }
 
     const stripe = require("stripe")(stripeKey)
-    const origin = req.headers.get("origin") || "https://pandasnack-five.vercel.app"
+    // P0 #4 — origin whitelist (cf src/lib/origin.ts), pas de Host header spoofable
+    const origin = resolveOrigin(req.headers.get("origin"))
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
