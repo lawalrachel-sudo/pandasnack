@@ -1,0 +1,292 @@
+{
+  "panda_snack_calculette": {
+    "version": 1,
+    "export_date": "2026-05-08T00:00:00.000Z",
+    "_note": "Seed COMPLET Panda Snack — 33 ingrédients MQ + squelettes recettes (sandwichs, salades, croques, pasta, coffret, bento, biscuits, snacks). Grammages à valider/compléter par Rachel. Allergènes biscuits déjà validés depuis tableau v2. Prix indicatifs Carrefour MQ 2026.",
+    "ingredients": [
+      {"id": "ing-pain-mie", "nom": "Pain de mie complet", "cat": "boulangerie", "qteCond": 500, "unite": "g", "prixCond": 3.85, "fournisseur": "Carrefour", "allergens": ["gluten", "soja"], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-pain-baguette", "nom": "Baguette tradition", "cat": "boulangerie", "qteCond": 250, "unite": "g", "prixCond": 1.30, "fournisseur": "Marché local", "allergens": ["gluten"], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-pain-burger", "nom": "Pain burger", "cat": "boulangerie", "qteCond": 300, "unite": "g", "prixCond": 2.50, "fournisseur": "Carrefour", "allergens": ["gluten", "sesame"], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-jambon-dinde", "nom": "Jambon de dinde tranches", "cat": "viande", "qteCond": 200, "unite": "g", "prixCond": 3.50, "fournisseur": "Carrefour", "allergens": [], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-poulet-roti-tr", "nom": "Blanc de poulet rôti tranches", "cat": "viande", "qteCond": 150, "unite": "g", "prixCond": 3.20, "fournisseur": "Carrefour", "allergens": [], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-blanc-poulet-cru", "nom": "Blanc de poulet cru", "cat": "viande", "qteCond": 1000, "unite": "g", "prixCond": 11.50, "fournisseur": "Carrefour", "allergens": [], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-thon", "nom": "Thon au naturel boîte", "cat": "poisson", "qteCond": 130, "unite": "g", "prixCond": 2.40, "fournisseur": "Carrefour", "allergens": ["poissons"], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-oeufs", "nom": "Œufs frais (boîte 12)", "cat": "cremerie", "qteCond": 12, "unite": "piece", "prixCond": 4.20, "fournisseur": "Carrefour", "allergens": ["oeufs"], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-emmental", "nom": "Emmental râpé", "cat": "cremerie", "qteCond": 200, "unite": "g", "prixCond": 3.80, "fournisseur": "Carrefour", "allergens": ["lait"], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-fromage-tr", "nom": "Fromage en tranches", "cat": "cremerie", "qteCond": 200, "unite": "g", "prixCond": 3.50, "fournisseur": "Carrefour", "allergens": ["lait"], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-mozzarella", "nom": "Mozzarella en boule", "cat": "cremerie", "qteCond": 125, "unite": "g", "prixCond": 2.20, "fournisseur": "Carrefour", "allergens": ["lait"], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-beurre", "nom": "Beurre doux", "cat": "cremerie", "qteCond": 250, "unite": "g", "prixCond": 3.20, "fournisseur": "Carrefour", "allergens": ["lait"], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-lait", "nom": "Lait demi-écrémé (1L)", "cat": "cremerie", "qteCond": 1000, "unite": "ml", "prixCond": 1.30, "fournisseur": "Carrefour", "allergens": ["lait"], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-mayo", "nom": "Mayonnaise", "cat": "epicerie", "qteCond": 500, "unite": "ml", "prixCond": 3.90, "fournisseur": "Carrefour", "allergens": ["oeufs", "moutarde"], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-moutarde", "nom": "Moutarde Dijon", "cat": "epicerie", "qteCond": 350, "unite": "g", "prixCond": 2.80, "fournisseur": "Carrefour", "allergens": ["moutarde", "sulfites"], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-salade", "nom": "Salade verte", "cat": "legumes", "qteCond": 200, "unite": "g", "prixCond": 2.50, "fournisseur": "Marché local", "allergens": [], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-tomate", "nom": "Tomates rondes (kg)", "cat": "legumes", "qteCond": 1000, "unite": "g", "prixCond": 4.50, "fournisseur": "Marché local", "allergens": [], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-carottes", "nom": "Carottes (kg)", "cat": "legumes", "qteCond": 1000, "unite": "g", "prixCond": 2.80, "fournisseur": "Carrefour", "allergens": [], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-concombre", "nom": "Concombre", "cat": "legumes", "qteCond": 1, "unite": "piece", "prixCond": 1.80, "fournisseur": "Marché local", "allergens": [], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-pates", "nom": "Pâtes (penne/farfalle)", "cat": "epicerie", "qteCond": 500, "unite": "g", "prixCond": 1.50, "fournisseur": "Carrefour", "allergens": ["gluten"], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-riz", "nom": "Riz long grain", "cat": "epicerie", "qteCond": 1000, "unite": "g", "prixCond": 2.30, "fournisseur": "Carrefour", "allergens": [], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-sauce-bolo", "nom": "Sauce bolognaise", "cat": "epicerie", "qteCond": 400, "unite": "g", "prixCond": 3.20, "fournisseur": "Carrefour", "allergens": ["celeri"], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-huile-olive", "nom": "Huile d'olive", "cat": "epicerie", "qteCond": 1000, "unite": "ml", "prixCond": 9.50, "fournisseur": "Carrefour", "allergens": [], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-vinaigre", "nom": "Vinaigre balsamique", "cat": "epicerie", "qteCond": 500, "unite": "ml", "prixCond": 3.50, "fournisseur": "Carrefour", "allergens": ["sulfites"], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-the-ceylan", "nom": "Thé noir Ceylan (sachets)", "cat": "boissons", "qteCond": 50, "unite": "piece", "prixCond": 3.50, "fournisseur": "Carrefour", "allergens": [], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-sucre", "nom": "Sucre en poudre", "cat": "epicerie", "qteCond": 1000, "unite": "g", "prixCond": 1.50, "fournisseur": "Carrefour", "allergens": [], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-citron", "nom": "Citrons verts (kg)", "cat": "legumes", "qteCond": 1000, "unite": "g", "prixCond": 4.00, "fournisseur": "Marché local", "allergens": [], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-farine", "nom": "Farine de blé T55", "cat": "epicerie", "qteCond": 1000, "unite": "g", "prixCond": 1.40, "fournisseur": "Carrefour", "allergens": ["gluten"], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-chocolat", "nom": "Chocolat noir/au lait pâtissier", "cat": "epicerie", "qteCond": 200, "unite": "g", "prixCond": 2.20, "fournisseur": "Carrefour", "allergens": ["lait", "soja"], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-fruits-rouges", "nom": "Mélange fruits rouges surgelés", "cat": "legumes", "qteCond": 500, "unite": "g", "prixCond": 4.50, "fournisseur": "Carrefour", "allergens": [], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-noix-amandes", "nom": "Mélange amandes/noix concassées", "cat": "epicerie", "qteCond": 250, "unite": "g", "prixCond": 4.80, "fournisseur": "Carrefour", "allergens": ["fruits-coque"], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-flocons-avoine", "nom": "Flocons d'avoine", "cat": "epicerie", "qteCond": 500, "unite": "g", "prixCond": 1.80, "fournisseur": "Carrefour", "allergens": ["gluten"], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-perles-tapioca", "nom": "Perles de tapioca (bubble tea)", "cat": "epicerie", "qteCond": 500, "unite": "g", "prixCond": 6.50, "fournisseur": "Promo Cash", "allergens": [], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-bento-box", "nom": "Boîte bento carton (1 cpt)", "cat": "emballage", "qteCond": 50, "unite": "piece", "prixCond": 12.00, "fournisseur": "Promo Cash", "allergens": [], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-barquette", "nom": "Barquette plastique 500ml", "cat": "emballage", "qteCond": 100, "unite": "piece", "prixCond": 9.00, "fournisseur": "Promo Cash", "allergens": [], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-serviette", "nom": "Serviette papier emballée", "cat": "emballage", "qteCond": 250, "unite": "piece", "prixCond": 5.00, "fournisseur": "Promo Cash", "allergens": [], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-bouteille-the", "nom": "Bouteille PET 500ml + bouchon", "cat": "emballage", "qteCond": 100, "unite": "piece", "prixCond": 18.00, "fournisseur": "Promo Cash", "allergens": [], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-etiquette", "nom": "Étiquettes 105x57mm (rouleau)", "cat": "emballage", "qteCond": 1000, "unite": "piece", "prixCond": 22.00, "fournisseur": "Autre", "allergens": [], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-film", "nom": "Film alimentaire (rouleau 300m)", "cat": "emballage", "qteCond": 1, "unite": "piece", "prixCond": 12.00, "fournisseur": "Promo Cash", "allergens": [], "derniereMaj": "2026-05-08T00:00:00.000Z"},
+      {"id": "ing-gants", "nom": "Gants nitrile (boîte 100)", "cat": "autre", "qteCond": 100, "unite": "piece", "prixCond": 8.50, "fournisseur": "Promo Cash", "allergens": [], "derniereMaj": "2026-05-08T00:00:00.000Z"}
+    ],
+    "recettes": [
+      {
+        "id": "rec-sand-A", "nom": "Sandwich A — Jambon dinde / Fromage",
+        "portions": 1, "tempsMin": 4, "prixVente": 5.50, "coutEmballage": 0.30,
+        "lignes": [
+          {"ingId": "ing-pain-mie", "qte": 80, "unite": "g"},
+          {"ingId": "ing-jambon-dinde", "qte": 40, "unite": "g"},
+          {"ingId": "ing-fromage-tr", "qte": 25, "unite": "g"},
+          {"ingId": "ing-beurre", "qte": 8, "unite": "g"},
+          {"ingId": "ing-salade", "qte": 15, "unite": "g"}
+        ],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "rec-sand-B", "nom": "Sandwich B — Thon-mayo",
+        "portions": 1, "tempsMin": 5, "prixVente": 5.50, "coutEmballage": 0.30,
+        "lignes": [
+          {"ingId": "ing-pain-mie", "qte": 80, "unite": "g"},
+          {"ingId": "ing-thon", "qte": 50, "unite": "g"},
+          {"ingId": "ing-mayo", "qte": 15, "unite": "ml"},
+          {"ingId": "ing-salade", "qte": 15, "unite": "g"},
+          {"ingId": "ing-tomate", "qte": 30, "unite": "g"}
+        ],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "rec-sand-C", "nom": "Sandwich C — Omelette / Jambon dinde",
+        "portions": 1, "tempsMin": 6, "prixVente": 5.50, "coutEmballage": 0.30,
+        "lignes": [
+          {"ingId": "ing-pain-mie", "qte": 80, "unite": "g"},
+          {"ingId": "ing-oeufs", "qte": 1, "unite": "piece"},
+          {"ingId": "ing-jambon-dinde", "qte": 30, "unite": "g"},
+          {"ingId": "ing-beurre", "qte": 5, "unite": "g"},
+          {"ingId": "ing-salade", "qte": 10, "unite": "g"}
+        ],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "rec-sand-D", "nom": "Sandwich D — Poulet rôti",
+        "portions": 1, "tempsMin": 4, "prixVente": 5.50, "coutEmballage": 0.30,
+        "lignes": [
+          {"ingId": "ing-pain-mie", "qte": 80, "unite": "g"},
+          {"ingId": "ing-poulet-roti-tr", "qte": 50, "unite": "g"},
+          {"ingId": "ing-mayo", "qte": 10, "unite": "ml"},
+          {"ingId": "ing-salade", "qte": 15, "unite": "g"},
+          {"ingId": "ing-tomate", "qte": 20, "unite": "g"}
+        ],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "rec-sand-F", "nom": "Sandwich F — Burger Légumes",
+        "portions": 1, "tempsMin": 6, "prixVente": 5.50, "coutEmballage": 0.30,
+        "lignes": [
+          {"ingId": "ing-pain-burger", "qte": 90, "unite": "g"},
+          {"ingId": "ing-fromage-tr", "qte": 25, "unite": "g"},
+          {"ingId": "ing-tomate", "qte": 30, "unite": "g"},
+          {"ingId": "ing-salade", "qte": 15, "unite": "g"},
+          {"ingId": "ing-mayo", "qte": 10, "unite": "ml"}
+        ],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "rec-sal-jambon", "nom": "Salade Jambon",
+        "portions": 1, "tempsMin": 5, "prixVente": 8.99, "coutEmballage": 0.40,
+        "lignes": [
+          {"ingId": "ing-salade", "qte": 80, "unite": "g"},
+          {"ingId": "ing-jambon-dinde", "qte": 60, "unite": "g"},
+          {"ingId": "ing-emmental", "qte": 30, "unite": "g"},
+          {"ingId": "ing-tomate", "qte": 50, "unite": "g"},
+          {"ingId": "ing-carottes", "qte": 30, "unite": "g"},
+          {"ingId": "ing-huile-olive", "qte": 10, "unite": "ml"},
+          {"ingId": "ing-vinaigre", "qte": 5, "unite": "ml"}
+        ],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "rec-sal-thon", "nom": "Salade Thon",
+        "portions": 1, "tempsMin": 5, "prixVente": 8.99, "coutEmballage": 0.40,
+        "lignes": [
+          {"ingId": "ing-salade", "qte": 80, "unite": "g"},
+          {"ingId": "ing-thon", "qte": 65, "unite": "g"},
+          {"ingId": "ing-oeufs", "qte": 1, "unite": "piece"},
+          {"ingId": "ing-tomate", "qte": 50, "unite": "g"},
+          {"ingId": "ing-mayo", "qte": 10, "unite": "ml"},
+          {"ingId": "ing-huile-olive", "qte": 5, "unite": "ml"}
+        ],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "rec-sal-composee", "nom": "Salade Composée",
+        "portions": 1, "tempsMin": 6, "prixVente": 8.99, "coutEmballage": 0.40,
+        "lignes": [
+          {"ingId": "ing-salade", "qte": 80, "unite": "g"},
+          {"ingId": "ing-poulet-roti-tr", "qte": 40, "unite": "g"},
+          {"ingId": "ing-emmental", "qte": 25, "unite": "g"},
+          {"ingId": "ing-oeufs", "qte": 1, "unite": "piece"},
+          {"ingId": "ing-tomate", "qte": 40, "unite": "g"},
+          {"ingId": "ing-carottes", "qte": 30, "unite": "g"},
+          {"ingId": "ing-huile-olive", "qte": 10, "unite": "ml"}
+        ],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "rec-pasta-bolo", "nom": "Pasta Box Bolognaise",
+        "portions": 1, "tempsMin": 8, "prixVente": 5.50, "coutEmballage": 0.40,
+        "lignes": [
+          {"ingId": "ing-pates", "qte": 100, "unite": "g"},
+          {"ingId": "ing-sauce-bolo", "qte": 80, "unite": "g"},
+          {"ingId": "ing-emmental", "qte": 15, "unite": "g"},
+          {"ingId": "ing-huile-olive", "qte": 5, "unite": "ml"}
+        ],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "rec-croque-simple", "nom": "Croque simple",
+        "portions": 1, "tempsMin": 6, "prixVente": 5.50, "coutEmballage": 0.30,
+        "lignes": [
+          {"ingId": "ing-pain-mie", "qte": 60, "unite": "g"},
+          {"ingId": "ing-jambon-dinde", "qte": 30, "unite": "g"},
+          {"ingId": "ing-emmental", "qte": 30, "unite": "g"},
+          {"ingId": "ing-beurre", "qte": 8, "unite": "g"}
+        ],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "rec-croque-panda", "nom": "Croque Panda gourmand",
+        "portions": 1, "tempsMin": 8, "prixVente": 5.50, "coutEmballage": 0.30,
+        "lignes": [
+          {"ingId": "ing-pain-mie", "qte": 60, "unite": "g"},
+          {"ingId": "ing-jambon-dinde", "qte": 40, "unite": "g"},
+          {"ingId": "ing-emmental", "qte": 35, "unite": "g"},
+          {"ingId": "ing-mozzarella", "qte": 25, "unite": "g"},
+          {"ingId": "ing-tomate", "qte": 20, "unite": "g"},
+          {"ingId": "ing-beurre", "qte": 10, "unite": "g"}
+        ],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "rec-coffret", "nom": "Coffret Sandwich (4 quarts)",
+        "portions": 1, "tempsMin": 12, "prixVente": 12.00, "coutEmballage": 0.80,
+        "lignes": [
+          {"ingId": "ing-pain-mie", "qte": 200, "unite": "g"},
+          {"ingId": "ing-poulet-roti-tr", "qte": 25, "unite": "g"},
+          {"ingId": "ing-thon", "qte": 25, "unite": "g"},
+          {"ingId": "ing-jambon-dinde", "qte": 25, "unite": "g"},
+          {"ingId": "ing-oeufs", "qte": 1, "unite": "piece"},
+          {"ingId": "ing-fromage-tr", "qte": 15, "unite": "g"},
+          {"ingId": "ing-mayo", "qte": 15, "unite": "ml"},
+          {"ingId": "ing-beurre", "qte": 10, "unite": "g"},
+          {"ingId": "ing-the-ceylan", "qte": 1, "unite": "piece"},
+          {"ingId": "ing-sucre", "qte": 30, "unite": "g"}
+        ],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "rec-the-maison", "nom": "Thé Maison 50cl (bouteille)",
+        "portions": 1, "tempsMin": 2, "prixVente": 3.50, "coutEmballage": 0.25,
+        "lignes": [
+          {"ingId": "ing-the-ceylan", "qte": 1, "unite": "piece"},
+          {"ingId": "ing-sucre", "qte": 25, "unite": "g"},
+          {"ingId": "ing-citron", "qte": 20, "unite": "g"}
+        ],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "rec-gaufre-liegeoise", "nom": "Gaufre Liégeoise (unité)",
+        "portions": 1, "tempsMin": 3, "prixVente": 1.50, "coutEmballage": 0.05,
+        "lignes": [
+          {"ingId": "ing-farine", "qte": 50, "unite": "g"},
+          {"ingId": "ing-oeufs", "qte": 0.5, "unite": "piece"},
+          {"ingId": "ing-beurre", "qte": 20, "unite": "g"},
+          {"ingId": "ing-sucre", "qte": 25, "unite": "g"},
+          {"ingId": "ing-lait", "qte": 30, "unite": "ml"}
+        ],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "rec-gaufre-pack5", "nom": "Gaufres pack 5",
+        "portions": 1, "tempsMin": 8, "prixVente": 3.90, "coutEmballage": 0.10,
+        "lignes": [
+          {"ingId": "ing-farine", "qte": 250, "unite": "g"},
+          {"ingId": "ing-oeufs", "qte": 2, "unite": "piece"},
+          {"ingId": "ing-beurre", "qte": 100, "unite": "g"},
+          {"ingId": "ing-sucre", "qte": 125, "unite": "g"},
+          {"ingId": "ing-lait", "qte": 150, "unite": "ml"}
+        ],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "rec-cake-fr", "nom": "Cake Fruits Rouges (part)",
+        "portions": 1, "tempsMin": 2, "prixVente": 2.00, "coutEmballage": 0.05,
+        "lignes": [
+          {"ingId": "ing-farine", "qte": 30, "unite": "g"},
+          {"ingId": "ing-oeufs", "qte": 0.5, "unite": "piece"},
+          {"ingId": "ing-beurre", "qte": 15, "unite": "g"},
+          {"ingId": "ing-sucre", "qte": 20, "unite": "g"},
+          {"ingId": "ing-fruits-rouges", "qte": 25, "unite": "g"}
+        ],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "rec-biscuit-muesli", "nom": "Biscuits Muesli (sachet)",
+        "portions": 1, "tempsMin": 4, "prixVente": 3.90, "coutEmballage": 0.08,
+        "lignes": [
+          {"ingId": "ing-flocons-avoine", "qte": 60, "unite": "g"},
+          {"ingId": "ing-noix-amandes", "qte": 30, "unite": "g"},
+          {"ingId": "ing-beurre", "qte": 25, "unite": "g"},
+          {"ingId": "ing-sucre", "qte": 20, "unite": "g"},
+          {"ingId": "ing-oeufs", "qte": 0.5, "unite": "piece"}
+        ],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "rec-cookie", "nom": "Cookie (Pandattitude)",
+        "portions": 1, "tempsMin": 2, "prixVente": 1.20, "coutEmballage": 0.03,
+        "lignes": [
+          {"ingId": "ing-farine", "qte": 25, "unite": "g"},
+          {"ingId": "ing-beurre", "qte": 12, "unite": "g"},
+          {"ingId": "ing-sucre", "qte": 15, "unite": "g"},
+          {"ingId": "ing-oeufs", "qte": 0.25, "unite": "piece"},
+          {"ingId": "ing-chocolat", "qte": 15, "unite": "g"}
+        ],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "rec-brownie", "nom": "Brownie (Pandattitude)",
+        "portions": 1, "tempsMin": 2, "prixVente": 1.50, "coutEmballage": 0.03,
+        "lignes": [
+          {"ingId": "ing-farine", "qte": 15, "unite": "g"},
+          {"ingId": "ing-beurre", "qte": 15, "unite": "g"},
+          {"ingId": "ing-sucre", "qte": 20, "unite": "g"},
+          {"ingId": "ing-oeufs", "qte": 0.5, "unite": "piece"},
+          {"ingId": "ing-chocolat", "qte": 25, "unite": "g"}
+        ],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      }
+    ],
+    "config": {
+      "coutHoraireMO": 13.56,
+      "coutEmballage": 0.30,
+      "fcMin": 28,
+      "fcMax": 32
+    }
+  }
+}
