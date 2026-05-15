@@ -314,6 +314,16 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
             >
               👥 Profils
             </Link>
+            {/* Calculette prix de revient — outil HTML statique servi depuis public/ */}
+            <a
+              href="/calculette-prix-revient-panda-snack.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Ouvrir la calculette prix de revient dans un nouvel onglet"
+              className="focus-ring px-3 py-2 min-h-11 bg-white text-[var(--ink)] text-sm font-semibold rounded-lg border border-[var(--border)] hover:bg-[var(--border)]"
+            >
+              📊 Calculette
+            </a>
             {/* T2 — Imprimer liste : visible seulement si onglet jour spécifique. Transmet sourceGroup. */}
             {activeDayTab !== "all" && (
               <Link
