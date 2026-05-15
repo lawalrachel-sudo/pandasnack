@@ -1,0 +1,379 @@
+{
+  "panda_snack_calculette": {
+    "version": 1,
+    "export_date": "2026-05-08T00:00:00.000Z",
+    "_note": "Seed ingrédients courants Panda Snack — prix indicatifs Carrefour Martinique 2026. À corriger au scan des premières factures réelles. Source: prix consultés mai 2026, marge d'erreur ~10-15% selon promo/saison.",
+    "ingredients": [
+      {
+        "id": "seed-pain-mie",
+        "nom": "Pain de mie complet",
+        "cat": "boulangerie",
+        "qteCond": 500,
+        "unite": "g",
+        "prixCond": 3.85,
+        "fournisseur": "Carrefour",
+        "allergens": ["gluten", "soja"],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-pain-baguette",
+        "nom": "Baguette tradition",
+        "cat": "boulangerie",
+        "qteCond": 250,
+        "unite": "g",
+        "prixCond": 1.30,
+        "fournisseur": "Marché local",
+        "allergens": ["gluten"],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-jambon-dinde",
+        "nom": "Jambon de dinde tranches",
+        "cat": "viande",
+        "qteCond": 200,
+        "unite": "g",
+        "prixCond": 3.50,
+        "fournisseur": "Carrefour",
+        "allergens": [],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-poulet-roti",
+        "nom": "Blanc de poulet rôti tranches",
+        "cat": "viande",
+        "qteCond": 150,
+        "unite": "g",
+        "prixCond": 3.20,
+        "fournisseur": "Carrefour",
+        "allergens": [],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-blanc-poulet-cru",
+        "nom": "Blanc de poulet cru",
+        "cat": "viande",
+        "qteCond": 1000,
+        "unite": "g",
+        "prixCond": 11.50,
+        "fournisseur": "Carrefour",
+        "allergens": [],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-thon-mayo",
+        "nom": "Thon au naturel boîte",
+        "cat": "poisson",
+        "qteCond": 130,
+        "unite": "g",
+        "prixCond": 2.40,
+        "fournisseur": "Carrefour",
+        "allergens": ["poissons"],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-oeufs",
+        "nom": "Œufs frais (boîte 12)",
+        "cat": "cremerie",
+        "qteCond": 12,
+        "unite": "piece",
+        "prixCond": 4.20,
+        "fournisseur": "Carrefour",
+        "allergens": ["oeufs"],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-fromage-emmental",
+        "nom": "Emmental râpé",
+        "cat": "cremerie",
+        "qteCond": 200,
+        "unite": "g",
+        "prixCond": 3.80,
+        "fournisseur": "Carrefour",
+        "allergens": ["lait"],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-fromage-tranche",
+        "nom": "Fromage en tranches (Cheddar/Gouda)",
+        "cat": "cremerie",
+        "qteCond": 200,
+        "unite": "g",
+        "prixCond": 3.50,
+        "fournisseur": "Carrefour",
+        "allergens": ["lait"],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-mozzarella",
+        "nom": "Mozzarella en boule",
+        "cat": "cremerie",
+        "qteCond": 125,
+        "unite": "g",
+        "prixCond": 2.20,
+        "fournisseur": "Carrefour",
+        "allergens": ["lait"],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-beurre",
+        "nom": "Beurre doux",
+        "cat": "cremerie",
+        "qteCond": 250,
+        "unite": "g",
+        "prixCond": 3.20,
+        "fournisseur": "Carrefour",
+        "allergens": ["lait"],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-mayonnaise",
+        "nom": "Mayonnaise",
+        "cat": "epicerie",
+        "qteCond": 500,
+        "unite": "ml",
+        "prixCond": 3.90,
+        "fournisseur": "Carrefour",
+        "allergens": ["oeufs", "moutarde"],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-moutarde",
+        "nom": "Moutarde Dijon",
+        "cat": "epicerie",
+        "qteCond": 350,
+        "unite": "g",
+        "prixCond": 2.80,
+        "fournisseur": "Carrefour",
+        "allergens": ["moutarde", "sulfites"],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-salade",
+        "nom": "Salade verte (sucrine/laitue)",
+        "cat": "legumes",
+        "qteCond": 200,
+        "unite": "g",
+        "prixCond": 2.50,
+        "fournisseur": "Marché local",
+        "allergens": [],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-tomate",
+        "nom": "Tomates rondes (kg)",
+        "cat": "legumes",
+        "qteCond": 1000,
+        "unite": "g",
+        "prixCond": 4.50,
+        "fournisseur": "Marché local",
+        "allergens": [],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-carottes",
+        "nom": "Carottes (kg)",
+        "cat": "legumes",
+        "qteCond": 1000,
+        "unite": "g",
+        "prixCond": 2.80,
+        "fournisseur": "Carrefour",
+        "allergens": [],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-concombre",
+        "nom": "Concombre (pièce)",
+        "cat": "legumes",
+        "qteCond": 1,
+        "unite": "piece",
+        "prixCond": 1.80,
+        "fournisseur": "Marché local",
+        "allergens": [],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-pates",
+        "nom": "Pâtes (penne/farfalle)",
+        "cat": "epicerie",
+        "qteCond": 500,
+        "unite": "g",
+        "prixCond": 1.50,
+        "fournisseur": "Carrefour",
+        "allergens": ["gluten"],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-riz",
+        "nom": "Riz long grain",
+        "cat": "epicerie",
+        "qteCond": 1000,
+        "unite": "g",
+        "prixCond": 2.30,
+        "fournisseur": "Carrefour",
+        "allergens": [],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-sauce-bolo",
+        "nom": "Sauce bolognaise",
+        "cat": "epicerie",
+        "qteCond": 400,
+        "unite": "g",
+        "prixCond": 3.20,
+        "fournisseur": "Carrefour",
+        "allergens": ["celeri"],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-huile-olive",
+        "nom": "Huile d'olive",
+        "cat": "epicerie",
+        "qteCond": 1000,
+        "unite": "ml",
+        "prixCond": 9.50,
+        "fournisseur": "Carrefour",
+        "allergens": [],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-vinaigre",
+        "nom": "Vinaigre balsamique",
+        "cat": "epicerie",
+        "qteCond": 500,
+        "unite": "ml",
+        "prixCond": 3.50,
+        "fournisseur": "Carrefour",
+        "allergens": ["sulfites"],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-the-ceylan",
+        "nom": "Thé noir Ceylan (sachets)",
+        "cat": "boissons",
+        "qteCond": 50,
+        "unite": "piece",
+        "prixCond": 3.50,
+        "fournisseur": "Carrefour",
+        "allergens": [],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-sucre",
+        "nom": "Sucre en poudre",
+        "cat": "epicerie",
+        "qteCond": 1000,
+        "unite": "g",
+        "prixCond": 1.50,
+        "fournisseur": "Carrefour",
+        "allergens": [],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-citron",
+        "nom": "Citrons verts (kg)",
+        "cat": "legumes",
+        "qteCond": 1000,
+        "unite": "g",
+        "prixCond": 4.00,
+        "fournisseur": "Marché local",
+        "allergens": [],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-perles-tapioca",
+        "nom": "Perles de tapioca (bubble tea)",
+        "cat": "epicerie",
+        "qteCond": 500,
+        "unite": "g",
+        "prixCond": 6.50,
+        "fournisseur": "Promo Cash",
+        "allergens": [],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-bento-box",
+        "nom": "Boîte bento carton (1 cpt)",
+        "cat": "emballage",
+        "qteCond": 50,
+        "unite": "piece",
+        "prixCond": 12.00,
+        "fournisseur": "Promo Cash",
+        "allergens": [],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-barquette",
+        "nom": "Barquette plastique 500ml",
+        "cat": "emballage",
+        "qteCond": 100,
+        "unite": "piece",
+        "prixCond": 9.00,
+        "fournisseur": "Promo Cash",
+        "allergens": [],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-serviette",
+        "nom": "Serviette papier emballée",
+        "cat": "emballage",
+        "qteCond": 250,
+        "unite": "piece",
+        "prixCond": 5.00,
+        "fournisseur": "Promo Cash",
+        "allergens": [],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-bouteille-the",
+        "nom": "Bouteille PET 500ml + bouchon",
+        "cat": "emballage",
+        "qteCond": 100,
+        "unite": "piece",
+        "prixCond": 18.00,
+        "fournisseur": "Promo Cash",
+        "allergens": [],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-etiquette",
+        "nom": "Étiquettes adhésives 105x57mm (rouleau)",
+        "cat": "emballage",
+        "qteCond": 1000,
+        "unite": "piece",
+        "prixCond": 22.00,
+        "fournisseur": "Autre",
+        "allergens": [],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-film-alimentaire",
+        "nom": "Film alimentaire (rouleau 300m)",
+        "cat": "emballage",
+        "qteCond": 1,
+        "unite": "piece",
+        "prixCond": 12.00,
+        "fournisseur": "Promo Cash",
+        "allergens": [],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      },
+      {
+        "id": "seed-gants",
+        "nom": "Gants jetables nitrile (boîte 100)",
+        "cat": "autre",
+        "qteCond": 100,
+        "unite": "piece",
+        "prixCond": 8.50,
+        "fournisseur": "Promo Cash",
+        "allergens": [],
+        "derniereMaj": "2026-05-08T00:00:00.000Z"
+      }
+    ],
+    "recettes": [],
+    "config": {
+      "coutHoraireMO": 13.56,
+      "coutEmballage": 0.30,
+      "fcMin": 28,
+      "fcMax": 32
+    }
+  }
+}
