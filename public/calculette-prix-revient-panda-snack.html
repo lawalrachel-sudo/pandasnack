@@ -1,0 +1,1651 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Panda Calc">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#c9302c">
+<title>🐼 Calculette Prix de Revient — Panda Snack</title>
+
+<!-- Icône PNG inline (180x180 cuisinier panda) — fond rouge + emoji panda chef -->
+<link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect width='180' height='180' rx='36' fill='%23c9302c'/><text x='50%25' y='50%25' font-size='110' text-anchor='middle' dominant-baseline='central'>🐼</text><text x='50%25' y='86%25' font-size='22' text-anchor='middle' fill='white' font-family='-apple-system,sans-serif' font-weight='600'>Panda</text></svg>">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23c9302c'/><text x='50%25' y='55%25' font-size='44' text-anchor='middle' dominant-baseline='central'>🐼</text></svg>">
+
+<!-- Manifest PWA inline -->
+<link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22Panda%20Snack%20Calculette%22%2C%22short_name%22%3A%22Panda%20Calc%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23fafaf7%22%2C%22theme_color%22%3A%22%23c9302c%22%2C%22start_url%22%3A%22.%22%2C%22icons%22%3A%5B%5D%7D">
+<style>
+:root {
+  --rouge-panda: #c9302c;
+  --rouge-light: #fdecec;
+  --noir-panda: #1a1a1a;
+  --bg: #fafaf7;
+  --bg-card: #ffffff;
+  --bg-alt: #f4f2eb;
+  --border: #e5e3da;
+  --border-strong: #c9c6b9;
+  --text: #1a1a1a;
+  --text-muted: #6b6960;
+  --success: #2d7a44;
+  --success-bg: #e8f4ec;
+  --warning: #b8860b;
+  --warning-bg: #fdf6e3;
+  --danger: #b03030;
+  --danger-bg: #fdecec;
+  --info: #2c5f8d;
+  --info-bg: #e6f0f8;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --radius-lg: 14px;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  margin: 0; padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+}
+
+.app { max-width: 900px; margin: 0 auto; padding: 0 0 100px; }
+
+header {
+  background: var(--rouge-panda);
+  color: #fff;
+  padding: 14px 16px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+}
+header h1 { margin: 0; font-size: 17px; font-weight: 600; }
+header .sub { font-size: 12px; opacity: 0.9; margin-top: 2px; }
+
+nav.tabs {
+  display: flex;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 50px; z-index: 90;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+nav.tabs button {
+  flex: 1 0 auto;
+  padding: 12px 14px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
+}
+nav.tabs button.active {
+  color: var(--rouge-panda);
+  border-bottom-color: var(--rouge-panda);
+}
+
+main { padding: 16px; }
+section { display: none; }
+section.active { display: block; }
+
+h2 { font-size: 18px; margin: 0 0 12px; font-weight: 600; }
+h3 { font-size: 15px; margin: 16px 0 8px; font-weight: 600; }
+.hint { font-size: 12px; color: var(--text-muted); margin: 0 0 12px; }
+
+/* ===== CARDS ===== */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.card-head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 8px; margin-bottom: 8px;
+}
+.card-title { font-weight: 600; font-size: 15px; }
+.card-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.card-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+/* ===== FORMS ===== */
+.form-row {
+  display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px;
+}
+.form-row label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.form-row input, .form-row select, .form-row textarea {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 16px; /* 16px = pas de zoom iOS */
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text);
+  font-family: inherit;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.form-row input:focus, .form-row select:focus, .form-row textarea:focus {
+  outline: 2px solid var(--rouge-panda);
+  outline-offset: -1px;
+  border-color: var(--rouge-panda);
+}
+.form-row select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236b6960' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+.form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+@media (max-width: 480px) {
+  .form-grid-3 { grid-template-columns: 1fr 1fr; }
+}
+
+/* ===== BUTTONS ===== */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 6px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-card);
+  color: var(--text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: rgba(0,0,0,0.1);
+}
+.btn:active { transform: scale(0.97); }
+.btn-primary {
+  background: var(--rouge-panda);
+  color: #fff;
+  border-color: var(--rouge-panda);
+}
+.btn-primary:active { background: #a52522; }
+.btn-success {
+  background: var(--success);
+  color: #fff;
+  border-color: var(--success);
+}
+.btn-danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.btn-icon {
+  padding: 8px 10px;
+  font-size: 14px;
+}
+.btn-block { width: 100%; }
+.btn-sm { padding: 6px 10px; font-size: 13px; }
+
+/* ===== STATS ===== */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.stat {
+  background: var(--bg-alt);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+.stat-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-weight: 500;
+}
+.stat-value {
+  font-size: 20px;
+  font-weight: 600;
+  margin-top: 2px;
+}
+.stat-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+/* ===== BADGES ===== */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 999px;
+  background: var(--bg-alt);
+  color: var(--text-muted);
+}
+.badge-success { background: var(--success-bg); color: var(--success); }
+.badge-warning { background: var(--warning-bg); color: var(--warning); }
+.badge-danger { background: var(--danger-bg); color: var(--danger); }
+.badge-info { background: var(--info-bg); color: var(--info); }
+
+/* ===== ALLERGÈNES ===== */
+.allergen-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 6px;
+  margin-top: 6px;
+}
+.allergen-chip {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.allergen-chip input { width: 14px; height: 14px; margin: 0; flex-shrink: 0; }
+.allergen-chip.checked {
+  background: var(--warning-bg);
+  border-color: var(--warning);
+  color: var(--warning);
+  font-weight: 500;
+}
+.allergen-pills { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.allergen-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 11px;
+  background: var(--warning-bg);
+  color: var(--warning);
+  border-radius: 999px;
+  font-weight: 500;
+}
+
+/* ===== EMPTY STATE ===== */
+.empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+}
+.empty-icon { font-size: 40px; margin-bottom: 8px; }
+
+/* ===== INGREDIENTS LISTE RECETTE ===== */
+.ing-line {
+  display: grid;
+  grid-template-columns: 2fr 80px 60px 80px 30px;
+  gap: 6px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.ing-line:last-child { border-bottom: none; }
+.ing-line input, .ing-line select {
+  padding: 6px 8px;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  width: 100%;
+  font-family: inherit;
+}
+.ing-line .cost {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: right;
+}
+.ing-line button.del {
+  background: none; border: none; color: var(--danger);
+  font-size: 16px; cursor: pointer; padding: 4px;
+}
+@media (max-width: 600px) {
+  .ing-line {
+    grid-template-columns: 2fr 70px 50px 30px;
+    grid-template-rows: auto auto;
+  }
+  .ing-line .cost {
+    grid-column: 1 / -1;
+    text-align: left;
+    font-size: 11px;
+  }
+}
+
+/* ===== MARGE BAR ===== */
+.marge-bar {
+  height: 8px;
+  background: var(--bg-alt);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 8px;
+  position: relative;
+}
+.marge-bar-fill {
+  height: 100%;
+  background: var(--success);
+  transition: width 0.3s, background 0.3s;
+}
+.marge-bar.warn .marge-bar-fill { background: var(--warning); }
+.marge-bar.danger .marge-bar-fill { background: var(--danger); }
+.bench {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  display: flex;
+  justify-content: space-between;
+}
+
+/* ===== EXPORT MODAL ===== */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 200;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.modal-overlay.show { display: flex; }
+.modal {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  max-width: 500px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+.modal h2 { margin-top: 0; }
+.modal pre {
+  background: var(--bg-alt);
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  overflow-x: auto;
+  max-height: 300px;
+  margin: 12px 0;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+
+/* ===== FAB ===== */
+.fab {
+  position: fixed;
+  bottom: 20px; right: 20px;
+  width: 56px; height: 56px;
+  background: var(--rouge-panda);
+  color: #fff;
+  border-radius: 50%;
+  border: none;
+  font-size: 28px;
+  font-weight: 300;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  cursor: pointer;
+  z-index: 50;
+}
+.fab:active { transform: scale(0.92); }
+
+/* ===== TOAST ===== */
+.toast {
+  position: fixed;
+  bottom: 90px; left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--noir-panda);
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+  z-index: 300;
+  pointer-events: none;
+  white-space: nowrap;
+  max-width: 90vw;
+}
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ===== DASHBOARD ===== */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.dash-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+.dash-card h3 { margin: 0 0 6px; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
+.dash-card .big { font-size: 26px; font-weight: 600; line-height: 1; }
+.dash-card .small { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <h1>🐼 Calculette Prix de Revient</h1>
+    <div class="sub">Panda Snack · Mac + Mobile · Données locales</div>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button class="tab-btn active" data-tab="dash">📊 Tableau</button>
+    <button class="tab-btn" data-tab="ingredients">🥬 Ingrédients</button>
+    <button class="tab-btn" data-tab="recettes">🥪 Recettes</button>
+    <button class="tab-btn" data-tab="config">⚙️ Réglages</button>
+    <button class="tab-btn" data-tab="export">📤 Export</button>
+  </nav>
+
+  <main>
+
+    <!-- ============ DASHBOARD ============ -->
+    <section id="dash" class="active">
+      <h2>Vue d'ensemble</h2>
+      <div class="dashboard-grid">
+        <div class="dash-card">
+          <h3>Ingrédients</h3>
+          <div class="big" id="dash-ing-count">0</div>
+          <div class="small">référencés</div>
+        </div>
+        <div class="dash-card">
+          <h3>Recettes</h3>
+          <div class="big" id="dash-rec-count">0</div>
+          <div class="small">fiches techniques</div>
+        </div>
+        <div class="dash-card">
+          <h3>Marge moyenne</h3>
+          <div class="big" id="dash-marge-avg">—</div>
+          <div class="small">brute %</div>
+        </div>
+        <div class="dash-card">
+          <h3>Food cost moyen</h3>
+          <div class="big" id="dash-fc-avg">—</div>
+          <div class="small">cible 28-32%</div>
+        </div>
+      </div>
+
+      <h3>Recettes les moins rentables</h3>
+      <div id="dash-low-margin"></div>
+
+      <h3>Top marges</h3>
+      <div id="dash-top-margin"></div>
+    </section>
+
+    <!-- ============ INGRÉDIENTS ============ -->
+    <section id="ingredients">
+      <h2>Référentiel ingrédients</h2>
+      <p class="hint">Le prix unitaire est calculé automatiquement depuis prix conditionnement ÷ quantité.</p>
+
+      <div id="ing-list"></div>
+
+      <button class="btn btn-primary btn-block" onclick="ouvrirFormIngredient()">+ Ajouter un ingrédient</button>
+    </section>
+
+    <!-- ============ RECETTES ============ -->
+    <section id="recettes">
+      <h2>Fiches recettes</h2>
+      <p class="hint">Le coût total = matières + main-d'œuvre + emballage. Marge brute = (PV − coût total) / PV.</p>
+
+      <div id="rec-list"></div>
+
+      <button class="btn btn-primary btn-block" onclick="ouvrirFormRecette()">+ Ajouter une recette</button>
+    </section>
+
+    <!-- ============ CONFIG ============ -->
+    <section id="config">
+      <h2>Réglages</h2>
+
+      <div class="card">
+        <h3 style="margin-top:0">Coût main-d'œuvre</h3>
+        <p class="hint">SMIC restauration MQ 2026 : 12,00 €/h brut. Avec charges patronales réduites (~13% au SMIC) ≈ 13,56 €/h coût employeur.</p>
+
+        <div class="form-row">
+          <label>Coût horaire employeur (€/h)</label>
+          <input type="number" id="cfg-smic" step="0.01" min="0" />
+        </div>
+        <p class="hint" style="margin: -6px 0 0">Modifiable si Diane est à un autre échelon HCR ou si tu veux refléter un coût réel.</p>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top:0">Coût emballage par défaut</h3>
+        <p class="hint">Ajouté automatiquement à chaque recette (modifiable par recette). Inclut bento/barquette + serviette + étiquette.</p>
+        <div class="form-row">
+          <label>Coût emballage (€/portion)</label>
+          <input type="number" id="cfg-emb" step="0.01" min="0" />
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top:0">Cibles food cost</h3>
+        <p class="hint">Benchmark restauration : 28-32% en restauration rapide, 30-35% en service à table. Au-delà, marge fragile.</p>
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label>Cible food cost min %</label>
+            <input type="number" id="cfg-fc-min" step="1" min="0" max="100" />
+          </div>
+          <div class="form-row">
+            <label>Cible food cost max %</label>
+            <input type="number" id="cfg-fc-max" step="1" min="0" max="100" />
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-success btn-block" onclick="sauvegarderConfig()">Enregistrer les réglages</button>
+
+      <div class="card" style="background: var(--info-bg); border-color: var(--info); margin-top: 16px">
+        <h3 style="margin-top:0; color: var(--info)">📱 Installer sur l'écran d'accueil</h3>
+        <div id="install-instructions" style="font-size: 13px"></div>
+      </div>
+
+      <button class="btn btn-danger btn-block" style="margin-top:10px" onclick="resetTout()">⚠️ Tout effacer (reset complet)</button>
+    </section>
+
+    <!-- ============ EXPORT ============ -->
+    <section id="export">
+      <h2>Export des données</h2>
+      <p class="hint">Format JSON = lisible par Claude, réimportable, intégrable directement dans Supabase quand la base sera créée.</p>
+
+      <div class="card">
+        <h3 style="margin-top:0">Export complet (JSON)</h3>
+        <p class="hint">Inclut : ingrédients, recettes, config. À envoyer à Claude pour intégration dans la base.</p>
+        <button class="btn btn-primary btn-block" onclick="exporterJSON()">📥 Télécharger fiche.json</button>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top:0">Aperçu du JSON</h3>
+        <button class="btn btn-block" onclick="afficherJSON()">👁️ Voir le contenu</button>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top:0">Importer un fichier JSON</h3>
+        <p class="hint">Restaurer une sauvegarde ou charger un référentiel pré-rempli.</p>
+        <input type="file" id="import-file" accept=".json" style="display:none" onchange="importerJSON(event)">
+        <button class="btn btn-block" onclick="document.getElementById('import-file').click()">📂 Choisir un fichier .json</button>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top:0">Export texte (résumé lisible)</h3>
+        <p class="hint">Format texte pour copier/coller dans un message ou un mail.</p>
+        <button class="btn btn-block" onclick="exporterTexte()">📋 Copier le résumé</button>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ============ MODAL INGRÉDIENT ============ -->
+<div class="modal-overlay" id="modal-ing">
+  <div class="modal">
+    <h2 id="modal-ing-title">Ajouter un ingrédient</h2>
+    <input type="hidden" id="ing-id">
+
+    <div class="form-row">
+      <label>Nom de l'ingrédient *</label>
+      <input type="text" id="ing-nom" placeholder="Ex: Pain de mie complet" autocomplete="off">
+    </div>
+
+    <div class="form-row">
+      <label>Catégorie</label>
+      <select id="ing-cat">
+        <option value="viande">Viandes / Volailles</option>
+        <option value="poisson">Poissons</option>
+        <option value="cremerie">Œufs / Crémerie</option>
+        <option value="boulangerie">Boulangerie / Pain</option>
+        <option value="legumes">Fruits / Légumes</option>
+        <option value="epicerie">Épicerie sèche</option>
+        <option value="boissons">Boissons</option>
+        <option value="emballage">Emballage</option>
+        <option value="autre">Autre</option>
+      </select>
+    </div>
+
+    <h3>Conditionnement acheté</h3>
+    <div class="form-grid-3">
+      <div class="form-row">
+        <label>Quantité</label>
+        <input type="number" id="ing-qte-cond" step="0.01" min="0" placeholder="500">
+      </div>
+      <div class="form-row">
+        <label>Unité</label>
+        <select id="ing-unite">
+          <option value="g">g</option>
+          <option value="kg">kg</option>
+          <option value="ml">ml</option>
+          <option value="l">L</option>
+          <option value="piece">pièce</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Prix payé (€)</label>
+        <input type="number" id="ing-prix-cond" step="0.01" min="0" placeholder="3.50">
+      </div>
+    </div>
+
+    <div class="card" style="background: var(--info-bg); border-color: var(--info); margin: 10px 0">
+      <div class="stat-label">Prix unitaire calculé</div>
+      <div class="stat-value" id="ing-prix-calcule" style="color: var(--info)">—</div>
+    </div>
+
+    <div class="form-row">
+      <label>Fournisseur (optionnel)</label>
+      <select id="ing-fournisseur">
+        <option value="">— Non précisé —</option>
+        <option value="Carrefour">Carrefour</option>
+        <option value="Leclerc">Leclerc</option>
+        <option value="Promo Cash">Promo Cash</option>
+        <option value="Multi Gros">Multi Gros</option>
+        <option value="Gerembale">Gerembale</option>
+        <option value="Super U">Super U</option>
+        <option value="Leader Price">Leader Price</option>
+        <option value="SOFRIMA">SOFRIMA</option>
+        <option value="Marché local">Marché local</option>
+        <option value="Autre">Autre</option>
+      </select>
+    </div>
+
+    <h3>Allergènes (INCO 14)</h3>
+    <p class="hint">Coche tous les allergènes contenus dans cet ingrédient.</p>
+    <div class="allergen-grid" id="ing-allergens"></div>
+
+    <div style="display:flex; gap: 8px; margin-top: 16px">
+      <button class="btn btn-block" onclick="fermerModal('modal-ing')">Annuler</button>
+      <button class="btn btn-primary btn-block" onclick="sauvegarderIngredient()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL RECETTE ============ -->
+<div class="modal-overlay" id="modal-rec">
+  <div class="modal">
+    <h2 id="modal-rec-title">Ajouter une recette</h2>
+    <input type="hidden" id="rec-id">
+
+    <div class="form-row">
+      <label>Nom de la recette *</label>
+      <input type="text" id="rec-nom" placeholder="Ex: Sandwich poulet rôti" autocomplete="off">
+    </div>
+
+    <div class="form-grid-2">
+      <div class="form-row">
+        <label>Nb portions produites</label>
+        <input type="number" id="rec-portions" step="1" min="1" value="1">
+      </div>
+      <div class="form-row">
+        <label>Temps prép (min)</label>
+        <input type="number" id="rec-temps" step="0.5" min="0" value="5">
+      </div>
+    </div>
+
+    <div class="form-grid-2">
+      <div class="form-row">
+        <label>Prix vente TTC (€)</label>
+        <input type="number" id="rec-pv" step="0.01" min="0" placeholder="5.50">
+      </div>
+      <div class="form-row">
+        <label>Coût emballage (€)</label>
+        <input type="number" id="rec-emb" step="0.01" min="0">
+      </div>
+    </div>
+
+    <h3>Ingrédients</h3>
+    <p class="hint">Les ingrédients viennent de ton référentiel. Quantité = par recette (pour <span id="rec-portions-recap">1</span> portion(s)).</p>
+    <div id="rec-ingredients-lines"></div>
+    <button class="btn btn-sm btn-block" style="margin-top:8px" onclick="ajouterLigneIng()">+ Ajouter un ingrédient</button>
+
+    <div class="card" style="background: var(--bg-alt); margin-top: 16px">
+      <div class="stat-grid">
+        <div class="stat">
+          <div class="stat-label">Coût matières</div>
+          <div class="stat-value" id="rec-cout-mat">—</div>
+          <div class="stat-sub" id="rec-cout-mat-portion"></div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Main-d'œuvre</div>
+          <div class="stat-value" id="rec-cout-mo">—</div>
+          <div class="stat-sub" id="rec-cout-mo-portion"></div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Coût total / portion</div>
+          <div class="stat-value" id="rec-cout-total">—</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Marge brute</div>
+          <div class="stat-value" id="rec-marge-pct">—</div>
+          <div class="stat-sub" id="rec-marge-eur"></div>
+        </div>
+      </div>
+
+      <div class="marge-bar" id="rec-fc-bar"><div class="marge-bar-fill" id="rec-fc-fill"></div></div>
+      <div class="bench">
+        <span>Food cost <span id="rec-fc-pct">—</span></span>
+        <span id="rec-fc-status"></span>
+      </div>
+    </div>
+
+    <h3>Allergènes consolidés</h3>
+    <div class="allergen-pills" id="rec-allergens-recap">
+      <span class="hint" style="color:var(--text-muted)">Calculés depuis les ingrédients</span>
+    </div>
+
+    <div style="display:flex; gap: 8px; margin-top: 16px">
+      <button class="btn btn-block" onclick="fermerModal('modal-rec')">Annuler</button>
+      <button class="btn btn-primary btn-block" onclick="sauvegarderRecette()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL JSON ============ -->
+<div class="modal-overlay" id="modal-json">
+  <div class="modal">
+    <h2>Aperçu JSON</h2>
+    <pre id="json-content"></pre>
+    <div style="display:flex; gap: 8px">
+      <button class="btn btn-block" onclick="fermerModal('modal-json')">Fermer</button>
+      <button class="btn btn-primary btn-block" onclick="copierJSON()">📋 Copier</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============ CONSTANTES ============
+
+const ALLERGENES_INCO = [
+  { id: 'gluten', nom: 'Gluten', emoji: '🌾' },
+  { id: 'crustaces', nom: 'Crustacés', emoji: '🦐' },
+  { id: 'oeufs', nom: 'Œufs', emoji: '🥚' },
+  { id: 'poissons', nom: 'Poissons', emoji: '🐟' },
+  { id: 'arachides', nom: 'Arachides', emoji: '🥜' },
+  { id: 'soja', nom: 'Soja', emoji: '🫘' },
+  { id: 'lait', nom: 'Lait', emoji: '🥛' },
+  { id: 'fruits-coque', nom: 'Fruits à coque', emoji: '🌰' },
+  { id: 'celeri', nom: 'Céleri', emoji: '🥬' },
+  { id: 'moutarde', nom: 'Moutarde', emoji: '🌭' },
+  { id: 'sesame', nom: 'Sésame', emoji: '🌱' },
+  { id: 'sulfites', nom: 'Sulfites', emoji: '🍷' },
+  { id: 'lupin', nom: 'Lupin', emoji: '🌼' },
+  { id: 'mollusques', nom: 'Mollusques', emoji: '🦪' }
+];
+
+const CATEGORIES = {
+  viande: 'Viandes / Volailles',
+  poisson: 'Poissons',
+  cremerie: 'Œufs / Crémerie',
+  boulangerie: 'Boulangerie / Pain',
+  legumes: 'Fruits / Légumes',
+  epicerie: 'Épicerie sèche',
+  boissons: 'Boissons',
+  emballage: 'Emballage',
+  autre: 'Autre'
+};
+
+// ============ ÉTAT ============
+
+let state = {
+  ingredients: [],
+  recettes: [],
+  config: {
+    coutHoraireMO: 13.56,    // SMIC HCR 2026 + charges réduites
+    coutEmballage: 0.30,     // bento + serviette + étiquette
+    fcMin: 28,
+    fcMax: 32
+  },
+  meta: {
+    version: 1,
+    derniereMaj: null
+  }
+};
+
+const STORAGE_KEY = 'panda-snack-calculette-v1';
+
+// ============ STORAGE ============
+
+function chargerEtat() {
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    if (data) {
+      const parsed = JSON.parse(data);
+      state.ingredients = parsed.ingredients || [];
+      state.recettes = parsed.recettes || [];
+      state.config = { ...state.config, ...(parsed.config || {}) };
+      state.meta = { ...state.meta, ...(parsed.meta || {}) };
+    }
+  } catch (e) {
+    console.warn('Erreur chargement état:', e);
+  }
+}
+
+function sauvegarderEtat() {
+  state.meta.derniereMaj = new Date().toISOString();
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    toast('⚠️ Erreur sauvegarde');
+  }
+}
+
+// ============ HELPERS ============
+
+function uid() {
+  return 'id-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+}
+
+function fmt(n, dec = 2) {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  return Number(n).toLocaleString('fr-FR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
+
+function eur(n, dec = 2) {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  return fmt(n, dec) + ' €';
+}
+
+function pct(n, dec = 1) {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  return fmt(n, dec) + ' %';
+}
+
+function toast(msg, durMs = 2200) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), durMs);
+}
+
+function ouvrirModal(id) {
+  document.getElementById(id).classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+function fermerModal(id) {
+  document.getElementById(id).classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+// Conversion vers unité de base (g ou ml ou pièce)
+function toUniteBase(qte, unite) {
+  if (unite === 'kg') return qte * 1000;
+  if (unite === 'l') return qte * 1000;
+  return qte; // g, ml, pièce restent
+}
+
+// Unité de base d'un ingrédient
+function uniteBaseDe(unite) {
+  if (unite === 'kg' || unite === 'g') return 'g';
+  if (unite === 'l' || unite === 'ml') return 'ml';
+  return 'piece';
+}
+
+// Calcul prix unitaire (€/g, €/ml, €/pièce)
+function prixUnitaire(ing) {
+  if (!ing.qteCond || !ing.prixCond) return 0;
+  const qteBase = toUniteBase(ing.qteCond, ing.unite);
+  if (qteBase === 0) return 0;
+  return ing.prixCond / qteBase;
+}
+
+// ============ TABS ============
+
+document.getElementById('tabs').addEventListener('click', (e) => {
+  const btn = e.target.closest('.tab-btn');
+  if (!btn) return;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(btn.dataset.tab).classList.add('active');
+  if (btn.dataset.tab === 'dash') renderDashboard();
+});
+
+// ============ INGRÉDIENTS ============
+
+function ouvrirFormIngredient(id = null) {
+  document.getElementById('ing-id').value = id || '';
+  document.getElementById('modal-ing-title').textContent = id ? 'Modifier ingrédient' : 'Ajouter un ingrédient';
+
+  if (id) {
+    const ing = state.ingredients.find(i => i.id === id);
+    if (!ing) return;
+    document.getElementById('ing-nom').value = ing.nom;
+    document.getElementById('ing-cat').value = ing.cat;
+    document.getElementById('ing-qte-cond').value = ing.qteCond;
+    document.getElementById('ing-unite').value = ing.unite;
+    document.getElementById('ing-prix-cond').value = ing.prixCond;
+    document.getElementById('ing-fournisseur').value = ing.fournisseur || '';
+  } else {
+    document.getElementById('ing-nom').value = '';
+    document.getElementById('ing-cat').value = 'autre';
+    document.getElementById('ing-qte-cond').value = '';
+    document.getElementById('ing-unite').value = 'g';
+    document.getElementById('ing-prix-cond').value = '';
+    document.getElementById('ing-fournisseur').value = '';
+  }
+
+  // Allergènes
+  const grid = document.getElementById('ing-allergens');
+  const allergSel = id ? (state.ingredients.find(i => i.id === id)?.allergens || []) : [];
+  grid.innerHTML = ALLERGENES_INCO.map(a => `
+    <label class="allergen-chip ${allergSel.includes(a.id) ? 'checked' : ''}">
+      <input type="checkbox" value="${a.id}" ${allergSel.includes(a.id) ? 'checked' : ''} onchange="this.parentElement.classList.toggle('checked', this.checked)">
+      <span>${a.emoji} ${a.nom}</span>
+    </label>
+  `).join('');
+
+  majPrixCalcule();
+  ouvrirModal('modal-ing');
+}
+
+function majPrixCalcule() {
+  const qte = parseFloat(document.getElementById('ing-qte-cond').value) || 0;
+  const unite = document.getElementById('ing-unite').value;
+  const prix = parseFloat(document.getElementById('ing-prix-cond').value) || 0;
+  const el = document.getElementById('ing-prix-calcule');
+  if (qte === 0 || prix === 0) {
+    el.textContent = '—';
+    return;
+  }
+  const tmp = { qteCond: qte, unite: unite, prixCond: prix };
+  const pu = prixUnitaire(tmp);
+  const ub = uniteBaseDe(unite);
+  // afficher € pour 100g/ml/piece pour lisibilité
+  if (ub === 'piece') {
+    el.textContent = eur(pu) + ' / pièce';
+  } else {
+    el.textContent = eur(pu * 100, 4) + ' / 100' + ub;
+  }
+}
+
+['ing-qte-cond', 'ing-unite', 'ing-prix-cond'].forEach(id => {
+  document.getElementById(id).addEventListener('input', majPrixCalcule);
+  document.getElementById(id).addEventListener('change', majPrixCalcule);
+});
+
+function sauvegarderIngredient() {
+  const id = document.getElementById('ing-id').value || uid();
+  const nom = document.getElementById('ing-nom').value.trim();
+  if (!nom) { toast('⚠️ Nom obligatoire'); return; }
+  const qteCond = parseFloat(document.getElementById('ing-qte-cond').value);
+  const prixCond = parseFloat(document.getElementById('ing-prix-cond').value);
+  if (!qteCond || qteCond <= 0) { toast('⚠️ Quantité invalide'); return; }
+  if (!prixCond || prixCond <= 0) { toast('⚠️ Prix invalide'); return; }
+
+  const allergens = Array.from(document.querySelectorAll('#ing-allergens input:checked')).map(i => i.value);
+
+  const ing = {
+    id,
+    nom,
+    cat: document.getElementById('ing-cat').value,
+    qteCond,
+    unite: document.getElementById('ing-unite').value,
+    prixCond,
+    fournisseur: document.getElementById('ing-fournisseur').value || null,
+    allergens,
+    derniereMaj: new Date().toISOString()
+  };
+
+  const idx = state.ingredients.findIndex(i => i.id === id);
+  if (idx >= 0) state.ingredients[idx] = ing;
+  else state.ingredients.push(ing);
+
+  sauvegarderEtat();
+  fermerModal('modal-ing');
+  renderIngredients();
+  renderRecettes(); // les coûts peuvent avoir changé
+  toast('✓ Ingrédient enregistré');
+}
+
+function supprimerIngredient(id) {
+  const used = state.recettes.find(r => r.lignes.some(l => l.ingId === id));
+  if (used) {
+    if (!confirm(`Cet ingrédient est utilisé dans la recette "${used.nom}". Le supprimer le retirera aussi de la recette. Confirmer ?`)) return;
+    state.recettes.forEach(r => {
+      r.lignes = r.lignes.filter(l => l.ingId !== id);
+    });
+  } else {
+    if (!confirm('Supprimer cet ingrédient ?')) return;
+  }
+  state.ingredients = state.ingredients.filter(i => i.id !== id);
+  sauvegarderEtat();
+  renderIngredients();
+  renderRecettes();
+  toast('✓ Supprimé');
+}
+
+function renderIngredients() {
+  const list = document.getElementById('ing-list');
+  if (state.ingredients.length === 0) {
+    list.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">🥬</div>
+        <p>Aucun ingrédient pour l'instant.<br>Commence par ajouter ceux que tu utilises souvent.</p>
+      </div>`;
+    return;
+  }
+
+  // Group by cat
+  const byCat = {};
+  state.ingredients.forEach(i => {
+    if (!byCat[i.cat]) byCat[i.cat] = [];
+    byCat[i.cat].push(i);
+  });
+
+  list.innerHTML = Object.keys(byCat).sort((a,b) => CATEGORIES[a]?.localeCompare(CATEGORIES[b])).map(cat => `
+    <h3>${CATEGORIES[cat] || cat}</h3>
+    ${byCat[cat].sort((a,b) => a.nom.localeCompare(b.nom)).map(i => {
+      const pu = prixUnitaire(i);
+      const ub = uniteBaseDe(i.unite);
+      const puAffiche = ub === 'piece' ? eur(pu) + ' / pièce' : eur(pu * 100, 4) + ' / 100' + ub;
+      return `
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">${escapeHtml(i.nom)}</div>
+              <div class="card-meta">
+                ${fmt(i.qteCond, i.unite === 'piece' ? 0 : 0)} ${i.unite} = ${eur(i.prixCond)}
+                ${i.fournisseur ? ` · ${escapeHtml(i.fournisseur)}` : ''}
+              </div>
+              <div class="card-meta" style="color: var(--info); font-weight: 500; margin-top: 4px">
+                ${puAffiche}
+              </div>
+              ${i.allergens.length > 0 ? `
+                <div class="allergen-pills">
+                  ${i.allergens.map(aid => {
+                    const a = ALLERGENES_INCO.find(x => x.id === aid);
+                    return a ? `<span class="allergen-pill">${a.emoji} ${a.nom}</span>` : '';
+                  }).join('')}
+                </div>
+              ` : ''}
+            </div>
+            <div class="card-actions">
+              <button class="btn btn-icon" onclick="ouvrirFormIngredient('${i.id}')">✏️</button>
+              <button class="btn btn-icon btn-danger" onclick="supprimerIngredient('${i.id}')">🗑</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('')}
+  `).join('');
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ============ RECETTES ============
+
+let recetteEnCours = { lignes: [] };
+
+function ouvrirFormRecette(id = null) {
+  document.getElementById('rec-id').value = id || '';
+  document.getElementById('modal-rec-title').textContent = id ? 'Modifier recette' : 'Ajouter une recette';
+
+  if (id) {
+    const r = state.recettes.find(x => x.id === id);
+    if (!r) return;
+    document.getElementById('rec-nom').value = r.nom;
+    document.getElementById('rec-portions').value = r.portions;
+    document.getElementById('rec-temps').value = r.tempsMin;
+    document.getElementById('rec-pv').value = r.prixVente;
+    document.getElementById('rec-emb').value = r.coutEmballage ?? state.config.coutEmballage;
+    recetteEnCours = { lignes: JSON.parse(JSON.stringify(r.lignes || [])) };
+  } else {
+    document.getElementById('rec-nom').value = '';
+    document.getElementById('rec-portions').value = 1;
+    document.getElementById('rec-temps').value = 5;
+    document.getElementById('rec-pv').value = '';
+    document.getElementById('rec-emb').value = state.config.coutEmballage;
+    recetteEnCours = { lignes: [] };
+  }
+
+  renderLignesRecette();
+  majCalculsRecette();
+  ouvrirModal('modal-rec');
+}
+
+function ajouterLigneIng() {
+  if (state.ingredients.length === 0) {
+    toast('⚠️ Crée d\'abord des ingrédients');
+    return;
+  }
+  recetteEnCours.lignes.push({ ingId: state.ingredients[0].id, qte: 0, unite: uniteBaseDe(state.ingredients[0].unite) });
+  renderLignesRecette();
+  majCalculsRecette();
+}
+
+function supprimerLigneRec(idx) {
+  recetteEnCours.lignes.splice(idx, 1);
+  renderLignesRecette();
+  majCalculsRecette();
+}
+
+function renderLignesRecette() {
+  const c = document.getElementById('rec-ingredients-lines');
+  if (recetteEnCours.lignes.length === 0) {
+    c.innerHTML = '<p class="hint" style="color:var(--text-muted)">Aucun ingrédient. Clique sur "+ Ajouter".</p>';
+    return;
+  }
+
+  c.innerHTML = recetteEnCours.lignes.map((l, idx) => {
+    const ing = state.ingredients.find(i => i.id === l.ingId);
+    const ub = ing ? uniteBaseDe(ing.unite) : 'g';
+    const cout = calculerCoutLigne(l);
+    return `
+      <div class="ing-line">
+        <select onchange="majLigneIng(${idx}, 'ingId', this.value)">
+          ${state.ingredients.map(i => `<option value="${i.id}" ${i.id === l.ingId ? 'selected' : ''}>${escapeHtml(i.nom)}</option>`).join('')}
+        </select>
+        <input type="number" step="0.1" min="0" value="${l.qte}" onchange="majLigneIng(${idx}, 'qte', this.value)" placeholder="Qté">
+        <span style="font-size:12px; color: var(--text-muted)">${ub}</span>
+        <span class="cost">${eur(cout, 3)}</span>
+        <button class="del" onclick="supprimerLigneRec(${idx})">×</button>
+      </div>
+    `;
+  }).join('');
+}
+
+function majLigneIng(idx, champ, val) {
+  if (champ === 'qte') val = parseFloat(val) || 0;
+  recetteEnCours.lignes[idx][champ] = val;
+  if (champ === 'ingId') {
+    const ing = state.ingredients.find(i => i.id === val);
+    if (ing) recetteEnCours.lignes[idx].unite = uniteBaseDe(ing.unite);
+  }
+  renderLignesRecette();
+  majCalculsRecette();
+}
+
+function calculerCoutLigne(ligne) {
+  const ing = state.ingredients.find(i => i.id === ligne.ingId);
+  if (!ing) return 0;
+  const pu = prixUnitaire(ing); // €/g ou €/ml ou €/pièce
+  return pu * (ligne.qte || 0);
+}
+
+function majCalculsRecette() {
+  const portions = Math.max(1, parseInt(document.getElementById('rec-portions').value) || 1);
+  document.getElementById('rec-portions-recap').textContent = portions;
+
+  const tempsMin = parseFloat(document.getElementById('rec-temps').value) || 0;
+  const pv = parseFloat(document.getElementById('rec-pv').value) || 0;
+  const emb = parseFloat(document.getElementById('rec-emb').value) || 0;
+
+  const coutMatTotal = recetteEnCours.lignes.reduce((s, l) => s + calculerCoutLigne(l), 0);
+  const coutMatPortion = coutMatTotal / portions;
+
+  const coutMOTotal = (tempsMin / 60) * state.config.coutHoraireMO;
+  const coutMOPortion = coutMOTotal / portions;
+
+  const coutTotalPortion = coutMatPortion + coutMOPortion + emb;
+
+  document.getElementById('rec-cout-mat').textContent = eur(coutMatTotal);
+  document.getElementById('rec-cout-mat-portion').textContent = portions > 1 ? `${eur(coutMatPortion)} / portion` : '';
+  document.getElementById('rec-cout-mo').textContent = eur(coutMOTotal);
+  document.getElementById('rec-cout-mo-portion').textContent = `${tempsMin} min`;
+  document.getElementById('rec-cout-total').textContent = eur(coutTotalPortion);
+
+  // Marge
+  const margeBar = document.getElementById('rec-fc-bar');
+  const margeFill = document.getElementById('rec-fc-fill');
+  if (pv > 0) {
+    const marge = pv - coutTotalPortion;
+    const margePct = (marge / pv) * 100;
+    const fcPct = (coutMatPortion / pv) * 100;
+    document.getElementById('rec-marge-pct').textContent = pct(margePct);
+    document.getElementById('rec-marge-eur').textContent = eur(marge);
+    document.getElementById('rec-fc-pct').textContent = pct(fcPct);
+
+    margeBar.classList.remove('warn', 'danger');
+    let status = '';
+    if (fcPct <= state.config.fcMax) {
+      status = '<span class="badge badge-success">✓ Cible OK</span>';
+    } else if (fcPct <= state.config.fcMax + 8) {
+      margeBar.classList.add('warn');
+      status = '<span class="badge badge-warning">⚠ Au-dessus cible</span>';
+    } else {
+      margeBar.classList.add('danger');
+      status = '<span class="badge badge-danger">✗ Marge fragile</span>';
+    }
+    document.getElementById('rec-fc-status').innerHTML = status;
+    margeFill.style.width = Math.min(100, Math.max(2, fcPct)) + '%';
+  } else {
+    document.getElementById('rec-marge-pct').textContent = '—';
+    document.getElementById('rec-marge-eur').textContent = '';
+    document.getElementById('rec-fc-pct').textContent = '—';
+    document.getElementById('rec-fc-status').innerHTML = '';
+    margeFill.style.width = '0%';
+  }
+
+  // Allergènes consolidés
+  const allergSet = new Set();
+  recetteEnCours.lignes.forEach(l => {
+    const ing = state.ingredients.find(i => i.id === l.ingId);
+    if (ing) ing.allergens.forEach(a => allergSet.add(a));
+  });
+  const allergRecap = document.getElementById('rec-allergens-recap');
+  if (allergSet.size === 0) {
+    allergRecap.innerHTML = '<span class="hint" style="color:var(--text-muted)">Aucun allergène</span>';
+  } else {
+    allergRecap.innerHTML = Array.from(allergSet).map(aid => {
+      const a = ALLERGENES_INCO.find(x => x.id === aid);
+      return a ? `<span class="allergen-pill">${a.emoji} ${a.nom}</span>` : '';
+    }).join('');
+  }
+}
+
+['rec-portions', 'rec-temps', 'rec-pv', 'rec-emb'].forEach(id => {
+  document.getElementById(id).addEventListener('input', majCalculsRecette);
+});
+
+function sauvegarderRecette() {
+  const id = document.getElementById('rec-id').value || uid();
+  const nom = document.getElementById('rec-nom').value.trim();
+  if (!nom) { toast('⚠️ Nom obligatoire'); return; }
+
+  const portions = Math.max(1, parseInt(document.getElementById('rec-portions').value) || 1);
+  const tempsMin = parseFloat(document.getElementById('rec-temps').value) || 0;
+  const pv = parseFloat(document.getElementById('rec-pv').value) || 0;
+  const emb = parseFloat(document.getElementById('rec-emb').value) || 0;
+
+  const r = {
+    id, nom, portions, tempsMin,
+    prixVente: pv,
+    coutEmballage: emb,
+    lignes: JSON.parse(JSON.stringify(recetteEnCours.lignes)),
+    derniereMaj: new Date().toISOString()
+  };
+
+  const idx = state.recettes.findIndex(x => x.id === id);
+  if (idx >= 0) state.recettes[idx] = r;
+  else state.recettes.push(r);
+
+  sauvegarderEtat();
+  fermerModal('modal-rec');
+  renderRecettes();
+  toast('✓ Recette enregistrée');
+}
+
+function supprimerRecette(id) {
+  if (!confirm('Supprimer cette recette ?')) return;
+  state.recettes = state.recettes.filter(r => r.id !== id);
+  sauvegarderEtat();
+  renderRecettes();
+  toast('✓ Supprimée');
+}
+
+function renderRecettes() {
+  const list = document.getElementById('rec-list');
+  if (state.recettes.length === 0) {
+    list.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">🥪</div>
+        <p>Aucune recette pour l'instant.<br>Crée tes fiches techniques pour calculer marges et food cost.</p>
+      </div>`;
+    return;
+  }
+
+  list.innerHTML = state.recettes.sort((a,b) => a.nom.localeCompare(b.nom)).map(r => {
+    const calc = calculerRecette(r);
+    return `
+      <div class="card">
+        <div class="card-head">
+          <div style="flex:1; min-width:0">
+            <div class="card-title">${escapeHtml(r.nom)}</div>
+            <div class="card-meta">${r.portions} portion${r.portions > 1 ? 's' : ''} · ${r.tempsMin} min · ${r.lignes.length} ingrédient${r.lignes.length > 1 ? 's' : ''}</div>
+          </div>
+          <div class="card-actions">
+            <button class="btn btn-icon" onclick="ouvrirFormRecette('${r.id}')">✏️</button>
+            <button class="btn btn-icon btn-danger" onclick="supprimerRecette('${r.id}')">🗑</button>
+          </div>
+        </div>
+
+        <div class="stat-grid" style="margin-top: 8px">
+          <div class="stat">
+            <div class="stat-label">Coût / portion</div>
+            <div class="stat-value">${eur(calc.coutTotalPortion)}</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Prix vente</div>
+            <div class="stat-value">${eur(r.prixVente)}</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Marge brute</div>
+            <div class="stat-value">${pct(calc.margePct)}</div>
+            <div class="stat-sub">${eur(calc.marge)}</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Food cost</div>
+            <div class="stat-value">${pct(calc.fcPct)}</div>
+            <div class="stat-sub">${calc.fcStatus}</div>
+          </div>
+        </div>
+
+        ${calc.allergens.length > 0 ? `
+          <div class="allergen-pills" style="margin-top: 8px">
+            ${calc.allergens.map(aid => {
+              const a = ALLERGENES_INCO.find(x => x.id === aid);
+              return a ? `<span class="allergen-pill">${a.emoji} ${a.nom}</span>` : '';
+            }).join('')}
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+function calculerRecette(r) {
+  const portions = r.portions || 1;
+  const coutMatTotal = (r.lignes || []).reduce((s, l) => s + calculerCoutLigne(l), 0);
+  const coutMatPortion = coutMatTotal / portions;
+  const coutMOPortion = ((r.tempsMin || 0) / 60) * state.config.coutHoraireMO / portions;
+  const emb = r.coutEmballage ?? state.config.coutEmballage;
+  const coutTotalPortion = coutMatPortion + coutMOPortion + emb;
+  const pv = r.prixVente || 0;
+  const marge = pv - coutTotalPortion;
+  const margePct = pv > 0 ? (marge / pv) * 100 : 0;
+  const fcPct = pv > 0 ? (coutMatPortion / pv) * 100 : 0;
+
+  let fcStatus = '';
+  if (pv === 0) fcStatus = '—';
+  else if (fcPct <= state.config.fcMax) fcStatus = '✓ Cible OK';
+  else if (fcPct <= state.config.fcMax + 8) fcStatus = '⚠ Au-dessus';
+  else fcStatus = '✗ Fragile';
+
+  const allergSet = new Set();
+  (r.lignes || []).forEach(l => {
+    const ing = state.ingredients.find(i => i.id === l.ingId);
+    if (ing) ing.allergens.forEach(a => allergSet.add(a));
+  });
+
+  return { coutMatTotal, coutMatPortion, coutMOPortion, coutTotalPortion, marge, margePct, fcPct, fcStatus, allergens: Array.from(allergSet) };
+}
+
+// ============ DASHBOARD ============
+
+function renderDashboard() {
+  document.getElementById('dash-ing-count').textContent = state.ingredients.length;
+  document.getElementById('dash-rec-count').textContent = state.recettes.length;
+
+  if (state.recettes.length === 0) {
+    document.getElementById('dash-marge-avg').textContent = '—';
+    document.getElementById('dash-fc-avg').textContent = '—';
+    document.getElementById('dash-low-margin').innerHTML = '<p class="hint">Aucune recette pour l\'instant.</p>';
+    document.getElementById('dash-top-margin').innerHTML = '';
+    return;
+  }
+
+  const calculs = state.recettes.map(r => ({ r, c: calculerRecette(r) })).filter(x => x.r.prixVente > 0);
+  if (calculs.length === 0) {
+    document.getElementById('dash-marge-avg').textContent = '—';
+    document.getElementById('dash-fc-avg').textContent = '—';
+    document.getElementById('dash-low-margin').innerHTML = '<p class="hint">Renseigne un prix de vente pour voir les marges.</p>';
+    document.getElementById('dash-top-margin').innerHTML = '';
+    return;
+  }
+
+  const margeAvg = calculs.reduce((s, x) => s + x.c.margePct, 0) / calculs.length;
+  const fcAvg = calculs.reduce((s, x) => s + x.c.fcPct, 0) / calculs.length;
+  document.getElementById('dash-marge-avg').textContent = pct(margeAvg);
+  document.getElementById('dash-fc-avg').textContent = pct(fcAvg);
+
+  const sorted = [...calculs].sort((a,b) => a.c.margePct - b.c.margePct);
+  const low = sorted.slice(0, 3);
+  const top = [...sorted].reverse().slice(0, 3);
+
+  document.getElementById('dash-low-margin').innerHTML = low.map(x => `
+    <div class="card" style="padding: 10px 12px">
+      <div style="display:flex; justify-content:space-between; align-items:center">
+        <span>${escapeHtml(x.r.nom)}</span>
+        <span class="${x.c.fcPct > state.config.fcMax + 8 ? 'badge badge-danger' : x.c.fcPct > state.config.fcMax ? 'badge badge-warning' : 'badge badge-success'}">${pct(x.c.margePct)}</span>
+      </div>
+    </div>
+  `).join('');
+
+  document.getElementById('dash-top-margin').innerHTML = top.map(x => `
+    <div class="card" style="padding: 10px 12px">
+      <div style="display:flex; justify-content:space-between; align-items:center">
+        <span>${escapeHtml(x.r.nom)}</span>
+        <span class="badge badge-success">${pct(x.c.margePct)}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ============ CONFIG ============
+
+function chargerConfig() {
+  document.getElementById('cfg-smic').value = state.config.coutHoraireMO;
+  document.getElementById('cfg-emb').value = state.config.coutEmballage;
+  document.getElementById('cfg-fc-min').value = state.config.fcMin;
+  document.getElementById('cfg-fc-max').value = state.config.fcMax;
+}
+
+function sauvegarderConfig() {
+  state.config.coutHoraireMO = parseFloat(document.getElementById('cfg-smic').value) || 13.56;
+  state.config.coutEmballage = parseFloat(document.getElementById('cfg-emb').value) || 0;
+  state.config.fcMin = parseFloat(document.getElementById('cfg-fc-min').value) || 28;
+  state.config.fcMax = parseFloat(document.getElementById('cfg-fc-max').value) || 32;
+  sauvegarderEtat();
+  renderRecettes();
+  renderDashboard();
+  toast('✓ Réglages enregistrés');
+}
+
+function resetTout() {
+  if (!confirm('⚠️ Effacer TOUTES les données (ingrédients, recettes, réglages) ? Action irréversible.')) return;
+  if (!confirm('Vraiment ? Pense à exporter avant.')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  location.reload();
+}
+
+// ============ EXPORT / IMPORT ============
+
+function buildJSON() {
+  return JSON.stringify({
+    panda_snack_calculette: {
+      version: 1,
+      export_date: new Date().toISOString(),
+      ingredients: state.ingredients,
+      recettes: state.recettes,
+      config: state.config
+    }
+  }, null, 2);
+}
+
+function exporterJSON() {
+  const json = buildJSON();
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const date = new Date().toISOString().slice(0,10);
+  a.href = url;
+  a.download = `panda-snack-fiches-${date}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('✓ Fichier téléchargé');
+}
+
+function afficherJSON() {
+  document.getElementById('json-content').textContent = buildJSON();
+  ouvrirModal('modal-json');
+}
+
+function copierJSON() {
+  const json = buildJSON();
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(json).then(() => toast('✓ Copié'));
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = json;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); toast('✓ Copié'); } catch (e) { toast('⚠️ Erreur copie'); }
+    document.body.removeChild(ta);
+  }
+}
+
+function importerJSON(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      const data = parsed.panda_snack_calculette || parsed;
+      if (!confirm(`Importer ${(data.ingredients||[]).length} ingrédients et ${(data.recettes||[]).length} recettes ? Cela écrasera tes données actuelles.`)) {
+        event.target.value = '';
+        return;
+      }
+      state.ingredients = data.ingredients || [];
+      state.recettes = data.recettes || [];
+      if (data.config) state.config = { ...state.config, ...data.config };
+      sauvegarderEtat();
+      chargerConfig();
+      renderIngredients();
+      renderRecettes();
+      renderDashboard();
+      toast('✓ Données importées');
+    } catch (err) {
+      toast('⚠️ Fichier invalide');
+    }
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function exporterTexte() {
+  let txt = `🐼 PANDA SNACK — FICHE PRIX DE REVIENT\n`;
+  txt += `Export du ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}\n`;
+  txt += `${'='.repeat(50)}\n\n`;
+
+  txt += `RÉGLAGES\n`;
+  txt += `- Coût horaire main-d'œuvre : ${eur(state.config.coutHoraireMO)}/h\n`;
+  txt += `- Coût emballage défaut : ${eur(state.config.coutEmballage)}/portion\n`;
+  txt += `- Cible food cost : ${state.config.fcMin}-${state.config.fcMax}%\n\n`;
+
+  txt += `INGRÉDIENTS (${state.ingredients.length})\n`;
+  txt += `${'-'.repeat(50)}\n`;
+  state.ingredients.forEach(i => {
+    const pu = prixUnitaire(i);
+    const ub = uniteBaseDe(i.unite);
+    const puAffiche = ub === 'piece' ? eur(pu) + '/pièce' : eur(pu * 100, 4) + `/100${ub}`;
+    txt += `• ${i.nom} (${CATEGORIES[i.cat] || i.cat})\n`;
+    txt += `  ${i.qteCond} ${i.unite} = ${eur(i.prixCond)} → ${puAffiche}\n`;
+    if (i.fournisseur) txt += `  Fournisseur : ${i.fournisseur}\n`;
+    if (i.allergens.length) txt += `  Allergènes : ${i.allergens.map(a => ALLERGENES_INCO.find(x=>x.id===a)?.nom).filter(Boolean).join(', ')}\n`;
+    txt += '\n';
+  });
+
+  txt += `\nRECETTES (${state.recettes.length})\n`;
+  txt += `${'-'.repeat(50)}\n`;
+  state.recettes.forEach(r => {
+    const c = calculerRecette(r);
+    txt += `\n▸ ${r.nom}\n`;
+    txt += `  ${r.portions} portion(s) · ${r.tempsMin} min de prép\n`;
+    txt += `  Coût matières : ${eur(c.coutMatPortion)}/portion\n`;
+    txt += `  Coût MO : ${eur(c.coutMOPortion)}/portion\n`;
+    txt += `  Coût emballage : ${eur(r.coutEmballage ?? state.config.coutEmballage)}/portion\n`;
+    txt += `  ─ Coût total : ${eur(c.coutTotalPortion)}/portion\n`;
+    txt += `  Prix vente : ${eur(r.prixVente)}\n`;
+    txt += `  Marge : ${eur(c.marge)} (${pct(c.margePct)})\n`;
+    txt += `  Food cost : ${pct(c.fcPct)} ${c.fcStatus}\n`;
+    if (r.lignes.length) {
+      txt += `  Ingrédients :\n`;
+      r.lignes.forEach(l => {
+        const ing = state.ingredients.find(i => i.id === l.ingId);
+        if (ing) {
+          txt += `    - ${ing.nom} : ${l.qte} ${uniteBaseDe(ing.unite)} = ${eur(calculerCoutLigne(l), 3)}\n`;
+        }
+      });
+    }
+    if (c.allergens.length) {
+      txt += `  Allergènes : ${c.allergens.map(a => ALLERGENES_INCO.find(x=>x.id===a)?.nom).filter(Boolean).join(', ')}\n`;
+    }
+  });
+
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(txt).then(() => toast('✓ Résumé copié'));
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = txt;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); toast('✓ Résumé copié'); } catch (e) { toast('⚠️ Erreur'); }
+    document.body.removeChild(ta);
+  }
+}
+
+// ============ INIT ============
+
+function afficherInstructionsInstall() {
+  const ua = navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+  const isAndroid = /Android/.test(ua);
+  const isMac = /Macintosh/.test(ua);
+  const el = document.getElementById('install-instructions');
+  if (!el) return;
+
+  if (isIOS) {
+    el.innerHTML = `
+      <p><strong>Sur iPhone / iPad (Safari) :</strong></p>
+      <ol style="padding-left: 20px; margin: 8px 0">
+        <li>Touche le bouton <strong>Partager</strong> en bas de Safari (carré avec flèche ↑)</li>
+        <li>Fais défiler et touche <strong>"Sur l'écran d'accueil"</strong></li>
+        <li>Touche <strong>"Ajouter"</strong> en haut à droite</li>
+      </ol>
+      <p style="margin-top: 8px">L'icône 🐼 Panda Calc apparaîtra sur ton écran d'accueil et s'ouvrira en plein écran comme une vraie appli.</p>
+    `;
+  } else if (isAndroid) {
+    el.innerHTML = `
+      <p><strong>Sur Android (Chrome) :</strong></p>
+      <ol style="padding-left: 20px; margin: 8px 0">
+        <li>Touche le menu <strong>⋮</strong> en haut à droite</li>
+        <li>Touche <strong>"Ajouter à l'écran d'accueil"</strong> ou <strong>"Installer l'application"</strong></li>
+        <li>Confirme avec <strong>"Ajouter"</strong></li>
+      </ol>
+    `;
+  } else if (isMac) {
+    el.innerHTML = `
+      <p><strong>Sur Mac (Safari) :</strong></p>
+      <ol style="padding-left: 20px; margin: 8px 0">
+        <li>Menu <strong>Fichier</strong> → <strong>"Ajouter au Dock"</strong></li>
+        <li>Ou utilise le fichier directement depuis tes téléchargements</li>
+      </ol>
+      <p style="margin-top: 8px"><strong>Sur iPhone associé :</strong> envoie-toi le fichier par AirDrop, ouvre-le dans Safari, puis Partage → "Sur l'écran d'accueil".</p>
+    `;
+  } else {
+    el.innerHTML = `
+      <p>Pour utiliser cette calculette comme une appli :</p>
+      <ul style="padding-left: 20px; margin: 8px 0">
+        <li><strong>iPhone</strong> : ouvre dans Safari → Partage → "Sur l'écran d'accueil"</li>
+        <li><strong>Android</strong> : ouvre dans Chrome → menu ⋮ → "Ajouter à l'écran d'accueil"</li>
+        <li><strong>Mac</strong> : Safari → Fichier → "Ajouter au Dock"</li>
+      </ul>
+    `;
+  }
+}
+
+chargerEtat();
+chargerConfig();
+renderIngredients();
+renderRecettes();
+renderDashboard();
+afficherInstructionsInstall();
+</script>
+
+</body>
+</html>
