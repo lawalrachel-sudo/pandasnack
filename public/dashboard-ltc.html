@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LTC — Dashboard Projections</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0F1117;
+  --bg2: #1A1D27;
+  --bg3: #242734;
+  --text: #E8E9ED;
+  --text2: #9BA1B0;
+  --accent: #378ADD;
+  --accent2: #85B7EB;
+  --accent3: #0C447C;
+  --green: #2ECC71;
+  --green-bg: rgba(46,204,113,.12);
+  --red: #E74C3C;
+  --red-bg: rgba(231,76,60,.12);
+  --orange: #F39C12;
+  --orange-bg: rgba(243,156,18,.12);
+  --radius: 10px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text); padding:24px; max-width:1100px; margin:0 auto; }
+.mono { font-family:'JetBrains Mono',monospace; }
+.header { margin-bottom:28px; }
+.header h1 { font-size:22px; font-weight:700; letter-spacing:-.3px; }
+.header p { font-size:13px; color:var(--text2); margin-top:4px; }
+.kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:28px; }
+.kpi { background:var(--bg2); border-radius:var(--radius); padding:16px; }
+.kpi-label { font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
+.kpi-value { font-size:24px; font-weight:700; font-family:'JetBrains Mono',monospace; }
+.kpi-value.danger { color:var(--red); }
+.kpi-value.warning { color:var(--orange); }
+.section-title { font-size:15px; font-weight:600; margin:24px 0 8px; }
+.legend { display:flex; flex-wrap:wrap; gap:14px; margin-bottom:10px; font-size:12px; color:var(--text2); }
+.legend span { display:flex; align-items:center; gap:5px; }
+.legend i { width:10px; height:10px; border-radius:2px; display:inline-block; }
+.chart-wrap { position:relative; width:100%; height:280px; background:var(--bg2); border-radius:var(--radius); padding:12px; margin-bottom:16px; }
+.chart-wrap.small { height:220px; }
+.alert { background:var(--red-bg); border:1px solid rgba(231,76,60,.25); border-radius:var(--radius); padding:12px 16px; font-size:13px; color:var(--red); margin:12px 0; }
+.alert strong { font-weight:600; }
+.score-grid { display:grid; gap:6px; margin-bottom:20px; }
+.score-header { display:grid; grid-template-columns:2fr 1fr 1fr 1fr 1fr; gap:4px; padding:8px 12px; background:var(--bg3); border-radius:var(--radius); font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:.5px; }
+.score-row { display:grid; grid-template-columns:2fr 1fr 1fr 1fr 1fr; gap:4px; padding:10px 12px; border-radius:var(--radius); border:1px solid var(--bg3); }
+.score-row .name { font-weight:600; font-size:13px; }
+.badge { padding:2px 10px; border-radius:20px; font-size:12px; font-weight:500; font-family:'JetBrains Mono',monospace; }
+.badge.high { background:var(--green-bg); color:var(--green); }
+.badge.mid { background:var(--orange-bg); color:var(--orange); }
+.badge.low { background:var(--red-bg); color:var(--red); }
+.result-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:20px; }
+.result-card { border-radius:var(--radius); padding:16px; text-align:center; }
+.result-card.bad { background:var(--red-bg); }
+.result-card.mid { background:var(--orange-bg); }
+.result-card.good { background:var(--green-bg); }
+.result-card .label { font-size:12px; color:var(--text2); }
+.result-card .amount { font-size:22px; font-weight:700; font-family:'JetBrains Mono',monospace; margin:4px 0; }
+.result-card.bad .amount { color:var(--red); }
+.result-card.mid .amount { color:var(--orange); }
+.result-card.good .amount { color:var(--green); }
+.result-card .sub { font-size:11px; color:var(--text2); }
+.footer { margin-top:28px; padding:14px 16px; background:var(--bg2); border-radius:var(--radius); font-size:12px; color:var(--text2); }
+.footer strong { color:var(--text); }
+.edit-hint { margin-top:20px; padding:14px 16px; background:var(--bg3); border-radius:var(--radius); font-size:12px; color:var(--text2); border-left:3px solid var(--accent); }
+
+@media print {
+  body { background:#fff; color:#111; }
+  .kpi, .chart-wrap, .score-row, .result-card, .footer, .alert, .edit-hint { border:1px solid #ddd; }
+}
+</style>
+</head>
+<body>
+
+<!--
+╔══════════════════════════════════════════════════════════════╗
+║  📊 DONNÉES MODIFIABLES — Modifier ici pour mettre à jour  ║
+║  Ouvrir ce fichier dans un éditeur de texte (VS Code,      ║
+║  Notepad++, etc.) et changer les valeurs ci-dessous.        ║
+║  Sauvegarder puis rafraîchir dans le navigateur.            ║
+╚══════════════════════════════════════════════════════════════╝
+-->
+<script>
+// ═══════════════════════════════════════════════════
+// 🔧 CONFIGURATION AIRTABLE
+// ═══════════════════════════════════════════════════
+const AIRTABLE = {
+  BASE_ID: 'appYgJBhJobSN5sOl',
+  // ⚠️ Coller ici un Personal Access Token Airtable (https://airtable.com/create/tokens)
+  // Scope: data.records:read — Base: LTC Cockpit Financier
+  TOKEN: '',  // ← REMPLIR ICI
+  TABLES: {
+    KPI:         'tblAwWchBHRi21he4',
+    ACTIVITES:   'tbl4ncLvvRVsVvhW5',
+    TRESORERIE:  'tblgXHRJRcwmS80D8',
+  }
+};
+
+// ═══════════════════════════════════════════════════
+// 🔄 DONNÉES FALLBACK (utilisées si pas de token)
+// Corrigées 17/05/2026 : Panda Snack juil-août = 0€
+// ═══════════════════════════════════════════════════
+const FALLBACK = {
+  charges_fixes_mois: 4066,
+  ca_declare_mois: 5395,
+  tresorerie: 1600,
+  cca_philippe: 50033,
+  activites: [
+    { nom: "Panda Snack",    prudent: 14000, realiste: 26000, optimiste: 34000, score: 85, delai: "Sept 26" },
+    { nom: "Bulle de Vert",  prudent:  8000, realiste: 15000, optimiste: 25000, score: 75, delai: "Immédiat" },
+    { nom: "MINIKAZ",        prudent:  3000, realiste:  6000, optimiste: 10000, score: 55, delai: "Immédiat" },
+    { nom: "Studios",        prudent:  4000, realiste: 14000, optimiste: 25000, score: 45, delai: "Q4 26" },
+    { nom: "Centre VITA",    prudent:  3000, realiste:  6000, optimiste: 15000, score: 40, delai: "Q4 26" },
+    { nom: "Panda Rangers",  prudent:  1500, realiste:  8000, optimiste: 25000, score: 25, delai: "Q4 26" },
+    { nom: "Pandatt. résid.",prudent:  2610, realiste:  2610, optimiste:  2610, score: 99, delai: "Acquis" },
+  ],
+  charges_annuelles: { prudent: 52808, realiste: 59808, optimiste: 65808 },
+  mois:          ["Juin","Juil","Août","Sept","Oct","Nov","Déc","Jan","Fév","Mar","Avr","Mai"],
+  entrees_mois:  [5595, 2554, 2412, 2098, 2900, 3700, 4300, 3300, 3800, 3600, 3300, 4100],
+  sorties_mois:  [4066, 4066, 4066, 4466, 4666, 4666, 4666, 4766, 4766, 4766, 4766, 4766],
+  solde_initial: 1600,
+  extinction_mois:    ["Juin","Juil","Août","Sept","Oct"],
+  extinction_panda:   [5195, 2454, 2312, 298, 0],
+  extinction_charges: [4066, 4066, 4066, 4066, 4066],
+};
+
+// ═══════════════════════════════════════════════════
+// LOADER AIRTABLE → DATA
+// ═══════════════════════════════════════════════════
+async function fetchAirtable(tableId) {
+  const url = `https://api.airtable.com/v0/${AIRTABLE.BASE_ID}/${tableId}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${AIRTABLE.TOKEN}` } });
+  if (!res.ok) throw new Error(`Airtable ${res.status}`);
+  return (await res.json()).records;
+}
+
+async function loadData() {
+  if (!AIRTABLE.TOKEN) return FALLBACK;
+  try {
+    const [kpiRecs, actRecs, tresoRecs] = await Promise.all([
+      fetchAirtable(AIRTABLE.TABLES.KPI),
+      fetchAirtable(AIRTABLE.TABLES.ACTIVITES),
+      fetchAirtable(AIRTABLE.TABLES.TRESORERIE),
+    ]);
+    const kpi = kpiRecs[0]?.fields || {};
+    const activites = actRecs.map(r => ({
+      nom: r.fields['Nom'], prudent: r.fields['Prudent'], realiste: r.fields['Realiste'],
+      optimiste: r.fields['Optimiste'], score: r.fields['Score'], delai: r.fields['Delai'],
+    }));
+    // Trier par score descendant
+    activites.sort((a,b) => (b.score||0) - (a.score||0));
+    const tresoSorted = tresoRecs.sort((a,b) => {
+      const order = ['Juin 26','Juil 26','Août 26','Sept 26','Oct 26','Nov 26','Déc 26','Jan 27','Fév 27','Mar 27','Avr 27','Mai 27'];
+      return order.indexOf(a.fields['Mois']) - order.indexOf(b.fields['Mois']);
+    });
+    return {
+      charges_fixes_mois: kpi['Charges fixes mois'] || FALLBACK.charges_fixes_mois,
+      ca_declare_mois: kpi['CA declare mois'] || FALLBACK.ca_declare_mois,
+      tresorerie: kpi['Tresorerie'] || FALLBACK.tresorerie,
+      cca_philippe: kpi['CCA Philippe'] || FALLBACK.cca_philippe,
+      activites,
+      charges_annuelles: FALLBACK.charges_annuelles, // reste en config car pas dans Airtable
+      mois: tresoSorted.map(r => r.fields['Mois'].replace(' 26','').replace(' 27','')),
+      entrees_mois: tresoSorted.map(r => r.fields['Entrees']),
+      sorties_mois: tresoSorted.map(r => r.fields['Sorties']),
+      solde_initial: FALLBACK.solde_initial,
+      extinction_mois: FALLBACK.extinction_mois,
+      extinction_panda: FALLBACK.extinction_panda,
+      extinction_charges: FALLBACK.extinction_charges,
+    };
+  } catch(e) {
+    console.warn('Airtable indisponible, fallback données locales:', e);
+    return FALLBACK;
+  }
+}
+
+let DATA;
+// ═══════════════════════════════════════════════════
+</script>
+
+<div class="header">
+  <h1>La Tribe Corp — Projections financières</h1>
+  <p>RDV expert-comptable · 21 mai 2026 · <span class="mono" id="dateGen"></span></p>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi"><div class="kpi-label">Charges fixes/mois</div><div class="kpi-value danger" id="kpi1"></div></div>
+  <div class="kpi"><div class="kpi-label">CA déclaré/mois</div><div class="kpi-value" id="kpi2"></div></div>
+  <div class="kpi"><div class="kpi-label">Trésorerie</div><div class="kpi-value warning" id="kpi3"></div></div>
+  <div class="kpi"><div class="kpi-label">CCA Philippe</div><div class="kpi-value" id="kpi4"></div></div>
+</div>
+
+<div class="section-title">Projections par activité — Budget 2026-2027 (€/an)</div>
+<div class="legend">
+  <span><i style="background:#85B7EB"></i>Prudent</span>
+  <span><i style="background:#378ADD"></i>Réaliste</span>
+  <span><i style="background:#0C447C"></i>Optimiste</span>
+</div>
+<div class="chart-wrap"><canvas id="c1"></canvas></div>
+
+<div class="section-title">Trésorerie mensuelle — scénario réaliste</div>
+<div class="legend">
+  <span><i style="background:#378ADD"></i>Entrées</span>
+  <span><i style="background:rgba(231,76,60,.5)"></i>Sorties</span>
+  <span><i style="background:#2ECC71"></i>Solde cumulé</span>
+</div>
+<div class="chart-wrap"><canvas id="c2"></canvas></div>
+
+<div class="alert" id="alertTreso"></div>
+
+<div class="section-title">Extinction Pandattitude vs charges fixes</div>
+<div class="legend">
+  <span><i style="background:#378ADD"></i>Pandattitude (résiduel)</span>
+  <span><i style="background:rgba(231,76,60,.5)"></i>Charges fixes</span>
+</div>
+<div class="chart-wrap small"><canvas id="c3"></canvas></div>
+
+<div class="section-title">Scoring faisabilité × rentabilité</div>
+<div class="score-grid">
+  <div class="score-header"><span>Activité</span><span>Score</span><span>Prudent</span><span>Réaliste</span><span>Délai</span></div>
+  <div id="scoreRows"></div>
+</div>
+
+<div class="section-title">Résultat Budget 2026-2027</div>
+<div class="result-grid" id="resultCards"></div>
+
+<div class="footer">
+  <strong>Compte de résultat 2025-2026</strong> : à compléter avec Priscilla (lundi 19/05) à partir des relevés bancaires. Les projections ci-dessus sont indépendantes du rétrospectif.
+</div>
+
+<div class="edit-hint">
+  💡 <strong>Mise à jour</strong> : ce dashboard lit automatiquement les données depuis Airtable (base <code>LTC Cockpit Financier</code>) si un token est configuré. Sans token, les données locales corrigées du 17/05/2026 sont utilisées. Pour activer Airtable : ouvrir ce fichier, coller un Personal Access Token dans <code>AIRTABLE.TOKEN</code>.
+</div>
+
+<script>
+// --- Helpers ---
+const fmt = n => new Intl.NumberFormat('fr-FR').format(n) + '€';
+const fmtK = n => (n/1000).toFixed(0) + 'K€';
+
+(async function init() {
+DATA = await loadData();
+const source = AIRTABLE.TOKEN ? '🟢 Airtable live' : '🟠 Données locales';
+
+// --- Date ---
+document.getElementById('dateGen').textContent = 'Généré le ' + new Date().toLocaleDateString('fr-FR') + ' · ' + source;
+
+// --- KPI ---
+document.getElementById('kpi1').textContent = fmt(DATA.charges_fixes_mois);
+document.getElementById('kpi2').textContent = fmt(DATA.ca_declare_mois);
+document.getElementById('kpi3').textContent = fmt(DATA.tresorerie);
+document.getElementById('kpi4').textContent = fmt(DATA.cca_philippe);
+
+// --- Chart 1 : Activités ---
+const chartOpts = { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+  scales:{ y:{ticks:{color:'#9BA1B0',callback:v=>fmtK(v)},grid:{color:'rgba(255,255,255,.06)'}}, x:{ticks:{color:'#9BA1B0',autoSkip:false,maxRotation:0,font:{size:10}},grid:{display:false}} }
+};
+new Chart(document.getElementById('c1'), {
+  type:'bar',
+  data:{
+    labels: DATA.activites.map(a=>a.nom),
+    datasets:[
+      {label:'Prudent', data:DATA.activites.map(a=>a.prudent), backgroundColor:'#85B7EB'},
+      {label:'Réaliste', data:DATA.activites.map(a=>a.realiste), backgroundColor:'#378ADD'},
+      {label:'Optimiste', data:DATA.activites.map(a=>a.optimiste), backgroundColor:'#0C447C'},
+    ]
+  },
+  options: chartOpts
+});
+
+// --- Chart 2 : Trésorerie ---
+let cumul = [DATA.solde_initial];
+for(let i=0;i<12;i++) cumul.push(Math.round(cumul[i]+DATA.entrees_mois[i]-DATA.sorties_mois[i]));
+cumul.shift();
+
+const moisNegatif = DATA.mois[cumul.findIndex(v=>v<0)];
+document.getElementById('alertTreso').innerHTML = `⚠️ <strong>Alerte trésorerie</strong> : en scénario réaliste, le solde cumulé passe en négatif dès <strong>${moisNegatif || '?'} 2026</strong>. Déficit cumulé en fin de période : <strong>${fmt(Math.abs(cumul[11]))}</strong>.`;
+
+new Chart(document.getElementById('c2'), {
+  type:'bar',
+  data:{ labels:DATA.mois, datasets:[
+    {label:'Entrées',data:DATA.entrees_mois,backgroundColor:'rgba(55,138,221,.6)',order:2},
+    {label:'Sorties',data:DATA.sorties_mois,backgroundColor:'rgba(231,76,60,.35)',order:2},
+    {label:'Cumulé',data:cumul,type:'line',borderColor:'#2ECC71',backgroundColor:'transparent',borderWidth:2.5,pointRadius:4,pointBackgroundColor:cumul.map(v=>v<0?'#E74C3C':'#2ECC71'),tension:.3,order:1}
+  ]},
+  options:{...chartOpts, scales:{...chartOpts.scales, y:{ticks:{color:'#9BA1B0',callback:v=>{let a=Math.abs(v/1000);return(v<0?'-':'')+a.toFixed(1)+'K€'}},grid:{color:'rgba(255,255,255,.06)'}}}}
+});
+
+// --- Chart 3 : Extinction ---
+new Chart(document.getElementById('c3'), {
+  type:'bar',
+  data:{ labels:DATA.extinction_mois, datasets:[
+    {label:'Pandattitude',data:DATA.extinction_panda,backgroundColor:'#378ADD'},
+    {label:'Charges',data:DATA.extinction_charges,backgroundColor:'rgba(231,76,60,.35)'}
+  ]},
+  options:{...chartOpts, scales:{...chartOpts.scales, y:{ticks:{color:'#9BA1B0',callback:v=>(v/1000).toFixed(1)+'K€'},grid:{color:'rgba(255,255,255,.06)'}}}}
+});
+
+// --- Score rows ---
+const scoreHTML = DATA.activites.map(a => {
+  const cls = a.score >= 70 ? 'high' : a.score >= 40 ? 'mid' : 'low';
+  return `<div class="score-row">
+    <span class="name">${a.nom}</span>
+    <span><span class="badge ${cls}">${a.score}%</span></span>
+    <span class="mono" style="font-size:13px">${fmtK(a.prudent)}</span>
+    <span class="mono" style="font-size:13px">${fmtK(a.realiste)}</span>
+    <span style="font-size:12px;color:var(--text2)">${a.delai}</span>
+  </div>`;
+}).join('');
+document.getElementById('scoreRows').innerHTML = scoreHTML;
+
+// --- Result cards ---
+const totP = DATA.activites.reduce((s,a)=>s+a.prudent,0);
+const totR = DATA.activites.reduce((s,a)=>s+a.realiste,0);
+const totO = DATA.activites.reduce((s,a)=>s+a.optimiste,0);
+const resP = totP - DATA.charges_annuelles.prudent;
+const resR = totR - DATA.charges_annuelles.realiste;
+const resO = totO - DATA.charges_annuelles.optimiste;
+
+document.getElementById('resultCards').innerHTML = [
+  {label:'Prudent',amount:resP,sub:fmt(Math.round(resP/12))+'/mois',cls:'bad'},
+  {label:'Réaliste',amount:resR,sub:fmt(Math.round(resR/12))+'/mois',cls:resR>0?'mid':'bad'},
+  {label:'Optimiste',amount:resO,sub:fmt(Math.round(resO/12))+'/mois',cls:'good'},
+].map(c=>`<div class="result-card ${c.cls}">
+  <div class="label">${c.label}</div>
+  <div class="amount">${c.amount>=0?'+':''}${fmt(c.amount)}</div>
+  <div class="sub">${c.sub}</div>
+</div>`).join('');
+
+})(); // fin init async
+</script>
+
+</body>
+</html>
