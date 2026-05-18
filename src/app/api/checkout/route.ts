@@ -240,6 +240,9 @@ export async function POST(req: NextRequest) {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
+      // Conformité juridique : case "J'accepte les CGV" obligatoire.
+      // PRÉREQUIS Stripe Dashboard → Public details → ToS + Privacy URLs configurés.
+      consent_collection: { terms_of_service: "required" },
       line_items: [{
         price_data: {
           currency: "eur",

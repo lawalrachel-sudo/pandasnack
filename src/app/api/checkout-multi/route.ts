@@ -126,6 +126,10 @@ export async function POST(req: NextRequest) {
       {
         mode: "payment",
         payment_method_types: ["card"],
+        // Conformité juridique : case "J'accepte les CGV" obligatoire (LCEN + DSP2).
+        // PRÉREQUIS Stripe Dashboard → Public details → Terms of service URL +
+        // Privacy policy URL configurés.
+        consent_collection: { terms_of_service: "required" },
         line_items: lineItems,
         metadata: {
           product_line: "panda_snack",

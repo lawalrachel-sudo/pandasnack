@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { Logo } from '@/components/Logo'
+import { CURRENT_CGU_VERSION } from '@/lib/legal'
 
 type SourceGroup = 'ecole_la_patience' | 'pandattitude' | 'panda_guest'
 type Metier = 'ecole' | 'pandattitude' | 'panda_guest'
@@ -133,6 +134,10 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
           telephone: telephone.trim(),
           source_group: sourceGroup,
           source_detail: sourceDetail,
+          // Preuve d'acceptation CGU/CGV/Mentions légales horodatée + versionnée
+          // (la checkbox acceptCgu étape 2 est obligatoire pour atteindre cette étape).
+          cgu_accepted_at: new Date().toISOString(),
+          cgu_version: CURRENT_CGU_VERSION,
         })
         .eq('auth_user_id', userId)
         .select('id')
