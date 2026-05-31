@@ -348,8 +348,11 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
             </button>
             <button
               onClick={async () => {
-                await createClient().auth.signOut()
-                window.location.href = "/auth"
+                // Efface le cookie admin (accès mot de passe) ET la session Supabase
+                // (compte admin email). On couvre les deux voies d'accès.
+                await fetch("/api/admin/logout", { method: "POST" }).catch(() => {})
+                await createClient().auth.signOut().catch(() => {})
+                window.location.href = "/admin"
               }}
               aria-label="Se déconnecter de l'espace admin"
               className="focus-ring px-3 py-2 min-h-11 text-sm rounded-md text-[var(--ink-soft)] hover:text-[var(--ink)]"

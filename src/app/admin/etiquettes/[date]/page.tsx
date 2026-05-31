@@ -1,6 +1,5 @@
-import { createServerSupabase } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import { isAdmin } from "@/lib/auth/admin"
+import { requireAdminPage } from "@/lib/auth/admin"
 import { EtiquettesClient } from "./EtiquettesClient"
 
 export const dynamic = "force-dynamic"
@@ -10,11 +9,7 @@ export default async function EtiquettesPage({
 }: {
   params: Promise<{ date: string }>
 }) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase: any = await createServerSupabase()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect("/auth?next=/admin/dashboard")
-  if (!isAdmin(user)) redirect("/?error=admin_required")
+  await requireAdminPage()
 
   const { date } = await params
   // Validation YYYY-MM-DD basique

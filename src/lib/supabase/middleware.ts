@@ -31,7 +31,10 @@ export async function updateSession(request: NextRequest) {
   // Redirect to /auth if not logged in (except public pages)
   // /api/stripe/webhook : POST sans cookies de la part de Stripe → ne JAMAIS rediriger vers /auth
   // (sinon Stripe reçoit 307 au lieu d'atteindre le handler → 21/21 failed observés en prod)
-  const publicPaths = ['/auth', '/allergenes', '/nos-prix-shop', '/cgv', '/cgu', '/api/stripe/webhook']
+  // /admin + /api/admin : accès admin par mot de passe (cookie signé, sans session Supabase).
+  // On ne redirige donc PAS vers /auth ici — la garde réelle se fait dans requireAdminPage()
+  // (server components) et requireAdmin() (API routes), qui acceptent le cookie OU le compte admin.
+  const publicPaths = ['/auth', '/allergenes', '/nos-prix-shop', '/cgv', '/cgu', '/api/stripe/webhook', '/admin', '/api/admin']
   const isPublic = publicPaths.some(p => request.nextUrl.pathname.startsWith(p))
 
   if (!user && !isPublic && request.nextUrl.pathname !== '/') {

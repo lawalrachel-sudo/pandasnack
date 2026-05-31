@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server"
+import { redirect } from "next/navigation"
 import type { User, SupabaseClient } from "@supabase/supabase-js"
+import { hasValidAdminCookie } from "./admin-cookie"
+import { createServerSupabase } from "@/lib/supabase/server"
 
 // v1.12 — auth admin v1 simple : whitelist email Rachel.
 // À raffiner plus tard avec table admins ou rôle Supabase (claim app_role='admin').
@@ -15,10 +18,15 @@ export function isAdmin(user: User | null | undefined): boolean {
 
 // Utilisé dans toutes les routes /api/admin/*. Retourne soit { user } soit { error: NextResponse }
 // — l'appelant doit checker si "error" présent et le retourner direct.
+// Deux voies d'accès admin acceptées :
+//   1. cookie admin signé (accès mot de passe, indépendant de Supabase) → user = null
+//   2. compte Supabase dont l'email est dans ADMIN_EMAILS (fallback Rachel)
 export async function requireAdmin(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any, "public", any>
-): Promise<{ user: User } | { error: NextResponse }> {
+): Promise<{ user: User | null } | { error: NextResponse }> {
+  if (await hasValidAdminCookie()) return { user: null }
+
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return { error: NextResponse.json({ error: "Non authentifié" }, { status: 401 }) }
@@ -27,6 +35,18 @@ export async function requireAdmin(
     return { error: NextResponse.json({ error: "Accès refusé" }, { status: 403 }) }
   }
   return { user }
+}
+
+// Garde pour les server components /admin/*. Même double voie que requireAdmin.
+// Redirige vers /admin (page login mot de passe) si ni cookie ni compte admin.
+// Retourne l'email admin (vide si accès par cookie mot de passe).
+export async function requireAdminPage(): Promise<{ userEmail: string }> {
+  if (await hasValidAdminCookie()) return { userEmail: "" }
+
+  const supabase = await createServerSupabase()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || !isAdmin(user)) redirect("/admin")
+  return { userEmail: user.email || "" }
 }
 
 // Mapping source_group DB → label affichage (utilisé en API responses + UI)
