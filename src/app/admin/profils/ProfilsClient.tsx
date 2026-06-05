@@ -40,6 +40,8 @@ export function ProfilsClient() {
       setLoading(false)
     }
   }
+  // Fetch au montage (load() est async : setState dans son callback, pas de cascade synchrone)
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load() }, [])
 
   function startEdit(p: Profil) {

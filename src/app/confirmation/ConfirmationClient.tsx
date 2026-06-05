@@ -124,7 +124,7 @@ export function ConfirmationClient({ order, items, remainingPendingCount = 0, ne
 
       {/* Info cutoff */}
       <div className="mt-6 rounded-xl p-4 text-xs" style={{ background: "#FEF3E2", color: "var(--ink)" }}>
-        <strong>Rappel :</strong> Tu peux modifier ou annuler ta commande jusqu'à la veille 20h. 
+        <strong>Rappel :</strong> Tu peux modifier ou annuler ta commande jusqu&apos;à la veille 20h. 
         Après ce délai, la commande est ferme et ne peut plus être remboursée.
       </div>
     </div>

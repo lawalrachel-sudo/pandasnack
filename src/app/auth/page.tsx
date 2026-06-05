@@ -159,7 +159,7 @@ function AuthContent() {
 
         {urlError === 'no_account' && (
           <div style={styles.errorBox}>
-            Ton compte n'a pas été trouvé. Merci de te reconnecter ou de créer un compte.
+            Ton compte n&apos;a pas été trouvé. Merci de te reconnecter ou de créer un compte.
           </div>
         )}
         {error && <div style={styles.errorBox}>{error}</div>}
@@ -343,7 +343,7 @@ function AuthContent() {
                 }}
                 style={styles.linkBtn}
               >
-                J'ai déjà un compte
+                J&apos;ai déjà un compte
               </button>
             </div>
 
@@ -365,7 +365,7 @@ function AuthContent() {
         {mode === 'forgot' && (
           <form onSubmit={handleForgot} style={styles.form}>
             <p style={styles.subtitle}>
-              Indique ton email, on t'envoie un lien de réinitialisation.
+              Indique ton email, on t&apos;envoie un lien de réinitialisation.
             </p>
             <label style={styles.label}>
               Email

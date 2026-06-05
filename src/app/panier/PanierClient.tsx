@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Navbar } from "@/components/Navbar"
 import { HeaderMetier } from "@/components/HeaderMetier"
 import { useCart } from "@/lib/cart-context"
+import { notesHaveSauce } from "@/lib/menu-options"
 
 const WALLET_IMG = "https://res.cloudinary.com/dbkpvp9ts/image/upload/v1776714727/PANDA_WALLET.jpg"
 // Impeccable audit P1 Theming — couleurs status pointent vers les tokens CSS définis dans
@@ -80,9 +81,8 @@ function isAllowedForMetier(sku: string, sg: string | null, sd: string | null | 
     if (sd === "fond_lahaye" && sku === "SAND-C") return false
     if (sd === "fond_lahaye" && sku === "SAND-A") return false
   }
-  if (sg === "pandattitude") {
-    if (sku.startsWith("SAL-")) return false
-  }
+  // BRIEF Menu Panda (17/06) — pandattitude : salades + burgers visibles (aucune exclusion).
+  // Doit rester synchronisé avec visForSource() de CommanderClient.
   if (sg === "panda_guest") {
     if (sku.startsWith("SAL-")) return false
     if (sku === "DRINK-BBL") return false
@@ -125,6 +125,11 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
   const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set())
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set())
   const [payingMulti, setPayingMulti] = useState(false)
+  // §7 — option "Payer sur place (CB/espèces)", exclusive aux parents pandattitude.
+  const isPandattitude = account.source_group === "pandattitude"
+  const [payOnSite, setPayOnSite] = useState(false)
+  const [confirmingOnSite, setConfirmingOnSite] = useState(false)
+  const [showOnSiteBanner, setShowOnSiteBanner] = useState(false)
 
   function toggleCollapseDate(date: string) {
     setCollapsedDates(prev => {
@@ -307,28 +312,38 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
   }
 
-  // POINT 4 — initial state : SEULEMENT pending FUTURS sont cochés (passés exclus du GRAND TOTAL)
+  // POINT 4 — initial state : SEULEMENT pending FUTURS sont cochés (passés exclus du GRAND TOTAL).
+  // Init one-shot au montage à partir des props serveur ; pas de cascade de rendus.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const initialSel = new Set<string>()
     const initialCollapsed = new Set<string>()
     for (const o of orders) {
       const sd = o.service_slots?.service_date
       const isPast = sd && sd < todayMQ
-      if (o.status === "pending_payment" && !isPast) initialSel.add(o.id)
+      // §7 — les commandes "sur place" sont confirmées : exclues du paiement en ligne.
+      if (o.status === "pending_payment" && !isPast && o.payment_method !== "on_site") initialSel.add(o.id)
     }
     for (const [d] of groupedOrders) {
       if (d !== "sans-date" && d < todayMQ) initialCollapsed.add(d)
     }
     setSelectedOrderIds(initialSel)
     setCollapsedDates(initialCollapsed)
+    // §7 — retour de confirmation "payer sur place" : bannière de succès + URL nettoyée.
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("onsite") === "ok") {
+      setShowOnSiteBanner(true)
+      window.history.replaceState(null, "", "/panier")
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // POINT 4 — GRAND TOTAL exclut les commandes périmées (cohérent avec /api/checkout-multi)
   const selectedSum = useMemo(() => {
     return orders
       .filter(o => {
         if (o.status !== "pending_payment") return false
+        if (o.payment_method === "on_site") return false  // §7 — déjà confirmée sur place
         if (!selectedOrderIds.has(o.id)) return false
         const sd = o.service_slots?.service_date
         if (sd && sd < todayMQ) return false  // passé exclu
@@ -383,6 +398,30 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
     } catch {
       alert("Erreur réseau")
       setPayingMulti(false)
+    }
+  }
+
+  // §7 — confirmation "Payer sur place" : pas de Stripe, la commande part en cuisine et
+  // sera encaissée au comptoir. Réutilise la sélection courante (déjà purgée des on_site).
+  async function handlePayOnSite() {
+    if (selectedOrderIds.size === 0 || confirmingOnSite) return
+    setConfirmingOnSite(true)
+    try {
+      const res = await fetch("/api/checkout-onsite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderIds: Array.from(selectedOrderIds) }),
+      })
+      const data = await res.json()
+      if (data.success && data.redirect) {
+        window.location.href = data.redirect
+      } else {
+        alert(data.error || "Erreur lors de la confirmation")
+        setConfirmingOnSite(false)
+      }
+    } catch {
+      alert("Erreur réseau")
+      setConfirmingOnSite(false)
     }
   }
 
@@ -464,6 +503,15 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
         </div>
       )}
 
+      {/* §7 — bannière retour confirmation "payer sur place" */}
+      {showOnSiteBanner && (
+        <div role="status" className="mx-4 mb-4 p-3 rounded-xl text-sm font-semibold flex items-start justify-between gap-2"
+          style={{ background: "var(--status-paid-bg, #E7F6EC)", color: "var(--status-paid)", border: "1px solid var(--status-paid)" }}>
+          <span>✅ Commande confirmée ! Elle part en cuisine. À régler sur place au comptoir (CB/espèces).</span>
+          <button onClick={() => setShowOnSiteBanner(false)} aria-label="Fermer" className="text-lg leading-none shrink-0">&times;</button>
+        </div>
+      )}
+
       {/* B-γ — GRAND TOTAL + bouton Payer mes N commandes (multi-checkout Stripe) */}
       {selectedOrderIds.size > 0 && (
         <div className="mx-4 mb-4 p-3 rounded-xl border-2 shadow-md" style={{ borderColor: "var(--accent)", background: "var(--card)" }}>
@@ -473,12 +521,29 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
             </span>
             <span className="text-lg font-bold" style={{ color: "var(--accent)" }}>{fmtPrice(selectedSum)}</span>
           </div>
-          <button onClick={handlePayMulti} disabled={payingMulti}
-            aria-label={`Payer ${selectedOrderIds.size} commande${selectedOrderIds.size > 1 ? "s" : ""} pour ${fmtPrice(selectedSum)}`}
-            className="focus-ring flex items-center justify-center w-full h-12 rounded-xl font-bold text-white shadow-lg active:scale-[0.98] transition-transform text-center px-3 disabled:opacity-50"
-            style={{ background: "var(--accent)" }}>
-            {payingMulti ? "Redirection..." : `💳 Payer mes ${selectedOrderIds.size} commande${selectedOrderIds.size > 1 ? "s" : ""}`}
-          </button>
+          {/* §7 — option réservée aux parents pandattitude : régler au comptoir (CB/espèces) */}
+          {isPandattitude && (
+            <label className="flex items-center gap-2 mb-2 p-2 rounded-lg cursor-pointer" style={{ background: "var(--bg-alt)" }}>
+              <input type="checkbox" checked={payOnSite} onChange={() => setPayOnSite(v => !v)}
+                className="w-5 h-5" style={{ accentColor: "var(--accent)" }} />
+              <span className="text-sm font-medium">💶 Payer sur place <span style={{ color: "var(--ink-soft)" }}>(CB/espèces au comptoir)</span></span>
+            </label>
+          )}
+          {payOnSite ? (
+            <button onClick={handlePayOnSite} disabled={confirmingOnSite}
+              aria-label={`Confirmer ${selectedOrderIds.size} commande${selectedOrderIds.size > 1 ? "s" : ""} à régler sur place`}
+              className="focus-ring flex items-center justify-center w-full h-12 rounded-xl font-bold text-white shadow-lg active:scale-[0.98] transition-transform text-center px-3 disabled:opacity-50"
+              style={{ background: "var(--accent-2)" }}>
+              {confirmingOnSite ? "Confirmation..." : `✅ Confirmer ${selectedOrderIds.size} commande${selectedOrderIds.size > 1 ? "s" : ""} (paiement sur place)`}
+            </button>
+          ) : (
+            <button onClick={handlePayMulti} disabled={payingMulti}
+              aria-label={`Payer ${selectedOrderIds.size} commande${selectedOrderIds.size > 1 ? "s" : ""} pour ${fmtPrice(selectedSum)}`}
+              className="focus-ring flex items-center justify-center w-full h-12 rounded-xl font-bold text-white shadow-lg active:scale-[0.98] transition-transform text-center px-3 disabled:opacity-50"
+              style={{ background: "var(--accent)" }}>
+              {payingMulti ? "Redirection..." : `💳 Payer mes ${selectedOrderIds.size} commande${selectedOrderIds.size > 1 ? "s" : ""}`}
+            </button>
+          )}
         </div>
       )}
 
@@ -520,8 +585,10 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
             const dateTotal = dateOrders.reduce((s, o) => s + (o.total_cents || 0), 0)
             const isCollapsed = collapsedDates.has(date)
             // BUG 2 — checkbox par jour (= toggle de toutes les orders du jour)
-            const dayOrderIds = dateOrders.map(o => o.id)
-            const allDaySelected = !isPast && dayOrderIds.every(id => selectedOrderIds.has(id))
+            // §7 — la case "tout le jour" ne porte que sur les commandes payables en ligne
+            // (les commandes "sur place" sont confirmées, hors paiement Stripe).
+            const dayOrderIds = dateOrders.filter(o => o.payment_method !== "on_site").map(o => o.id)
+            const allDaySelected = !isPast && dayOrderIds.length > 0 && dayOrderIds.every(id => selectedOrderIds.has(id))
             return (
               <div key={date} id={`day-${date}`} className="scroll-mt-4">
                 {/* Header date avec chevron + checkbox (BUG 1 + BUG 2) */}
@@ -587,6 +654,12 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
 
                   return (
                     <div key={order.id} className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--border)", background: "var(--card)" }}>
+                      {/* §7 — commande confirmée à régler sur place (pas de paiement en ligne) */}
+                      {order.payment_method === "on_site" && (
+                        <div className="px-3 pt-2 -mb-1 text-xs font-semibold" style={{ color: order.paid_at ? "var(--status-paid)" : "var(--accent-2)" }}>
+                          {order.paid_at ? "🟢 Réglée sur place" : "✅ Confirmée · à régler sur place (CB/espèces)"}
+                        </div>
+                      )}
                       {/* B-β — sous-blocs par profil dans la card */}
                       <div className="px-3 pt-3 pb-2 space-y-3">
                         {profilGroups.map((g, gi) => (
@@ -640,7 +713,7 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
                                         </div>
                                       )}
                                       <p className="text-xs italic mb-3" style={{ color: "var(--ink-soft)" }}>
-                                        + Boisson : infusion maison glacée du jour · Dessert : du jour
+                                        + {account.source_group === "pandattitude" ? "Bubble tea" : "Boisson du jour"} · Dessert du jour
                                       </p>
                                       <div className="flex gap-2">
                                         <button onClick={cancelEdit} disabled={editSubmitting}
@@ -671,6 +744,10 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
                                         </p>
                                         {toppingNames.length > 0 && (
                                           <p className="text-xs italic mt-0.5" style={{ color: "var(--ink-soft)" }}>+ {toppingNames.join(", ")}</p>
+                                        )}
+                                        {/* §5 — sauce piment (offerte), détectée dans notes */}
+                                        {notesHaveSauce(item.notes) && (
+                                          <p className="text-xs mt-0.5" style={{ color: "var(--ink-soft)" }}>🌶️ Sauce piment</p>
                                         )}
                                         {item.takeaway && (
                                           <p className="text-xs mt-0.5" style={{ color: "var(--ink-soft)" }}>· À emporter</p>

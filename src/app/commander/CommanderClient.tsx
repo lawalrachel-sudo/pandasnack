@@ -7,6 +7,7 @@ import { Navbar } from "@/components/Navbar"
 import { ProductCard } from "@/components/ProductCard"
 import { useCart } from "@/lib/cart-context"
 import { HeaderMetier } from "@/components/HeaderMetier"
+import { sauceCheckboxApplies, setSauceInNotes } from "@/lib/menu-options"
 
 // ============================================================================
 // TYPES
@@ -105,11 +106,14 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   const [mfStep, setMfStep] = useState<"plat" | "garnitures">("plat")
   const [mfPlat, setMfPlat] = useState<CatalogItem | null>(null)
   const [mfToppings, setMfToppings] = useState<string[]>([])
+  // §5 — case "Sauce piment" indépendante (burgers/bento/salades/menu croque)
+  const [mfSauce, setMfSauce] = useState(false)
 
   // --- À la carte topping modal state ---
   const [alcTopOpen, setAlcTopOpen] = useState(false)
   const [alcItem, setAlcItem] = useState<CatalogItem | null>(null)
   const [alcToppings, setAlcToppings] = useState<string[]>([])
+  const [alcSauce, setAlcSauce] = useState(false)
 
   // Helper d'ajout async — POST /api/order-item avec slotId (find-or-create)
   const addToCartAsync = useCallback(async (payload: {
@@ -173,7 +177,9 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
     if (selectedProfilId) return activeProfils.find((p) => p.id === selectedProfilId) || activeProfils[0] || null
     return activeProfils.find((p) => p.is_default) || activeProfils[0] || null
   }, [activeProfils, selectedProfilId])
-  // FIX 5 — restaure le profil actif depuis localStorage au montage
+  // FIX 5 — restaure le profil actif depuis localStorage au montage (sync one-shot SSR-safe
+  // via le garde window ; pas de cascade de rendus).
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const stored = typeof window !== "undefined" ? localStorage.getItem("panda_active_profil") : null
     if (stored && activeProfils.some((p) => p.id === stored)) {
@@ -184,6 +190,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // FIX 5 — persiste le profil actif dans localStorage
   useEffect(() => {
@@ -214,9 +221,9 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       if (sd === "fond_lahaye" && sku === "SAND-C") return false
       if (sd === "fond_lahaye" && sku === "SAND-A") return false
     }
-    if (sg === "pandattitude") {
-      if (sku.startsWith("SAL-")) return false
-    }
+    // BRIEF Menu Panda (17/06) — pandattitude : salades + burgers désormais visibles
+    // (à la carte ET en Menu Panda). Plus aucune exclusion catégorie pour ce métier.
+    // Les burgers (BURGER-POULET/VEGGIE, catégorie SAND) passent déjà sans exclusion.
     if (sg === "panda_guest") {
       if (sku.startsWith("SAL-")) return false
       if (sku === "DRINK-BBL") return false  // Bubble Tea exclusif Pandattitude
@@ -235,7 +242,8 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       .filter((i) => i.active && i.sellable_in_menu && visForSource(i))
       .filter((i) => {
         const s = i.sku || ""
-        const baseMatch = s.startsWith("SAND-") || s.startsWith("PASTA-") || s.startsWith("CROQ-") || s.startsWith("SAL-")
+        // BRIEF Menu Panda (17/06) — BURGER-* (catégorie SAND) éligibles au slot "Plat principal".
+        const baseMatch = s.startsWith("SAND-") || s.startsWith("PASTA-") || s.startsWith("CROQ-") || s.startsWith("SAL-") || s.startsWith("BURGER-")
         const pandattitudeBonus = sg === "pandattitude" && s === "BENTO-JOUR"
         const pandaGuestBonus = sg === "panda_guest" && s === "BENTO-JOUR"
         // Panda Guest : pas de Croque (école hors-classe pas adaptée)
@@ -309,15 +317,31 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
 
   function openMenuFlow(formula: MenuFormula) {
     if (formula.code === "BENTO_PANDA" || formula.code === "BENTO_TOUPITI") { addFormulaDirect(formula); return }
-    setMfFormula(formula); setMfPlat(null); setMfToppings([]); setMfStep("plat"); setMfOpen(true)
+    setMfFormula(formula); setMfPlat(null); setMfToppings([]); setMfSauce(false); setMfStep("plat"); setMfOpen(true)
   }
 
   function selectPlat(item: CatalogItem) {
     setMfPlat(item)
     const c = skuCat(item.sku || "")
     const has = c && toppings.some((t) => t.applies_to_category_ids?.includes(c))
-    if (has) { setMfToppings([]); setMfStep("garnitures") }
+    // §5 — l'étape "garnitures" sert aussi de porte d'entrée à la case sauce piment :
+    // on l'ouvre même sans topping si le plat est éligible à la sauce.
+    if (has || sauceCheckboxApplies(item.sku)) { setMfToppings([]); setMfSauce(false); setMfStep("garnitures") }
     else { finishMenu(item, []) }
+  }
+
+  // BRIEF Menu Panda (17/06) — pandattitude : sélection inline du plat (swipe sous le hero).
+  // Le plat choisi est ajouté DANS le Menu Panda (10€), jamais à la carte. Si le plat a des
+  // garnitures (toppings), on ouvre l'étape garnitures ; sinon ajout direct (formula passée
+  // explicitement pour éviter un état mfFormula obsolète).
+  function pickMenuPandaPlat(item: CatalogItem) {
+    const mp = visFormulas.find((f) => f.code === "MENU_PANDA")
+    if (!mp) return
+    setMfFormula(mp)
+    const c = skuCat(item.sku || "")
+    const has = c && toppings.some((t) => t.applies_to_category_ids?.includes(c))
+    if (has || sauceCheckboxApplies(item.sku)) { setMfPlat(item); setMfToppings([]); setMfSauce(false); setMfStep("garnitures"); setMfOpen(true) }
+    else { finishMenu(item, [], mp) }
   }
 
   function toggleTop(id: string) {
@@ -330,16 +354,21 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   }
 
   // Brief 3-E B-α — auto-persist via addToCartAsync (POST /api/order-item)
-  function finishMenu(plat: CatalogItem, tops: string[]) {
-    if (!mfFormula) return
+  function finishMenu(plat: CatalogItem, tops: string[], formula?: MenuFormula) {
+    const f = formula || mfFormula
+    if (!f) return
     const tn = tops.map((id) => toppings.find((t) => t.id === id)?.name).filter(Boolean)
-    const label = `${mfFormula.name} — ${plat.name}${tn.length > 0 ? ` (${tn.join(", ")})` : ""}`
+    const baseLabel = `${f.name} — ${plat.name}${tn.length > 0 ? ` (${tn.join(", ")})` : ""}`
+    // §5 — sauce piment portée par `notes` (ligne dédiée), uniquement si le plat est éligible.
+    const sauceOn = mfSauce && sauceCheckboxApplies(plat.sku)
+    const notes = setSauceInNotes(baseLabel, sauceOn)
+    const toast = sauceOn ? `${baseLabel} + sauce piment` : baseLabel
     addToCartAsync({
-      menuFormulaId: mfFormula.id,
+      menuFormulaId: f.id,
       selectedPlatSku: plat.sku,
       selectedToppings: tops,
-      notes: label,
-    }, label)
+      notes,
+    }, toast)
     setMfOpen(false)
   }
 
@@ -363,9 +392,10 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
     // Check if this item has toppings → open modal
     const c = skuCat(item.sku || "")
     const hasTops = c && toppings.some((t) => t.applies_to_category_ids?.includes(c))
-    if (hasTops) {
+    if (hasTops || sauceCheckboxApplies(item.sku)) {
       setAlcItem(item)
       setAlcToppings([])
+      setAlcSauce(false)
       setAlcTopOpen(true)
       return
     }
@@ -390,12 +420,15 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   function finishAlcItem() {
     if (!alcItem || alcItem.price_alone_cents == null) return
     const tn = alcToppings.map((id) => toppings.find((t) => t.id === id)?.name).filter(Boolean)
-    const label = `${alcItem.name}${tn.length > 0 ? ` (${tn.join(", ")})` : ""}`
+    const baseLabel = `${alcItem.name}${tn.length > 0 ? ` (${tn.join(", ")})` : ""}`
+    const sauceOn = alcSauce && sauceCheckboxApplies(alcItem.sku)
+    const notes = setSauceInNotes(baseLabel, sauceOn)
+    const toast = sauceOn ? `${baseLabel} + sauce piment` : baseLabel
     addToCartAsync({
       catalogItemId: alcItem.id,
       selectedToppings: alcToppings,
-      notes: label,
-    }, label)
+      notes,
+    }, toast)
     setAlcTopOpen(false)
   }
 
@@ -408,7 +441,8 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   // ============================================================================
 
   return (
-    <div className="min-h-screen pb-20 max-w-lg mx-auto overflow-x-hidden">
+    // Desktop-only — conteneur élargi à 860px (mobile inchangé : max-w-lg)
+    <div className="min-h-screen pb-20 max-w-lg md:max-w-[860px] mx-auto overflow-x-hidden">
       <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} pendingCount={pendingCount}
         greeting="Bienvenue chez Panda Snack 🐼 — Compose ton menu, choisis tes jours, c'est prêt." />
 
@@ -508,11 +542,10 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
             {/* P0a #6 — titre section École en bleu */}
             <h2 className="font-bold text-lg mb-1 text-center" style={{ color: "#1D4ED8" }}>Menu Panda du jour</h2>
             {/* UX 1 — sous-titre composition unifiée */}
-            <p className="text-sm font-bold mb-1" style={{ color: "#B91C1C" }}>PLAT (au choix) + BOISSON (bubble tea au choix sur place) + DESSERT DU JOUR</p>
-            <p className="text-xs mb-3" style={{ color: "var(--accent-2)" }}>Infusion maison glacée offerte avec chaque menu.</p>
+            <p className="text-sm font-bold mb-1" style={{ color: "#B91C1C" }}>PLAT (au choix) + BOISSON DU JOUR + DESSERT DU JOUR</p>
             {bento && (
               <div className="rounded-2xl overflow-hidden mb-3" style={{ background: "var(--card)", boxShadow: "0 2px 16px var(--shadow)" }}>
-                <div className="aspect-[16/9] overflow-hidden">
+                <div className="aspect-[16/9] overflow-hidden md:max-h-[360px]">
                   <img src={heroBentoImg} alt={bento.name} className="w-full h-full object-cover" />
                 </div>
                 <div className="p-4">
@@ -539,45 +572,36 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
         )
       })()}
 
-      {/* PANDATTITUDE — Hero pattern La Patience (BENTO_JOUR + Changer de plat) */}
+      {/* PANDATTITUDE — BRIEF Menu Panda (17/06) : hero "Menu Panda" + swipe plats inline.
+          Le bento n'est plus le hero ; il vit dans le swipe au même niveau que les autres plats. */}
       {visFormulas.length > 0 && sg === "pandattitude" && (() => {
-        const bento = visFormulas.find((f) => f.code === "BENTO_JOUR")
         const mp = visFormulas.find((f) => f.code === "MENU_PANDA")
+        if (!mp) return null
         return (
           <div className="px-4 mb-6">
-            <h2 className="font-bold text-lg mb-1 text-center" style={{ color: "#1D4ED8" }}>Menu Panda du jour</h2>
-            {/* UX 1 — sous-titre composition unifiée */}
-            <p className="text-sm font-bold mb-1" style={{ color: "#B91C1C" }}>PLAT (au choix) + BOISSON (bubble tea au choix sur place) + DESSERT DU JOUR</p>
-            <p className="text-xs mb-3" style={{ color: "var(--accent-2)" }}>Infusion maison glacée offerte avec chaque menu.</p>
-            {bento && (
-              <div className="rounded-2xl overflow-hidden mb-3" style={{ background: "var(--card)", boxShadow: "0 2px 16px var(--shadow)" }}>
-                <div className="aspect-[16/9] overflow-hidden">
-                  {bento.image_url ? (
-                    <img src={bento.image_url} alt={bento.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-6xl" style={{ background: "linear-gradient(135deg, var(--menu-panda-start), var(--menu-panda-end))" }}>🍱</div>
-                  )}
-                </div>
-                <div className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-bold text-lg">{bento.name}</h3>
-                      {/* UX 2 — descr override invitation à changer de plat */}
-                      <p className="text-xs mt-1" style={{ color: "var(--ink-soft)" }}>Clique sur &laquo;&nbsp;Changer de plat&nbsp;&raquo; si tu veux autre chose à la place dans le MENU PANDA&nbsp;!</p>
-                    </div>
-                    <span className="font-bold text-xl">{fmtPrice(bento.price_cents)}</span>
+            {/* §2 — Cadre HERO Menu Panda (prix mis en avant, composition réelle) */}
+            <div className="rounded-2xl p-4 mb-4 text-center" style={{ background: "var(--card)", border: "2px solid var(--accent)", boxShadow: "0 2px 16px var(--shadow)" }}>
+              <h2 className="font-extrabold text-2xl" style={{ color: "var(--accent)" }}>🐼 Menu Panda</h2>
+              <p className="font-bold text-xl mt-1" style={{ color: "var(--ink)" }}>{fmtPrice(mp.price_cents)}</p>
+              <p className="text-sm mt-1" style={{ color: "var(--ink-soft)" }}>plat + bubble tea + dessert du jour</p>
+            </div>
+            {/* §3 — Swipe des plats inline, tous sur un pied d'égalité (bento inclus). Tap = ajout dans le Menu Panda à 10€. */}
+            <h3 className="font-bold text-base mb-2" style={{ color: "var(--ink)" }}>Choisis ton plat</h3>
+            <div className="grid grid-cols-2 gap-3">
+              {menuPlatItems.map((item) => (
+                <div key={item.id} className="rounded-2xl overflow-hidden cursor-pointer transition-transform hover:scale-[1.02]"
+                  style={{ background: "var(--card)", boxShadow: "0 2px 12px var(--shadow)" }} onClick={() => pickMenuPandaPlat(item)}>
+                  <div className="aspect-[4/3] overflow-hidden">
+                    {item.image_url ? (<img src={buildImgUrl(item.image_url)} alt={item.name} className="w-full h-full object-cover" loading="lazy" />)
+                    : (<div className="w-full h-full flex items-center justify-center text-4xl" style={{ background: "var(--bg-alt)" }}>{item.emoji || "🐼"}</div>)}
                   </div>
-                  <div className="flex gap-2 mt-3">
-                    <button onClick={() => addFormulaDirect(bento)} className="flex-1 h-11 rounded-xl font-semibold text-white text-sm" style={{ background: "var(--accent)" }}>Ajouter au panier</button>
-                    {mp && (
-                      <button onClick={() => openMenuFlow(mp)} className="h-11 px-3 rounded-xl font-semibold text-xs border leading-tight" style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>
-                        Changer de plat<br/>dans le Menu Panda
-                      </button>
-                    )}
+                  <div className="p-2 text-center">
+                    <h4 className="font-semibold text-sm leading-tight">{item.name}</h4>
+                    <span className="inline-block mt-1.5 text-xs font-semibold px-3 py-1 rounded-lg text-white" style={{ background: "var(--accent)" }}>Choisir · {fmtPrice(mp.price_cents)}</span>
                   </div>
                 </div>
-              </div>
-            )}
+              ))}
+            </div>
           </div>
         )
       })()}
@@ -590,11 +614,10 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
           <div className="px-4 mb-6">
             <h2 className="font-bold text-lg mb-1 text-center" style={{ color: "#1D4ED8" }}>Menu Panda du jour</h2>
             {/* UX 1 — sous-titre composition unifiée */}
-            <p className="text-sm font-bold mb-1" style={{ color: "#B91C1C" }}>PLAT (au choix) + BOISSON (bubble tea au choix sur place) + DESSERT DU JOUR</p>
-            <p className="text-xs mb-3" style={{ color: "var(--accent-2)" }}>Infusion maison glacée offerte avec chaque menu.</p>
+            <p className="text-sm font-bold mb-1" style={{ color: "#B91C1C" }}>PLAT (au choix) + BOISSON DU JOUR + DESSERT DU JOUR</p>
             {bento && (
               <div className="rounded-2xl overflow-hidden mb-3" style={{ background: "var(--card)", boxShadow: "0 2px 16px var(--shadow)" }}>
-                <div className="aspect-[16/9] overflow-hidden">
+                <div className="aspect-[16/9] overflow-hidden md:max-h-[360px]">
                   {bento.image_url ? (
                     <img src={bento.image_url} alt={bento.name} className="w-full h-full object-cover" />
                   ) : (
@@ -630,7 +653,16 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       {/* ================================================================ */}
       {showALC && (
         <div className="px-4 space-y-4">
-          <h2 className="font-bold text-lg text-center">À la carte</h2>
+          {/* §6 decoy — pour pandattitude, l'à la carte est présentée comme l'option secondaire :
+              titre plus discret + ancrage prix vs le Menu Panda (plat seul 5,50€ vs menu complet 10€). */}
+          {sg === "pandattitude" ? (
+            <div className="text-center">
+              <h2 className="font-semibold text-base" style={{ color: "var(--ink-soft)" }}>Ou juste un article seul</h2>
+              <p className="text-xs mt-0.5" style={{ color: "var(--ink-soft)" }}>Sans boisson ni dessert. Pour quelques euros de plus, le Menu Panda ajoute le bubble tea et le dessert.</p>
+            </div>
+          ) : (
+            <h2 className="font-bold text-lg text-center">À la carte</h2>
+          )}
 
           {/* PT2: Bento Toupiti as visual card in grid alongside other items */}
           <div className="grid grid-cols-2 gap-3">
@@ -647,7 +679,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
                 </div>
                 <div className="p-3">
                   <h4 className="font-semibold text-sm">{bentoToupitiFormula.name}</h4>
-                  <p className="text-xs mt-0.5" style={{ color: "var(--ink-soft)" }}>Portion réduite "petits mangeurs". Sans dessert, boisson</p>
+                  <p className="text-xs mt-0.5" style={{ color: "var(--ink-soft)" }}>Portion réduite &quot;petits mangeurs&quot;. Sans dessert, boisson</p>
                   <div className="flex items-center justify-between mt-2">
                     <span className="font-bold text-base">{fmtPrice(bentoToupitiFormula.price_cents)}</span>
                     <span className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white" style={{ background: "var(--accent)" }}>
@@ -732,6 +764,15 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
                       )
                     })}
                   </div>
+                  {/* §5 — case sauce piment (offerte), indépendante des garnitures */}
+                  {sauceCheckboxApplies(mfPlat?.sku) && (
+                    <label className="flex items-center gap-3 p-3 rounded-xl border cursor-pointer mb-4"
+                      style={{ borderColor: mfSauce ? "var(--accent)" : "var(--border)", background: mfSauce ? "#FEF3E2" : "transparent" }}>
+                      <input type="checkbox" checked={mfSauce} onChange={() => setMfSauce((v) => !v)} className="w-5 h-5" style={{ accentColor: "var(--accent)" }} />
+                      <span className="text-lg">🌶️</span>
+                      <span className="text-sm font-medium">Sauce piment <span style={{ color: "var(--ink-soft)" }}>(offerte)</span></span>
+                    </label>
+                  )}
                   <button onClick={() => finishMenu(mfPlat!, mfToppings)} className="w-full h-12 rounded-xl font-semibold text-white" style={{ background: "var(--accent)" }}>
                     {mfToppings.length === 0 ? "Sans garniture — Ajouter au panier" : "Valider et ajouter au panier"}
                   </button>
@@ -776,6 +817,15 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
                   )
                 })}
               </div>
+              {/* §5 — case sauce piment (offerte) à la carte */}
+              {sauceCheckboxApplies(alcItem.sku) && (
+                <label className="flex items-center gap-3 p-3 rounded-xl border cursor-pointer mb-4"
+                  style={{ borderColor: alcSauce ? "var(--accent)" : "var(--border)", background: alcSauce ? "#FEF3E2" : "transparent" }}>
+                  <input type="checkbox" checked={alcSauce} onChange={() => setAlcSauce((v) => !v)} className="w-5 h-5" style={{ accentColor: "var(--accent)" }} />
+                  <span className="text-lg">🌶️</span>
+                  <span className="text-sm font-medium">Sauce piment <span style={{ color: "var(--ink-soft)" }}>(offerte)</span></span>
+                </label>
+              )}
               <button onClick={finishAlcItem} className="w-full h-12 rounded-xl font-semibold text-white" style={{ background: "var(--accent)" }}>
                 {alcToppings.length === 0 ? "Sans garniture — Ajouter au panier" : "Valider et ajouter au panier"}
               </button>

@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   let query = supabase
     .from("orders")
     .select(`
-      id, order_number, status, total_cents, paid_at, created_at, special_request,
+      id, order_number, status, total_cents, paid_at, payment_method, created_at, special_request,
       service_slots!inner(service_date, day_type, target_source_group, delivery_points(name)),
       accounts!inner(id, nom_compte, email, telephone, source_group, source_detail),
       order_items(
@@ -62,6 +62,7 @@ export async function GET(req: NextRequest) {
     source_label: SOURCE_LABELS[o.accounts?.source_group] || o.accounts?.source_group,
     status: o.status,
     paid_at: o.paid_at,
+    payment_method: o.payment_method,  // §7 — distingue les commandes "sur place" non encaissées
     created_at: o.created_at,
     total_cents: o.total_cents,
     special_request: o.special_request,

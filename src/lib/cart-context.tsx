@@ -26,8 +26,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // Initial fetch au mount
+  // Initial fetch au mount (refreshPendingCount est async : setState dans le callback fetch)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshPendingCount()
   }, [refreshPendingCount])
 

@@ -31,6 +31,7 @@ interface OrderRow {
   source_label: string
   status: "paid" | "pending_payment" | "cancelled" | string
   paid_at: string | null
+  payment_method: string | null
   total_cents: number
   special_request: string | null
   account: { id: string; nom_compte: string; email: string; telephone: string | null }
@@ -73,7 +74,11 @@ function ymd(d: Date): string {
 type Preset = "today" | "week" | "7days" | "month" | "custom"
 
 // Composant tableau réutilisable (mode flat ou en section sous un en-tête métier)
-function OrdersTable({ orders, loading = false }: { orders: OrderRow[]; loading?: boolean }) {
+function OrdersTable({ orders, loading = false, onMarkPaid, markingId }: {
+  orders: OrderRow[]; loading?: boolean
+  onMarkPaid?: (orderId: string) => void
+  markingId?: string | null
+}) {
   return (
     <table className="w-full text-sm">
       <thead className="bg-[var(--bg-alt)] text-xs uppercase text-[var(--ink-soft)]">
@@ -113,6 +118,9 @@ function OrdersTable({ orders, loading = false }: { orders: OrderRow[]; loading?
           const statusIcon = o.status === "paid" ? "✅" : o.status === "pending_payment" ? "❌" : "⚪"
           const statusText = o.status === "paid" ? "Payée" : o.status === "pending_payment" ? "En attente" : o.status === "cancelled" ? "Annulée" : o.status
           const statusColor = o.status === "paid" ? "text-[var(--status-paid)]" : o.status === "pending_payment" ? "text-[var(--status-cancelled)]" : "text-[var(--ink-soft)]"
+          // §7 — commande "payer sur place" : badge dédié pilotant l'encaissement comptoir.
+          const isOnSite = o.payment_method === "on_site"
+          const onSitePaid = isOnSite && !!o.paid_at
           return (
             <tr key={o.id} className="hover:bg-[var(--border)]">
               <td className="px-3 py-2 whitespace-nowrap font-medium">{fmtServiceDate(o.service_date)}</td>
@@ -124,9 +132,35 @@ function OrdersTable({ orders, loading = false }: { orders: OrderRow[]; loading?
               <td className="px-3 py-2 text-center">
                 {o.special_request ? <span title={o.special_request}>📝</span> : ""}
               </td>
-              <td className={`px-3 py-2 font-medium ${statusColor}`} aria-label={`${statusText} · ${fmtPrice(o.total_cents)}`}>
-                <span aria-hidden="true">{statusIcon}</span> <span className="sr-only">{statusText}</span> {fmtPrice(o.total_cents)}
-              </td>
+              {isOnSite ? (
+                <td className="px-3 py-2 font-medium">
+                  {onSitePaid ? (
+                    <span className="text-[var(--status-paid)]" aria-label={`Encaissé sur place · ${fmtPrice(o.total_cents)}`}>
+                      🟢 Encaissé · {fmtPrice(o.total_cents)}
+                    </span>
+                  ) : (
+                    <div className="flex flex-col gap-1 items-start">
+                      <span className="inline-block rounded px-1.5 py-0.5 text-xs font-bold text-white bg-[var(--status-cancelled)]"
+                        aria-label={`Non payé · sur place · ${fmtPrice(o.total_cents)}`}>
+                        NON PAYÉ · {fmtPrice(o.total_cents)}
+                      </span>
+                      {onMarkPaid && (
+                        <button
+                          onClick={() => onMarkPaid(o.id)}
+                          disabled={markingId === o.id}
+                          className="focus-ring text-xs font-semibold rounded border px-2 py-1 border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--bg-alt)] disabled:opacity-50 no-print"
+                          aria-label={`Marquer la commande ${o.order_number} comme encaissée`}>
+                          {markingId === o.id ? "…" : "💶 Marquer encaissé"}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </td>
+              ) : (
+                <td className={`px-3 py-2 font-medium ${statusColor}`} aria-label={`${statusText} · ${fmtPrice(o.total_cents)}`}>
+                  <span aria-hidden="true">{statusIcon}</span> <span className="sr-only">{statusText}</span> {fmtPrice(o.total_cents)}
+                </td>
+              )}
               <td className="px-3 py-2 no-print">
                 <Link href={`/admin/historique/${o.account.id}`} className="text-xs text-[var(--accent)] hover:underline">
                   Voir →
@@ -177,6 +211,32 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
   const [productionOpen, setProductionOpen] = useState(true)
   // Onglets jour : "all" = période complète, "YYYY-MM-DD" = un jour précis
   const [activeDayTab, setActiveDayTab] = useState<string>("all")
+  // §7 — id de la commande "sur place" en cours d'encaissement (désactive le bouton)
+  const [markingId, setMarkingId] = useState<string | null>(null)
+
+  // §7 — pointe l'encaissement comptoir d'une commande on_site. Mise à jour optimiste du
+  // paid_at local (pas de refetch) → le badge passe au vert immédiatement.
+  async function markPaid(orderId: string) {
+    if (markingId) return
+    setMarkingId(orderId)
+    try {
+      const res = await fetch("/api/admin/mark-paid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, paid_at: data.paid_at, status: "paid" } : o))
+      } else {
+        alert(data.error || "Erreur encaissement")
+      }
+    } catch {
+      alert("Erreur réseau")
+    } finally {
+      setMarkingId(null)
+    }
+  }
 
   function applyPreset(p: Preset) {
     setPreset(p)
@@ -186,7 +246,8 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
       setFrom(r.from); setTo(r.to)
     }
   }
-  // Reset onglet aussi quand from/to changent en custom
+  // Reset onglet aussi quand from/to changent en custom (reset dérivé volontaire, pas de cascade)
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setActiveDayTab("all") }, [from, to])
 
   // /api/admin/orders : toujours sur la période complète (pour avoir uniqueDays).
@@ -478,14 +539,14 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
                       ── {section.label} ({section.orders.length} commande{section.orders.length > 1 ? "s" : ""} · {fmtPrice(sectionRev)}) ──
                     </span>
                   </div>
-                  <OrdersTable orders={section.orders} />
+                  <OrdersTable orders={section.orders} onMarkPaid={markPaid} markingId={markingId} />
                 </div>
               )
             })}
           </div>
         ) : (
           <div className="bg-white rounded-xl border border-[var(--border)] overflow-hidden mb-6">
-            <OrdersTable orders={filteredOrders} loading={loading} />
+            <OrdersTable orders={filteredOrders} loading={loading} onMarkPaid={markPaid} markingId={markingId} />
           </div>
         )}
 

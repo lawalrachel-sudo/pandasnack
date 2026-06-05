@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabase as createClient } from "@/lib/supabase/server"
+import { notesHaveSauce, setSauceInNotes } from "@/lib/menu-options"
 
 // PATCH /api/order-item — swap plat (item solo OU plat dans formula) + toppings
 // Body: { orderItemId, newSku, selectedToppings? }
@@ -23,9 +24,12 @@ export async function PATCH(req: NextRequest) {
 
     // Get the order_item
     const { data: item } = await supabase.from("order_items")
-      .select("id, order_id, catalog_item_id, menu_formula_id, formula_choices, unit_price_cents")
+      .select("id, order_id, catalog_item_id, menu_formula_id, formula_choices, unit_price_cents, notes")
       .eq("id", orderItemId).single()
     if (!item) return NextResponse.json({ error: "Article introuvable" }, { status: 404 })
+    // §5 — la sauce piment vit dans `notes` ; on la mémorise pour la reporter sur le
+    // libellé reconstruit après swap (sinon l'option offerte serait perdue silencieusement).
+    const keepSauce = notesHaveSauce(item.notes)
 
     const isFormulaPlat = !!item.menu_formula_id  // formula avec ou sans plat
     const isSolo = !!item.catalog_item_id && !item.menu_formula_id
@@ -92,7 +96,7 @@ export async function PATCH(req: NextRequest) {
         catalog_item_id: newItem.id,
         unit_price_cents: newItem.price_alone_cents,
         line_total_cents: newItem.price_alone_cents,
-        notes: newItem.name,
+        notes: setSauceInNotes(newItem.name, keepSauce),
       }).eq("id", orderItemId)
 
       // Recalc order totals (prix change pour solo) — TTC sans TVA ajoutée (art. L112-1)
@@ -129,7 +133,7 @@ export async function PATCH(req: NextRequest) {
         .select("name").in("id", newToppings)
       topNames = (tops || []).map((t: { name: string }) => t.name)
     }
-    const newNotes = `${formula?.name || "Menu"} — ${newItem.name}${topNames.length ? ` (${topNames.join(", ")})` : ""}`
+    const newNotes = setSauceInNotes(`${formula?.name || "Menu"} — ${newItem.name}${topNames.length ? ` (${topNames.join(", ")})` : ""}`, keepSauce)
 
     await supabase.from("order_items").update({
       catalog_item_id: newItem.id,
@@ -389,8 +393,9 @@ export async function DELETE(req: NextRequest) {
         vat_cents: 0,
       }).eq("id", order.id)
 
-      // Recrédit wallet si la commande était payée par wallet (BUG 10 FIX)
-      if (order.status === "paid" && order.total_cents > 0) {
+      // Recrédit wallet si la commande était payée par wallet (BUG 10 FIX).
+      // §7 — exclut 'on_site' : encaissé en espèces/CB au comptoir, jamais passé par le wallet.
+      if (order.status === "paid" && order.total_cents > 0 && order.payment_method !== "on_site") {
         await walletRefund(supabase, account.id, order.total_cents, "Remboursement commande annulée (dernier article supprimé)")
       }
 
@@ -417,8 +422,9 @@ export async function DELETE(req: NextRequest) {
       total_cents: newTotal,
     }).eq("id", order.id)
 
-    // Recrédit wallet de la différence si payé par wallet (BUG 10 FIX)
-    if (order.status === "paid" && diffCents > 0) {
+    // Recrédit wallet de la différence si payé par wallet (BUG 10 FIX).
+    // §7 — exclut 'on_site' (encaissement comptoir, hors wallet).
+    if (order.status === "paid" && diffCents > 0 && order.payment_method !== "on_site") {
       await walletRefund(supabase, account.id, diffCents, "Recrédit article supprimé")
     }
 

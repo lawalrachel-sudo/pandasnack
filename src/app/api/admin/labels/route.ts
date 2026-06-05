@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabase } from "@/lib/supabase/server"
 import { requireAdmin, SOURCE_LABELS } from "@/lib/auth/admin"
+import { notesHaveSauce, SAUCE_PIMENT_NOTE } from "@/lib/menu-options"
 
 export const dynamic = "force-dynamic"
 
@@ -112,6 +113,9 @@ export async function GET(req: NextRequest) {
       else if (formulaName) name = formulaName
       else if (platName) name = platName
       else name = (it.notes || "Article").slice(0, 60)
+      // §5 — le nom d'étiquette est reconstruit (pas tiré de `notes`) : ré-injecter la sauce
+      // piment pour qu'elle s'imprime. Texte seul (pas d'emoji) — imprimante thermique.
+      if (notesHaveSauce(it.notes) && !name.includes(SAUCE_PIMENT_NOTE)) name = `${name} + ${SAUCE_PIMENT_NOTE}`
       return { name }
     })
 

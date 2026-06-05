@@ -50,8 +50,10 @@ export async function POST(req: NextRequest) {
       cancelled_at: new Date().toISOString(),
     }).eq("id", orderId)
 
-    // Recrédit wallet si payé par wallet
-    if (order.status === "paid" && order.total_cents > 0) {
+    // Recrédit wallet si payé par wallet/carte. §7 — JAMAIS pour 'on_site' : l'argent a été
+    // encaissé en espèces/CB au comptoir, il n'est jamais entré dans le wallet (sinon on
+    // créditerait un remboursement fantôme).
+    if (order.status === "paid" && order.total_cents > 0 && order.payment_method !== "on_site") {
       const { data: wallet } = await (supabase as any)
         .from("wallets").select("id, balance_cents").eq("account_id", account.id).single()
 

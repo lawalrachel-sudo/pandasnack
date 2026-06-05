@@ -383,7 +383,7 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
                   style={S.checkbox}
                 />
                 <span>
-                  J'accepte les{' '}
+                  J&apos;accepte les{' '}
                   <Link href="/cgv" style={S.link} target="_blank">
                     CGV
                   </Link>{' '}
