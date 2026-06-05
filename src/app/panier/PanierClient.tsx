@@ -67,6 +67,7 @@ interface Props {
   pendingCount: number
   catalogItems: CatalogItem[]
   toppings: Topping[]
+  walletBonusPct: number  // UX-C — % de bonus max lu depuis wallet_recharge_config
 }
 
 // B-α-ter — visForSource dupliquée de CommanderClient pour filtrage plats par sg/sd
@@ -102,7 +103,7 @@ function todayMartinique(): string {
   }).format(new Date())
 }
 
-export function PanierClient({ account, profils, orders, wallet, upcomingSlots, pendingCount, catalogItems, toppings }: Props) {
+export function PanierClient({ account, profils, orders, wallet, upcomingSlots, pendingCount, catalogItems, toppings, walletBonusPct }: Props) {
   const { refreshPendingCount } = useCart()
   // POINT 6 — refresh badge cart au mount (retour Stripe peut laisser BottomNav stale)
   useEffect(() => { refreshPendingCount() }, [refreshPendingCount])
@@ -127,9 +128,10 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
   const [payingMulti, setPayingMulti] = useState(false)
   // §7 — option "Payer sur place (CB/espèces)", exclusive aux parents pandattitude.
   const isPandattitude = account.source_group === "pandattitude"
-  const [payOnSite, setPayOnSite] = useState(false)
   const [confirmingOnSite, setConfirmingOnSite] = useState(false)
   const [showOnSiteBanner, setShowOnSiteBanner] = useState(false)
+  // UX-C — texte bonus dérivé du % max lu en DB (jamais hardcodé)
+  const walletBonusText = walletBonusPct > 0 ? `jusqu'à +${walletBonusPct}% de bonus` : "un bonus"
 
   function toggleCollapseDate(date: string) {
     setCollapsedDates(prev => {
@@ -521,27 +523,26 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
             </span>
             <span className="text-lg font-bold" style={{ color: "var(--accent)" }}>{fmtPrice(selectedSum)}</span>
           </div>
-          {/* §7 — option réservée aux parents pandattitude : régler au comptoir (CB/espèces) */}
+          {/* UX-C — encart pédagogie wallet (cliquable), au-dessus des boutons de paiement */}
+          <Link href="/recharger" className="block rounded-lg p-2.5 mb-2" style={{ background: "var(--bg-alt)", border: "1px solid var(--border)" }}>
+            <p className="text-xs leading-snug" style={{ color: "var(--ink)" }}>
+              💰 <strong>Panda Wallet</strong> : paye tes repas à l&apos;avance et gagne {walletBonusText} sur chaque recharge →
+            </p>
+          </Link>
+          {/* Paiement en ligne principal (wallet + CB via checkout-multi) */}
+          <button onClick={handlePayMulti} disabled={payingMulti}
+            aria-label={`Payer ${selectedOrderIds.size} commande${selectedOrderIds.size > 1 ? "s" : ""} pour ${fmtPrice(selectedSum)}`}
+            className="focus-ring flex items-center justify-center w-full h-12 rounded-xl font-bold text-white shadow-lg active:scale-[0.98] transition-transform text-center px-3 disabled:opacity-50"
+            style={{ background: "var(--accent)" }}>
+            {payingMulti ? "Redirection..." : `💳 Payer mes ${selectedOrderIds.size} commande${selectedOrderIds.size > 1 ? "s" : ""}`}
+          </button>
+          {/* UX-B — "Payer sur place" rétrogradé : lien discret sous le bouton principal (pandattitude). */}
           {isPandattitude && (
-            <label className="flex items-center gap-2 mb-2 p-2 rounded-lg cursor-pointer" style={{ background: "var(--bg-alt)" }}>
-              <input type="checkbox" checked={payOnSite} onChange={() => setPayOnSite(v => !v)}
-                className="w-5 h-5" style={{ accentColor: "var(--accent)" }} />
-              <span className="text-sm font-medium">💶 Payer sur place <span style={{ color: "var(--ink-soft)" }}>(CB/espèces au comptoir)</span></span>
-            </label>
-          )}
-          {payOnSite ? (
             <button onClick={handlePayOnSite} disabled={confirmingOnSite}
               aria-label={`Confirmer ${selectedOrderIds.size} commande${selectedOrderIds.size > 1 ? "s" : ""} à régler sur place`}
-              className="focus-ring flex items-center justify-center w-full h-12 rounded-xl font-bold text-white shadow-lg active:scale-[0.98] transition-transform text-center px-3 disabled:opacity-50"
-              style={{ background: "var(--accent-2)" }}>
-              {confirmingOnSite ? "Confirmation..." : `✅ Confirmer ${selectedOrderIds.size} commande${selectedOrderIds.size > 1 ? "s" : ""} (paiement sur place)`}
-            </button>
-          ) : (
-            <button onClick={handlePayMulti} disabled={payingMulti}
-              aria-label={`Payer ${selectedOrderIds.size} commande${selectedOrderIds.size > 1 ? "s" : ""} pour ${fmtPrice(selectedSum)}`}
-              className="focus-ring flex items-center justify-center w-full h-12 rounded-xl font-bold text-white shadow-lg active:scale-[0.98] transition-transform text-center px-3 disabled:opacity-50"
-              style={{ background: "var(--accent)" }}>
-              {payingMulti ? "Redirection..." : `💳 Payer mes ${selectedOrderIds.size} commande${selectedOrderIds.size > 1 ? "s" : ""}`}
+              className="focus-ring w-full text-center text-xs mt-2.5 underline underline-offset-2 disabled:opacity-50"
+              style={{ color: "var(--ink-soft)" }}>
+              {confirmingOnSite ? "Confirmation..." : "Ou payer sur place au comptoir (CB/espèces)"}
             </button>
           )}
         </div>

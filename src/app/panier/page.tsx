@@ -71,6 +71,15 @@ export default async function PanierPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pendingCount = (orders || []).filter((o: any) => o.status === "pending_payment").length
 
+  // UX-C — % de bonus max lu depuis wallet_recharge_config (jamais hardcodé)
+  const { data: rechargeConfigs } = await supabase
+    .from("wallet_recharge_config")
+    .select("recharge_cents, bonus_cents")
+    .eq("active", true)
+  const walletBonusPct = Math.max(0, ...(rechargeConfigs || [])
+    .filter((c: { recharge_cents: number; bonus_cents: number }) => c.recharge_cents > 0 && c.bonus_cents > 0)
+    .map((c: { recharge_cents: number; bonus_cents: number }) => Math.round((c.bonus_cents / c.recharge_cents) * 100)))
+
   return (
     <PanierClient
       account={account as any}
@@ -81,6 +90,7 @@ export default async function PanierPage() {
       pendingCount={pendingCount}
       catalogItems={(catalogItems || []) as any[]}
       toppings={(toppings || []) as any[]}
+      walletBonusPct={walletBonusPct}
     />
   )
 }

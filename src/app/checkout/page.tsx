@@ -106,6 +106,15 @@ export default async function CheckoutPage({
     .eq("status", "pending_payment")
   const pendingCount = pendingOrders?.length || 0
 
+  // UX-C — % de bonus max lu depuis wallet_recharge_config (jamais hardcodé)
+  const { data: rechargeConfigs } = await sb
+    .from("wallet_recharge_config")
+    .select("recharge_cents, bonus_cents")
+    .eq("active", true)
+  const walletBonusPct = Math.max(0, ...(rechargeConfigs || [])
+    .filter((c: { recharge_cents: number; bonus_cents: number }) => c.recharge_cents > 0 && c.bonus_cents > 0)
+    .map((c: { recharge_cents: number; bonus_cents: number }) => Math.round((c.bonus_cents / c.recharge_cents) * 100)))
+
   return (
     <CheckoutClient
       order={order}
@@ -116,6 +125,7 @@ export default async function CheckoutPage({
       wasCancelled={wasCancelled}
       toppingsMap={toppingsMap}
       pendingCount={pendingCount}
+      walletBonusPct={walletBonusPct}
     />
   )
 }

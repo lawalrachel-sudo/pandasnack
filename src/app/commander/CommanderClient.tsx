@@ -774,7 +774,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
                     </label>
                   )}
                   <button onClick={() => finishMenu(mfPlat!, mfToppings)} className="w-full h-12 rounded-xl font-semibold text-white" style={{ background: "var(--accent)" }}>
-                    {mfToppings.length === 0 ? "Sans garniture — Ajouter au panier" : "Valider et ajouter au panier"}
+                    {`Ajouter au panier${mfSauce ? " · 🌶️ Sauce piment" : ""}`}
                   </button>
                 </div>
               )}
@@ -827,7 +827,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
                 </label>
               )}
               <button onClick={finishAlcItem} className="w-full h-12 rounded-xl font-semibold text-white" style={{ background: "var(--accent)" }}>
-                {alcToppings.length === 0 ? "Sans garniture — Ajouter au panier" : "Valider et ajouter au panier"}
+                {`Ajouter au panier${alcSauce ? " · 🌶️ Sauce piment" : ""}`}
               </button>
             </div>
           </div>

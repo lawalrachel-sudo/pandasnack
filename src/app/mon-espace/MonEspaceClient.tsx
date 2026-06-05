@@ -225,12 +225,16 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
         </p>
       </div>
 
-      {/* Tabs — 3 onglets */}
-      <div className="flex border-b" style={{ borderColor: "var(--border)" }}>
+      {/* Tabs — segmented control en pilules (UX-D). Actif : accent + texte blanc ;
+          inactifs : fond bg-alt + bordure. min-h-11 = cible tactile confortable mobile. */}
+      <div className="flex gap-2 mb-4">
         {(["profils", "wallet", "compte"] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
-            className={`flex-1 py-3 text-sm font-semibold text-center border-b-2 transition-colors ${tab === t ? "" : "border-transparent"}`}
-            style={tab === t ? { borderColor: "var(--accent)", color: "var(--accent)" } : { color: "var(--ink-soft)" }}>
+            aria-pressed={tab === t}
+            className="flex-1 min-h-11 px-2 py-2.5 text-sm font-semibold text-center rounded-xl transition-colors active:scale-[0.98]"
+            style={tab === t
+              ? { background: "var(--accent)", color: "#fff" }
+              : { background: "var(--bg-alt)", color: "var(--ink-soft)", border: "1px solid var(--border)" }}>
             {TAB_LABELS[t]}
           </button>
         ))}

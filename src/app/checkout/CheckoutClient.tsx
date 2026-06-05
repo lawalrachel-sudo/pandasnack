@@ -66,6 +66,7 @@ interface Props {
   cutoffPassed: boolean
   wasCancelled: boolean
   toppingsMap: Record<string, string>
+  walletBonusPct: number  // UX-C — % de bonus max lu depuis wallet_recharge_config
 }
 
 // ============================================================================
@@ -89,7 +90,9 @@ function fmtDate(d: string): string {
 // COMPONENT
 // ============================================================================
 
-export function CheckoutClient({ order, items, wallet, account, cutoffPassed, wasCancelled, toppingsMap, pendingCount }: Props) {
+export function CheckoutClient({ order, items, wallet, account, cutoffPassed, wasCancelled, toppingsMap, pendingCount, walletBonusPct }: Props) {
+  // UX-C — texte bonus dérivé du % max lu en DB (jamais hardcodé)
+  const walletBonusText = walletBonusPct > 0 ? `jusqu'à +${walletBonusPct}% de bonus` : "un bonus"
   const router = useRouter()
   const [paymentLoading, setPaymentLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -347,6 +350,13 @@ export function CheckoutClient({ order, items, wallet, account, cutoffPassed, wa
           ⚠️ {error}
         </div>
       )}
+
+      {/* UX-C — encart pédagogie wallet (cliquable), au-dessus des boutons de paiement */}
+      <Link href="/recharger" className="block rounded-xl p-3 mb-3" style={{ background: "var(--bg-alt)", border: "1px solid var(--border)" }}>
+        <p className="text-xs leading-snug" style={{ color: "var(--ink)" }}>
+          💰 <strong>Panda Wallet</strong> : paye tes repas à l&apos;avance et gagne {walletBonusText} sur chaque recharge →
+        </p>
+      </Link>
 
       {/* Payment buttons */}
       <div className="space-y-3 mt-2">
