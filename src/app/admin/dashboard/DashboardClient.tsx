@@ -162,9 +162,7 @@ function OrdersTable({ orders, loading = false, onMarkPaid, markingId }: {
                 </td>
               )}
               <td className="px-3 py-2 no-print">
-                <Link href={`/admin/historique/${o.account.id}`} className="text-xs text-[var(--accent)] hover:underline">
-                  Voir →
-                </Link>
+                <span className="text-xs opacity-40">—</span>
               </td>
             </tr>
           )

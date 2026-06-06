@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabase } from "@/lib/supabase/server"
 import { requireAdmin, SOURCE_LABELS } from "@/lib/auth/admin"
+import { getSupabaseAdmin } from "@/lib/supabase/admin"
 import { notesHaveSauce, SAUCE_PIMENT_NOTE } from "@/lib/menu-options"
 
 export const dynamic = "force-dynamic"
@@ -47,6 +48,11 @@ export async function GET(req: NextRequest) {
   const auth = await requireAdmin(supabase)
   if ("error" in auth) return auth.error
 
+  // Lectures via service_role (bypass RLS) — voir src/lib/supabase/admin.ts
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const admin: any = getSupabaseAdmin()
+  if (!admin) return NextResponse.json({ error: "SUPABASE_SERVICE_ROLE_KEY manquant" }, { status: 500 })
+
   const sp = req.nextUrl.searchParams
   const serviceDate = sp.get("service_date")
   if (!serviceDate) {
@@ -54,10 +60,10 @@ export async function GET(req: NextRequest) {
   }
   const sourceGroup = sp.get("source_group")
 
-  let query = supabase
+  let query = admin
     .from("orders")
     .select(`
-      id, order_number, status,
+      id, order_number, status, payment_method,
       service_slots!inner(service_date, target_source_group),
       accounts!inner(source_group, nom_compte),
       order_items(
@@ -68,7 +74,8 @@ export async function GET(req: NextRequest) {
       )
     `)
     .eq("service_slots.service_date", serviceDate)
-    .eq("status", "paid")
+    // §7 — les étiquettes incluent les "sur place" non encaissées (production cuisine)
+    .or("status.eq.paid,and(status.eq.pending_payment,payment_method.eq.on_site)")
 
   if (sourceGroup) query = query.eq("accounts.source_group", sourceGroup)
 

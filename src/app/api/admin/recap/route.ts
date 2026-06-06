@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabase } from "@/lib/supabase/server"
 import { requireAdmin } from "@/lib/auth/admin"
+import { getSupabaseAdmin } from "@/lib/supabase/admin"
 
 export const dynamic = "force-dynamic"
 
@@ -12,6 +13,11 @@ export async function GET(req: NextRequest) {
   const auth = await requireAdmin(supabase)
   if ("error" in auth) return auth.error
 
+  // Lectures via service_role (bypass RLS) — voir src/lib/supabase/admin.ts
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const admin: any = getSupabaseAdmin()
+  if (!admin) return NextResponse.json({ error: "SUPABASE_SERVICE_ROLE_KEY manquant" }, { status: 500 })
+
   const sp = req.nextUrl.searchParams
   const from = sp.get("from")
   const to = sp.get("to")
@@ -20,10 +26,10 @@ export async function GET(req: NextRequest) {
   }
   const sourceGroup = sp.get("source_group")
 
-  let query = supabase
+  let query = admin
     .from("orders")
     .select(`
-      id, status, total_cents,
+      id, status, total_cents, payment_method,
       service_slots!inner(service_date),
       accounts!inner(source_group, source_detail),
       order_items(
@@ -49,6 +55,10 @@ export async function GET(req: NextRequest) {
   const paidOrders = list.filter((o: any) => o.status === "paid")
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pendingOrders = list.filter((o: any) => o.status === "pending_payment")
+  // §7 — la production cuisine inclut les commandes "sur place" non encaissées
+  // (status pending_payment + payment_method on_site), en plus des payées.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const prodOrders = list.filter((o: any) => o.status === "paid" || (o.status === "pending_payment" && o.payment_method === "on_site"))
 
   // Totaux + ventilation par source_group (sur paid uniquement)
   const revenueBySource: Record<string, number> = {}
@@ -61,7 +71,7 @@ export async function GET(req: NextRequest) {
   const revenueCents = paidOrders.reduce((s, o) => s + (o.total_cents || 0), 0)
 
   // Catalogue catégories pour grouper la production items
-  const { data: categories } = await supabase
+  const { data: categories } = await admin
     .from("catalog_categories").select("id, name")
   const catNames: Record<string, string> = Object.fromEntries(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -69,7 +79,7 @@ export async function GET(req: NextRequest) {
   )
 
   // Toppings ref (pour résoudre les noms dans formula_choices)
-  const { data: toppings } = await supabase.from("toppings").select("id, name")
+  const { data: toppings } = await admin.from("toppings").select("id, name")
   const topNames: Record<string, string> = Object.fromEntries(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (toppings || []).map((t: any) => [t.id, t.name])
@@ -92,7 +102,7 @@ export async function GET(req: NextRequest) {
     return notes
   }
 
-  for (const o of paidOrders) {
+  for (const o of prodOrders) {
     for (const it of (o.order_items || [])) {
       const formulaId = it.menu_formulas?.id
       const rawNotes: string = it.notes || ""
@@ -156,6 +166,7 @@ export async function GET(req: NextRequest) {
       orders_count: paidOrders.length + pendingOrders.length,
       orders_paid: paidOrders.length,
       orders_pending: pendingOrders.length,
+      orders_production: prodOrders.length,
       revenue_cents: revenueCents,
       revenue_by_source: revenueBySource,
     },

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabase } from "@/lib/supabase/server"
 import { requireAdmin, SOURCE_LABELS } from "@/lib/auth/admin"
+import { getSupabaseAdmin } from "@/lib/supabase/admin"
 
 export const dynamic = "force-dynamic"
 
@@ -13,6 +14,11 @@ export async function GET(req: NextRequest) {
   const auth = await requireAdmin(supabase)
   if ("error" in auth) return auth.error
 
+  // Lectures via service_role (bypass RLS) — voir src/lib/supabase/admin.ts
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const admin: any = getSupabaseAdmin()
+  if (!admin) return NextResponse.json({ error: "SUPABASE_SERVICE_ROLE_KEY manquant" }, { status: 500 })
+
   const sp = req.nextUrl.searchParams
   const from = sp.get("from")
   const to = sp.get("to")
@@ -23,7 +29,7 @@ export async function GET(req: NextRequest) {
   const sourceDetail = sp.get("source_detail")
   const status = sp.get("status")
 
-  let query = supabase
+  let query = admin
     .from("orders")
     .select(`
       id, order_number, status, total_cents, paid_at, payment_method, created_at, special_request,
