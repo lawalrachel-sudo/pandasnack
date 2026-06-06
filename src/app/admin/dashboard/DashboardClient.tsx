@@ -363,12 +363,13 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
 
       {/* Header */}
       <header className="bg-white border-b border-[var(--border)] sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-[var(--ink)]">Admin Panda Snack</h1>
-            <p className="text-xs text-[var(--ink-soft)]">{userEmail}</p>
+        <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 md:py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-3">
+          <div className="min-w-0">
+            <h1 className="text-base md:text-xl font-bold text-[var(--ink)] whitespace-nowrap">Admin Panda Snack</h1>
+            <p className="text-xs text-[var(--ink-soft)] truncate">{userEmail}</p>
           </div>
-          <div className="flex items-center gap-3 no-print">
+          {/* Mobile : rangée horizontale scrollable (rien de coupé). Desktop : inchangé. */}
+          <div className="flex items-center gap-2 md:gap-3 no-print flex-nowrap overflow-x-auto md:overflow-visible [&>*]:shrink-0">
             <Link
               href={`/admin/profils`}
               className="focus-ring px-3 py-2 min-h-11 bg-white text-[var(--ink)] text-sm font-semibold rounded-lg border border-[var(--border)] hover:bg-[var(--border)]"
@@ -425,7 +426,9 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
 
         {/* Filtres sticky */}
         <div className="border-t border-[var(--border)] bg-[var(--bg-alt)] px-6 py-3 no-print">
-          <div className="max-w-7xl mx-auto flex flex-wrap items-center gap-3">
+          <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:flex-wrap md:items-center gap-2 md:gap-3">
+            {/* Période — ligne scrollable sur mobile, fondue dans la rangée desktop (md:contents) */}
+            <div className="flex items-center gap-2 md:gap-3 overflow-x-auto flex-nowrap md:contents [&>*]:shrink-0">
             <span className="text-xs font-semibold text-[var(--ink)] uppercase">Période</span>
             {(["today","week","7days","month","custom"] as Preset[]).map(p => (
               <button
@@ -447,7 +450,10 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
                   className="px-2 py-1 text-xs border border-[var(--border)] rounded" />
               </>
             )}
-            <span className="ml-4 text-xs font-semibold text-[var(--ink)] uppercase">Métier</span>
+            </div>
+            {/* Métier — ligne scrollable sur mobile, fondue dans la rangée desktop */}
+            <div className="flex items-center gap-2 md:gap-3 overflow-x-auto flex-nowrap md:contents [&>*]:shrink-0">
+            <span className="md:ml-4 text-xs font-semibold text-[var(--ink)] uppercase">Métier</span>
             {SOURCE_OPTIONS.map(opt => (
               <button
                 key={opt.value}
@@ -459,6 +465,7 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
                 {opt.label}
               </button>
             ))}
+            </div>
           </div>
         </div>
       </header>
@@ -495,21 +502,21 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
           {loading && <p className="text-sm text-[var(--ink-soft)]">Chargement…</p>}
           {error && <p className="text-sm text-[var(--status-cancelled)]">⚠ {error}</p>}
           {!error && (
-            <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2">
-              <div>
+            <div className="grid grid-cols-2 gap-3 md:flex md:flex-wrap md:items-baseline md:gap-x-8 md:gap-y-2">
+              <div className="rounded-lg bg-[var(--bg-alt)] p-3 md:rounded-none md:bg-transparent md:p-0">
                 <p className="text-xs uppercase text-[var(--ink-soft)] font-semibold">Commandes payées</p>
                 <p className="text-2xl font-bold text-[var(--ink)]">
                   {totals.paidCount} <span className="text-base font-medium text-[var(--ink-soft)]">· {fmtPrice(totals.revenue)}</span>
                 </p>
               </div>
               {totals.pendingCount > 0 && (
-                <div>
+                <div className="rounded-lg bg-[var(--bg-alt)] p-3 md:rounded-none md:bg-transparent md:p-0">
                   <p className="text-xs uppercase text-[var(--ink-soft)] font-semibold">En attente</p>
                   <p className="text-2xl font-bold text-[var(--status-pending)]">{totals.pendingCount}</p>
                 </div>
               )}
               {revenueBreakdown && (
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 ml-auto">
+                <div className="col-span-2 flex flex-wrap items-center gap-x-4 gap-y-1 md:ml-auto">
                   {revenueBreakdown.map((r, i) => (
                     <span key={i} className="text-sm text-[var(--ink)]">
                       <strong>{r.label}</strong> : {r.count} · {fmtPrice(r.cents)}
