@@ -94,6 +94,17 @@ function buildImgUrl(url: string): string {
 // COMPONENT
 // ============================================================================
 
+// HERO « Portes Ouvertes » — samedi 27/06/2026, pandattitude uniquement. Bascule AUTOMATIQUE
+// par date locale Martinique : Pasta Box en HERO, reste du catalogue grisé sauf friandises.
+const PO_DATE = "2026-06-27"
+const PASTA_BOLO_SKU = "PASTA-BOLO"
+const PO_FRIANDISE_CATS = new Set(["DESSERT", "DRINK"])  // friandises restent commandables le 27
+function isPortesOuvertesDate(): boolean {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Martinique", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date()) === PO_DATE
+}
+
 export function CommanderClient({ account, profils, wallet, categories, menuFormulas, toppings, slots, pendingCount, pendingTotalCents, weekItemCount, weekTotalCents }: Props) {
   const router = useRouter()
   const { refreshPendingCount } = useCart()
@@ -101,6 +112,12 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   const [selectedProfilId, setSelectedProfilId] = useState<string>("")
   const [addedToast, setAddedToast] = useState<string | null>(null)
   const [addInFlight, setAddInFlight] = useState(false)
+  // Portes Ouvertes — toast info "Plat unique" + détection date côté client (pas de mismatch SSR).
+  const [infoToast, setInfoToast] = useState<string | null>(null)
+  const [isPoDate, setIsPoDate] = useState(false)
+  // Détection date one-shot au montage (client only) → pas de cascade ni de mismatch SSR.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setIsPoDate(isPortesOuvertesDate()) }, [])
   const [mfOpen, setMfOpen] = useState(false)
   const [mfFormula, setMfFormula] = useState<MenuFormula | null>(null)
   const [mfStep, setMfStep] = useState<"plat" | "garnitures">("plat")
@@ -436,6 +453,28 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   const dateLabel = selectedSlot ? fmtDate(selectedSlot.service_date) : ""
   const bentoToupitiFormula = visFormulas.find((f) => f.code === "BENTO_TOUPITI")
 
+  // ===== Portes Ouvertes (27/06, pandattitude) =====
+  const isPortesOuvertes = isPoDate && sg === "pandattitude"
+  const pastaBox = useMemo(
+    () => categories.flatMap((c) => c.catalog_items).find((i) => i.sku === PASTA_BOLO_SKU) || null,
+    [categories]
+  )
+  // Le 27/06 : seuls la Pasta Box (HERO) + les friandises (DESSERT/DRINK) restent commandables.
+  function poOrderable(item: CatalogItem): boolean {
+    if (!isPortesOuvertes) return true
+    return item.sku === PASTA_BOLO_SKU || PO_FRIANDISE_CATS.has(item.category_id)
+  }
+  function poToast() {
+    setInfoToast("Plat unique ce samedi !")
+    setTimeout(() => setInfoToast(null), 2200)
+  }
+  // Sélection à la carte / snack : intercepte les items bloqués en mode Portes Ouvertes.
+  function handleAlcSelect(id: string) {
+    const item = categories.flatMap((c) => c.catalog_items).find((i) => i.id === id)
+    if (isPortesOuvertes && item && !poOrderable(item)) { poToast(); return }
+    addItem(id)
+  }
+
   // ============================================================================
   // RENDER
   // ============================================================================
@@ -452,6 +491,12 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       {addedToast && (
         <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 rounded-xl text-sm font-semibold text-white shadow-lg animate-fade-in" style={{ background: "var(--accent-2)" }}>
           {addedToast} ajouté
+        </div>
+      )}
+      {/* Portes Ouvertes — toast "Plat unique" sur tap d'un item bloqué */}
+      {infoToast && (
+        <div role="status" className="fixed top-16 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 rounded-xl text-sm font-semibold text-white shadow-lg animate-fade-in" style={{ background: "var(--accent)" }}>
+          {infoToast}
         </div>
       )}
 
@@ -516,6 +561,29 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
           <p className="text-xs font-semibold px-3 py-1.5 rounded-lg inline-block" style={{ background: "var(--bg-alt)", color: "var(--ink)" }}>
             {dateLabel}{selectedProfil && <span> — {selectedProfil.prenom}</span>}
           </p>
+        </div>
+      )}
+
+      {/* HERO Portes Ouvertes — Pasta Box plat unique (pandattitude, 27/06).
+          mb-10 = respiration nette avant le reste du catalogue (grisé). */}
+      {isPortesOuvertes && pastaBox && (
+        <div className="px-4 mb-10">
+          <div className="rounded-2xl overflow-hidden" style={{ background: "var(--card)", border: "2px solid var(--accent)", boxShadow: "0 4px 20px var(--shadow)" }}>
+            <div className="aspect-[16/9] overflow-hidden md:max-h-[360px]">
+              {pastaBox.image_url
+                ? <img src={buildImgUrl(pastaBox.image_url)} alt={pastaBox.name} className="w-full h-full object-cover" />
+                : <div className="w-full h-full flex items-center justify-center text-6xl" style={{ background: "var(--bg-alt)" }}>🍝</div>}
+            </div>
+            <div className="p-4 text-center">
+              <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--accent)" }}>🎉 Portes Ouvertes · samedi 27 juin</p>
+              <h2 className="font-extrabold text-2xl mt-1" style={{ color: "var(--ink)" }}>{pastaBox.name}</h2>
+              <p className="text-sm mt-1" style={{ color: "var(--ink-soft)" }}>Le plat unique du jour</p>
+              <div className="flex gap-2 mt-4">
+                <button onClick={() => pickMenuPandaPlat(pastaBox)} className="focus-ring flex-1 h-12 rounded-xl font-bold text-white" style={{ background: "var(--accent)" }}>En Menu Panda</button>
+                <button onClick={() => addItem(pastaBox.id)} className="focus-ring flex-1 h-12 rounded-xl font-bold border" style={{ borderColor: "var(--accent)", color: "var(--accent)", background: "var(--card)" }}>Plat seul · {fmtPrice(pastaBox.price_alone_cents || 0)}</button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -589,8 +657,8 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
             <h3 className="font-bold text-base mb-2" style={{ color: "var(--ink)" }}>Choisis ton plat</h3>
             <div className="grid grid-cols-2 gap-3">
               {menuPlatItems.map((item) => (
-                <div key={item.id} className="rounded-2xl overflow-hidden cursor-pointer transition-transform hover:scale-[1.02]"
-                  style={{ background: "var(--card)", boxShadow: "0 2px 12px var(--shadow)" }} onClick={() => pickMenuPandaPlat(item)}>
+                <div key={item.id} className={`rounded-2xl overflow-hidden transition-transform ${isPortesOuvertes ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:scale-[1.02]"}`}
+                  style={{ background: "var(--card)", boxShadow: "0 2px 12px var(--shadow)" }} onClick={() => isPortesOuvertes ? poToast() : pickMenuPandaPlat(item)}>
                   <div className="aspect-[4/3] overflow-hidden">
                     {item.image_url ? (<img src={buildImgUrl(item.image_url)} alt={item.name} className="w-full h-full object-cover" loading="lazy" />)
                     : (<div className="w-full h-full flex items-center justify-center text-4xl" style={{ background: "var(--bg-alt)" }}>{item.emoji || "🐼"}</div>)}
@@ -667,9 +735,9 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
           {/* PT2: Bento Toupiti as visual card in grid alongside other items */}
           <div className="grid grid-cols-2 gap-3">
             {bentoToupitiFormula && (
-              <div className="rounded-2xl overflow-hidden cursor-pointer transition-transform hover:scale-[1.02]"
+              <div className={`rounded-2xl overflow-hidden transition-transform ${isPortesOuvertes ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:scale-[1.02]"}`}
                 style={{ background: "var(--card)", boxShadow: "0 2px 12px var(--shadow)" }}
-                onClick={() => addFormulaDirect(bentoToupitiFormula)}>
+                onClick={() => isPortesOuvertes ? poToast() : addFormulaDirect(bentoToupitiFormula)}>
                 <div className="aspect-[4/3] overflow-hidden">
                   {bentoToupitiFormula.image_url && !bentoToupitiFormula.image_url.includes("etiquette_emballage") ? (
                     <img src={buildImgUrl(bentoToupitiFormula.image_url)} alt={bentoToupitiFormula.name} className="w-full h-full object-cover" loading="lazy" />
@@ -691,11 +759,11 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
             )}
 
             {/* PT3: All à-la-carte items in single flat grid — no category subtitles */}
-            {aLaCarteItems.map((item) => (
+            {aLaCarteItems.filter((item) => !(isPortesOuvertes && item.sku === PASTA_BOLO_SKU)).map((item) => (
               <ProductCard key={item.id} id={item.id} name={item.name} description={item.description}
                 priceCents={item.price_alone_cents} imageUrl={item.image_url} emoji={item.emoji}
                 isMenuOnly={!item.sellable_alone && item.sellable_in_menu} allergens={item.allergens}
-                onSelect={addItem} />
+                onSelect={handleAlcSelect} disabled={isPortesOuvertes && !poOrderable(item)} />
             ))}
           </div>
         </div>
@@ -710,7 +778,8 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
             {snackItems.map((item) => (
               <ProductCard key={item.id} id={item.id} name={item.name} description={item.description}
                 priceCents={item.price_alone_cents} imageUrl={item.image_url} emoji={item.emoji}
-                isMenuOnly={false} allergens={item.allergens} onSelect={addItem} />
+                isMenuOnly={false} allergens={item.allergens}
+                onSelect={handleAlcSelect} disabled={isPortesOuvertes && !poOrderable(item)} />
             ))}
           </div>
         </div>

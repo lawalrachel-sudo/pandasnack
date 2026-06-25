@@ -12,6 +12,7 @@ interface ProductCardProps {
   isMenuOnly: boolean
   allergens?: string[] | null
   onSelect: (id: string) => void
+  disabled?: boolean  // Portes Ouvertes — item visible mais non commandable (grisé + toast au tap)
 }
 
 // Crop appliqué aux images Cloudinary pour retirer le watermark Gemini (coin bas-droit)
@@ -35,6 +36,7 @@ export function ProductCard({
   isMenuOnly,
   allergens,
   onSelect,
+  disabled = false,
 }: ProductCardProps) {
   const [showAllergens, setShowAllergens] = useState(false)
 
@@ -48,9 +50,10 @@ export function ProductCard({
 
   return (
     <div
-      className="rounded-2xl overflow-hidden cursor-pointer transition-transform hover:scale-[1.02]"
+      className={`rounded-2xl overflow-hidden transition-transform ${disabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:scale-[1.02]"}`}
       style={{ background: "var(--card)", boxShadow: `0 2px 12px var(--shadow)` }}
       onClick={() => onSelect(id)}
+      aria-disabled={disabled}
     >
       <div className="aspect-[4/3] overflow-hidden">
         {imageUrl ? (
@@ -111,9 +114,9 @@ export function ProductCard({
           <span className="font-bold text-base whitespace-nowrap">{priceDisplay}</span>
           <span
             className="text-xs font-semibold px-2.5 py-1.5 rounded-lg text-white whitespace-nowrap"
-            style={{ background: "var(--accent)" }}
+            style={{ background: disabled ? "var(--ink-soft)" : "var(--accent)" }}
           >
-            {isMenuOnly ? "Via Menu" : "Ajouter"}
+            {disabled ? "Indispo" : isMenuOnly ? "Via Menu" : "Ajouter"}
           </span>
         </div>
       </div>
