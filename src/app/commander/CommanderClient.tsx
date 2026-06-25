@@ -94,16 +94,12 @@ function buildImgUrl(url: string): string {
 // COMPONENT
 // ============================================================================
 
-// HERO « Portes Ouvertes » — samedi 27/06/2026, pandattitude uniquement. Bascule AUTOMATIQUE
-// par date locale Martinique : Pasta Box en HERO, reste du catalogue grisé sauf friandises.
+// HERO « Portes Ouvertes » — samedi 27/06/2026, pandattitude uniquement. Bascule sur le
+// CRÉNEAU SÉLECTIONNÉ (service_date = 27/06), pas la date du jour → commande à l'avance dès
+// aujourd'hui. Pasta Box en HERO, reste du catalogue grisé sauf friandises.
 const PO_DATE = "2026-06-27"
 const PASTA_BOLO_SKU = "PASTA-BOLO"
 const PO_FRIANDISE_CATS = new Set(["DESSERT", "DRINK"])  // friandises restent commandables le 27
-function isPortesOuvertesDate(): boolean {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Martinique", year: "numeric", month: "2-digit", day: "2-digit",
-  }).format(new Date()) === PO_DATE
-}
 
 export function CommanderClient({ account, profils, wallet, categories, menuFormulas, toppings, slots, pendingCount, pendingTotalCents, weekItemCount, weekTotalCents }: Props) {
   const router = useRouter()
@@ -112,12 +108,8 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   const [selectedProfilId, setSelectedProfilId] = useState<string>("")
   const [addedToast, setAddedToast] = useState<string | null>(null)
   const [addInFlight, setAddInFlight] = useState(false)
-  // Portes Ouvertes — toast info "Plat unique" + détection date côté client (pas de mismatch SSR).
+  // Portes Ouvertes — toast info "Plat unique" (mode déclenché par le créneau sélectionné).
   const [infoToast, setInfoToast] = useState<string | null>(null)
-  const [isPoDate, setIsPoDate] = useState(false)
-  // Détection date one-shot au montage (client only) → pas de cascade ni de mismatch SSR.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { setIsPoDate(isPortesOuvertesDate()) }, [])
   const [mfOpen, setMfOpen] = useState(false)
   const [mfFormula, setMfFormula] = useState<MenuFormula | null>(null)
   const [mfStep, setMfStep] = useState<"plat" | "garnitures">("plat")
@@ -453,8 +445,8 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   const dateLabel = selectedSlot ? fmtDate(selectedSlot.service_date) : ""
   const bentoToupitiFormula = visFormulas.find((f) => f.code === "BENTO_TOUPITI")
 
-  // ===== Portes Ouvertes (27/06, pandattitude) =====
-  const isPortesOuvertes = isPoDate && sg === "pandattitude"
+  // ===== Portes Ouvertes (créneau 27/06 sélectionné, pandattitude) =====
+  const isPortesOuvertes = selectedSlot?.service_date === PO_DATE && sg === "pandattitude"
   const pastaBox = useMemo(
     () => categories.flatMap((c) => c.catalog_items).find((i) => i.sku === PASTA_BOLO_SKU) || null,
     [categories]
