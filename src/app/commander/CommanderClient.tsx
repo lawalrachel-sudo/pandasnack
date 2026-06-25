@@ -473,7 +473,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
 
   return (
     // Desktop-only — conteneur élargi à 860px (mobile inchangé : max-w-lg)
-    <div className="min-h-screen pb-20 max-w-lg md:max-w-[860px] mx-auto overflow-x-hidden">
+    <div className="min-h-screen pb-20 max-w-lg md:max-w-2xl mx-auto overflow-x-hidden">
       <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} pendingCount={pendingCount}
         greeting="Bienvenue chez Panda Snack 🐼 — Compose ton menu, choisis tes jours, c'est prêt." />
 
@@ -561,10 +561,11 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       {isPortesOuvertes && pastaBox && (
         <div className="px-4 mb-10">
           <div className="rounded-2xl overflow-hidden" style={{ background: "var(--card)", border: "2px solid var(--accent)", boxShadow: "0 4px 20px var(--shadow)" }}>
-            <div className="aspect-[16/9] overflow-hidden md:max-h-[360px]">
+            {/* Correction 2 — dézoom : 4/3 + object-contain sur fond bg-alt → box visible en entier */}
+            <div className="aspect-[4/3] overflow-hidden md:max-h-[320px]" style={{ background: "var(--bg-alt)" }}>
               {pastaBox.image_url
-                ? <img src={buildImgUrl(pastaBox.image_url)} alt={pastaBox.name} className="w-full h-full object-cover" />
-                : <div className="w-full h-full flex items-center justify-center text-6xl" style={{ background: "var(--bg-alt)" }}>🍝</div>}
+                ? <img src={buildImgUrl(pastaBox.image_url)} alt={pastaBox.name} className="w-full h-full object-contain object-center" />
+                : <div className="w-full h-full flex items-center justify-center text-6xl">🍝</div>}
             </div>
             <div className="p-4 text-center">
               <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--accent)" }}>🎉 Portes Ouvertes · samedi 27 juin</p>
@@ -647,7 +648,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
             </div>
             {/* §3 — Swipe des plats inline, tous sur un pied d'égalité (bento inclus). Tap = ajout dans le Menu Panda à 10€. */}
             <h3 className="font-bold text-base mb-2" style={{ color: "var(--ink)" }}>Choisis ton plat</h3>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {menuPlatItems.map((item) => (
                 <div key={item.id} className={`rounded-2xl overflow-hidden transition-transform ${isPortesOuvertes ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:scale-[1.02]"}`}
                   style={{ background: "var(--card)", boxShadow: "0 2px 12px var(--shadow)" }} onClick={() => isPortesOuvertes ? poToast() : pickMenuPandaPlat(item)}>
@@ -725,7 +726,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
           )}
 
           {/* PT2: Bento Toupiti as visual card in grid alongside other items */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {bentoToupitiFormula && (
               <div className={`rounded-2xl overflow-hidden transition-transform ${isPortesOuvertes ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:scale-[1.02]"}`}
                 style={{ background: "var(--card)", boxShadow: "0 2px 12px var(--shadow)" }}
@@ -766,7 +767,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
         <div className="px-4 mt-8">
           <h2 className="font-bold text-lg mb-1 text-center">Un petit en-cas en plus ?</h2>
           <p className="text-xs mb-3" style={{ color: "var(--ink-soft)" }}>Pour {selectedProfil?.prenom ?? "toi"}</p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {snackItems.map((item) => (
               <ProductCard key={item.id} id={item.id} name={item.name} description={item.description}
                 priceCents={item.price_alone_cents} imageUrl={item.image_url} emoji={item.emoji}
