@@ -31,6 +31,20 @@
   --status-delivered-bg: #F3F4F6;
   --status-cancelled: #DC2626;
   --status-cancelled-bg: #FEE2E2;
+
+  /* PS-01 Opération Beauty — typographie (variables injectées par next/font dans layout.tsx) */
+  --font-display: var(--font-fredoka), "Fredoka", "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-body: var(--font-nunito), "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  /* PS-01 Opération Beauty — cartes produit compactes (aucune valeur en dur dans les composants) */
+  --card-radius: 16px;
+  --card-img-h: 140px;        /* mobile */
+  --card-img-h-md: 180px;     /* ≥ md (tablette/desktop) */
+  --grid-gap: 12px;
+  --btn-min-h: 44px;
+  --coming-soon-opacity: 0.55;
+  --coming-soon-filter: grayscale(0.85);
+  --ink-on-accent: #FFFFFF;
 }
 
 /* Impeccable audit P1 A11y — focus ring visible WCAG 2.4.7 pour clavier/lecteur écran.
@@ -49,13 +63,91 @@
   --color-accent-3: var(--accent-3);
   --color-card: var(--card);
   --color-border-panda: var(--border);
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
 }
 
 body {
   background: var(--bg);
   color: var(--ink);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--font-body);
 }
+
+/* PS-01 — Fredoka sur titres/noms/prix/boutons via la classe utilitaire `font-display`
+   (générée par @theme --font-display) ; ici uniquement les balises de titre par défaut. */
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+}
+
+/* PS-01 — Carte produit compacte : image plafonnée, coins 16px, bouton pleine largeur ≥ 44px. */
+.pcard {
+  border-radius: var(--card-radius);
+  background: var(--card);
+  box-shadow: 0 2px 12px var(--shadow);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+/* Contenu grisé d'une carte « Bientôt disponible » (le badge, frère, reste net) */
+.pcard-soon-body {
+  opacity: var(--coming-soon-opacity);
+  filter: var(--coming-soon-filter);
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+.pcard-img {
+  height: var(--card-img-h);
+  width: 100%;
+  overflow: hidden;
+  background: var(--bg-alt);
+  position: relative;
+}
+@media (min-width: 768px) {
+  .pcard-img { height: var(--card-img-h-md); }
+}
+.pcard-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.pcard-btn {
+  min-height: var(--btn-min-h);
+  width: 100%;
+  border-radius: 12px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-on-accent);
+  background: var(--accent);
+}
+.pcard-soon { cursor: default; }
+.pcard-soon .pcard-btn { background: var(--ink-soft); }
+.soon-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 1;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-on-accent);
+  background: var(--accent);
+  white-space: nowrap;
+}
+.pgrid {
+  display: grid;
+  gap: var(--grid-gap);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (min-width: 640px) { .pgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { .pgrid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 
 html, body {
   overflow-x: hidden;

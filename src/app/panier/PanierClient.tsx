@@ -6,6 +6,7 @@ import { Navbar } from "@/components/Navbar"
 import { HeaderMetier } from "@/components/HeaderMetier"
 import { useCart } from "@/lib/cart-context"
 import { notesHaveSauce } from "@/lib/menu-options"
+import { visForSource } from "@/lib/visibility"
 
 const WALLET_IMG = "https://res.cloudinary.com/dbkpvp9ts/image/upload/v1776714727/PANDA_WALLET.jpg"
 // Impeccable audit P1 Theming — couleurs status pointent vers les tokens CSS définis dans
@@ -56,6 +57,7 @@ interface CatalogItem {
   id: string; sku: string | null; name: string; emoji: string | null; description?: string | null
   price_alone_cents: number | null; image_url: string | null; ui_group: string | null
   sellable_alone?: boolean; sellable_in_menu?: boolean; category_id?: string | null
+  coming_soon?: boolean | null  // PS-01 — jamais proposé à l'ajout/édition tant que true
 }
 
 interface Props {
@@ -70,26 +72,7 @@ interface Props {
   walletBonusPct: number  // UX-C — % de bonus max lu depuis wallet_recharge_config
 }
 
-// B-α-ter — visForSource dupliquée de CommanderClient pour filtrage plats par sg/sd
-function isAllowedForMetier(sku: string, sg: string | null, sd: string | null | undefined): boolean {
-  if (!sku) return false
-  if (sku === "BENTO-TOUPITI-CARTE") return false
-  if (sku === "SAND-VOLAILLE") return false
-  if (sg === "ecole_la_patience") {
-    if (sku.startsWith("CROQ-")) return false
-    if (sku === "DRINK-BBL") return false
-    if (sku.startsWith("SAL-")) return false
-    if (sd === "fond_lahaye" && sku === "SAND-C") return false
-    if (sd === "fond_lahaye" && sku === "SAND-A") return false
-  }
-  // BRIEF Menu Panda (17/06) — pandattitude : salades + burgers visibles (aucune exclusion).
-  // Doit rester synchronisé avec visForSource() de CommanderClient.
-  if (sg === "panda_guest") {
-    if (sku.startsWith("SAL-")) return false
-    if (sku === "DRINK-BBL") return false
-  }
-  return true
-}
+// PS-01 — visibilité par public : source unique src/lib/visibility.ts (plus de duplication).
 
 function skuPrefix(sku: string | null | undefined): string {
   return (sku || "").split("-")[0]
@@ -183,7 +166,8 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
     return catalogItems.filter(c => {
       if (!c.sku || !c.sellable_in_menu) return false
       if (skuPrefix(c.sku) !== currentPrefix) return false
-      if (!isAllowedForMetier(c.sku, account.source_group, account.source_detail)) return false
+      if (c.coming_soon) return false
+      if (!visForSource(c, account.source_group, account.source_detail)) return false
       return true
     })
   }
@@ -521,7 +505,7 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
             <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--ink-soft)" }}>
               GRAND TOTAL · {selectedOrderIds.size} cmd
             </span>
-            <span className="text-lg font-bold" style={{ color: "var(--accent)" }}>{fmtPrice(selectedSum)}</span>
+            <span className="text-lg font-display font-semibold" style={{ color: "var(--accent)" }}>{fmtPrice(selectedSum)}</span>
           </div>
           {/* UX-C — encart pédagogie wallet (cliquable), au-dessus des boutons de paiement */}
           <Link href="/recharger" className="block rounded-lg p-2.5 mb-2" style={{ background: "var(--bg-alt)", border: "1px solid var(--border)" }}>
@@ -532,7 +516,7 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
           {/* Paiement en ligne principal (wallet + CB via checkout-multi) */}
           <button onClick={handlePayMulti} disabled={payingMulti}
             aria-label={`Payer ${selectedOrderIds.size} commande${selectedOrderIds.size > 1 ? "s" : ""} pour ${fmtPrice(selectedSum)}`}
-            className="focus-ring flex items-center justify-center w-full h-12 rounded-xl font-bold text-white shadow-lg active:scale-[0.98] transition-transform text-center px-3 disabled:opacity-50"
+            className="focus-ring flex items-center justify-center w-full h-12 rounded-xl font-display font-semibold text-white shadow-lg active:scale-[0.98] transition-transform text-center px-3 disabled:opacity-50"
             style={{ background: "var(--accent)" }}>
             {payingMulti ? "Redirection..." : `💳 Payer mes ${selectedOrderIds.size} commande${selectedOrderIds.size > 1 ? "s" : ""}`}
           </button>
@@ -553,7 +537,7 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
           <img src={WALLET_IMG} alt="Wallet" className="w-10 h-10 rounded-full object-cover" />
           <div>
             <p className="text-xs" style={{ color: "var(--ink-soft)" }}>Solde Panda Wallet</p>
-            <p className="font-bold text-lg" style={{ color: "var(--accent-2)" }}>{fmtPrice(wallet.balance_cents)}</p>
+            <p className="font-display font-semibold text-lg" style={{ color: "var(--accent-2)" }}>{fmtPrice(wallet.balance_cents)}</p>
           </div>
         </div>
       )}
@@ -625,7 +609,7 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
                       🗓️ {date !== "sans-date" ? fmtDateLong(date) : "Sans date"}
                     </span>
                     <span className="flex items-center gap-2">
-                      <span className="font-bold text-sm" style={{ color: "var(--accent)" }}>{fmtPrice(dateTotal)}</span>
+                      <span className="font-display font-semibold text-sm" style={{ color: "var(--accent)" }}>{fmtPrice(dateTotal)}</span>
                       <span className="text-lg" style={{ color: "var(--ink-soft)" }}>{isCollapsed ? "▼" : "▲"}</span>
                     </span>
                   </button>
@@ -939,8 +923,9 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
               {/* Liste articles à la carte */}
               <div>
                 <p className="text-xs font-semibold mb-2" style={{ color: "var(--ink-soft)" }}>Articles à la carte</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {catalogItems.filter(it => it.price_alone_cents != null).map(item => (
+                <div className="pgrid">
+                  {/* PS-01 — même visibilité que /commander ; coming_soon exclu (non sélectionnable) */}
+                  {catalogItems.filter(it => it.price_alone_cents != null && it.sellable_alone !== false && !it.coming_soon && visForSource(it, account.source_group, account.source_detail)).map(item => (
                     <button
                       key={item.id}
                       onClick={() => handleAddItem(item)}
@@ -948,17 +933,13 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
                       className="rounded-xl border p-3 text-left active:scale-[0.98] transition-transform disabled:opacity-50"
                       style={{ borderColor: "var(--border)", background: "var(--card)" }}
                     >
-                      {item.image_url ? (
-                        <div className="aspect-[4/3] overflow-hidden rounded-lg mb-2">
-                          <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" loading="lazy" />
-                        </div>
-                      ) : (
-                        <div className="aspect-[4/3] flex items-center justify-center rounded-lg mb-2 text-3xl" style={{ background: "var(--bg-alt)" }}>
-                          {item.emoji || "🐼"}
-                        </div>
-                      )}
-                      <p className="text-sm font-semibold">{item.name}</p>
-                      <p className="text-sm font-bold mt-1" style={{ color: "var(--accent)" }}>{fmtPrice(item.price_alone_cents!)}</p>
+                      <div className="pcard-img rounded-lg mb-2">
+                        {item.image_url
+                          ? <img src={item.image_url} alt={item.name} loading="lazy" />
+                          : <div className="w-full h-full flex items-center justify-center text-3xl">{item.emoji || "🐼"}</div>}
+                      </div>
+                      <p className="text-sm font-display font-semibold">{item.name}</p>
+                      <p className="text-sm font-display font-semibold mt-1" style={{ color: "var(--accent)" }}>{fmtPrice(item.price_alone_cents!)}</p>
                     </button>
                   ))}
                 </div>

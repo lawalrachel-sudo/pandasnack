@@ -56,7 +56,7 @@ export default async function PanierPage() {
   // H2.1 — catalog items (sellable_alone OU sellable_in_menu) pour modal "Ajouter" + édition inline B-α-ter
   const { data: catalogItems } = await supabase
     .from("catalog_items")
-    .select("id, sku, name, emoji, description, price_alone_cents, image_url, sellable_alone, sellable_in_menu, active, ui_group, sort_order, category_id")
+    .select("id, sku, name, emoji, description, price_alone_cents, image_url, sellable_alone, sellable_in_menu, active, ui_group, sort_order, category_id, coming_soon")
     .eq("active", true)
     .or("sellable_alone.eq.true,sellable_in_menu.eq.true")
     .order("sort_order")

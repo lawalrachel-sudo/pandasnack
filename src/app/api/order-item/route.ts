@@ -74,10 +74,14 @@ export async function PATCH(req: NextRequest) {
 
     // New item validation : selon le mode, sellable_alone ou sellable_in_menu
     const { data: newItem } = await supabase.from("catalog_items")
-      .select("id, name, sku, price_alone_cents, sellable_alone, sellable_in_menu, active")
+      .select("id, name, sku, price_alone_cents, sellable_alone, sellable_in_menu, active, coming_soon")
       .eq("sku", newSku).single()
     if (!newItem || !newItem.active) {
       return NextResponse.json({ error: "Article cible invalide" }, { status: 400 })
+    }
+    // PS-01 — sécurité serveur : swap vers un article « Bientôt disponible ! » refusé
+    if (newItem.coming_soon) {
+      return NextResponse.json({ error: "Article cible bientôt disponible" }, { status: 400 })
     }
     if (isSolo && (!newItem.sellable_alone || newItem.price_alone_cents == null)) {
       return NextResponse.json({ error: "Article cible non vendable seul" }, { status: 400 })
@@ -189,6 +193,45 @@ export async function POST(req: NextRequest) {
       .from("accounts").select("id").eq("auth_user_id", user.id).single()
     if (!account) return NextResponse.json({ error: "Compte introuvable" }, { status: 404 })
 
+    // PS-01 — validation catalogue AVANT le find-or-create de l'order (sinon un 400 laisserait
+    // une order pending vide orpheline).
+    // Determine price from catalog or formula
+    let unitPriceCents = 0
+    if (catalogItemId) {
+      const { data: catalogItem } = await supabase
+        .from("catalog_items").select("price_alone_cents, sellable_alone, active, coming_soon").eq("id", catalogItemId).single()
+      if (!catalogItem || !catalogItem.active || !catalogItem.sellable_alone || catalogItem.price_alone_cents == null) {
+        return NextResponse.json({ error: "Article indisponible" }, { status: 400 })
+      }
+      // PS-01 — sécurité serveur : un article « Bientôt disponible ! » n'est jamais commandable
+      if (catalogItem.coming_soon) {
+        return NextResponse.json({ error: "Article bientôt disponible" }, { status: 400 })
+      }
+      unitPriceCents = catalogItem.price_alone_cents
+    } else if (menuFormulaId) {
+      const { data: formula } = await supabase
+        .from("menu_formulas").select("price_cents, active").eq("id", menuFormulaId).single()
+      if (!formula || !formula.active) {
+        return NextResponse.json({ error: "Formule indisponible" }, { status: 400 })
+      }
+      unitPriceCents = formula.price_cents
+    }
+
+    // Phase 1 (Brief 3-E) — lookup catalog_item_id du vrai plat si formula+plat
+    let resolvedCatalogItemId: string | null = catalogItemId || null
+    if (menuFormulaId && selectedPlatSku) {
+      const { data: plat } = await supabase
+        .from("catalog_items").select("id, active, coming_soon").eq("sku", selectedPlatSku).single()
+      // PS-01 — sécurité serveur : plat inactif ou « Bientôt disponible ! » refusé dans le menu aussi
+      if (!plat || !plat.active) {
+        return NextResponse.json({ error: "Plat indisponible" }, { status: 400 })
+      }
+      if (plat.coming_soon) {
+        return NextResponse.json({ error: "Plat bientôt disponible" }, { status: 400 })
+      }
+      resolvedCatalogItemId = plat.id
+    }
+
     // Find or create order
     let order: { id: string; account_id: string; status: string; vat_rate: number; service_slot_id: string | null } | null = null
     let orderJustCreated = false  // pour cleanup orphan en cas d'échec INSERT order_items
@@ -244,32 +287,6 @@ export async function POST(req: NextRequest) {
       if (slot?.orders_cutoff_at && new Date() >= new Date(slot.orders_cutoff_at)) {
         return NextResponse.json({ error: "L'heure limite est passée, ajout impossible." }, { status: 400 })
       }
-    }
-
-    // Determine price from catalog or formula
-    let unitPriceCents = 0
-    if (catalogItemId) {
-      const { data: catalogItem } = await supabase
-        .from("catalog_items").select("price_alone_cents, sellable_alone, active").eq("id", catalogItemId).single()
-      if (!catalogItem || !catalogItem.active || !catalogItem.sellable_alone || catalogItem.price_alone_cents == null) {
-        return NextResponse.json({ error: "Article indisponible" }, { status: 400 })
-      }
-      unitPriceCents = catalogItem.price_alone_cents
-    } else if (menuFormulaId) {
-      const { data: formula } = await supabase
-        .from("menu_formulas").select("price_cents, active").eq("id", menuFormulaId).single()
-      if (!formula || !formula.active) {
-        return NextResponse.json({ error: "Formule indisponible" }, { status: 400 })
-      }
-      unitPriceCents = formula.price_cents
-    }
-
-    // Phase 1 (Brief 3-E) — lookup catalog_item_id du vrai plat si formula+plat
-    let resolvedCatalogItemId: string | null = catalogItemId || null
-    if (menuFormulaId && selectedPlatSku) {
-      const { data: plat } = await supabase
-        .from("catalog_items").select("id").eq("sku", selectedPlatSku).single()
-      if (plat) resolvedCatalogItemId = plat.id
     }
 
     const lineTotal = unitPriceCents

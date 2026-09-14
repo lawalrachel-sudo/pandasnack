@@ -6,8 +6,13 @@ import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { Logo } from '@/components/Logo'
 import { CURRENT_CGU_VERSION } from '@/lib/legal'
+import { ENABLED_SOURCE_GROUPS, type SourceGroup } from '@/lib/visibility'
 
-type SourceGroup = 'ecole_la_patience' | 'pandattitude' | 'panda_guest'
+// PS-01 — Publics proposés à l'inscription. Un seul public → l'étape de choix est SUPPRIMÉE
+// (source_group posé directement, on démarre à l'étape profils). Le code École La Patience /
+// Panda Guest reste en place : ajouter la clé dans ENABLED_SOURCE_GROUPS (visibility.ts) pour réactiver.
+const SINGLE_SOURCE_GROUP: SourceGroup | null = ENABLED_SOURCE_GROUPS.length === 1 ? ENABLED_SOURCE_GROUPS[0] : null
+const FIRST_STEP = SINGLE_SOURCE_GROUP ? 2 : 1
 type Metier = 'ecole' | 'pandattitude' | 'panda_guest'
 // BUG B — classe = scolaire (ecole) OU créneau (pandattitude) OU null (panda_guest)
 type Classe = 'maternelle' | 'primaire' | 'college' | 'lycee' | 'prof' | 'mercredi' | 'vendredi' | 'samedi'
@@ -35,9 +40,9 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
   const router = useRouter()
   const supabase = createClient()
 
-  // Étapes : 1=type, 2=profils, 3=recap
-  const [step, setStep] = useState(1)
-  const [sourceGroup, setSourceGroup] = useState<SourceGroup | null>(null)
+  // Étapes : 1=type (masquée si un seul public), 2=profils, 3=recap
+  const [step, setStep] = useState(FIRST_STEP)
+  const [sourceGroup, setSourceGroup] = useState<SourceGroup | null>(SINGLE_SOURCE_GROUP)
   const [telephone, setTelephone] = useState('')
   const [profils, setProfils] = useState<Profil[]>([
     { prenom: '', classe: null, notes_allergies: '' },
@@ -217,9 +222,9 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
           <Logo size="lg" />
         </div>
 
-        {/* Indicateur d'étapes */}
+        {/* Indicateur d'étapes (l'étape 1 n'est pas comptée quand elle est masquée) */}
         <div style={S.steps}>
-          {[1, 2, 3].map((n) => (
+          {[1, 2, 3].filter((n) => n >= FIRST_STEP).map((n) => (
             <div
               key={n}
               style={{
@@ -239,7 +244,8 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
             <p style={S.subtitle}>Choisis un groupe pour entrer dans le Panda Snack !</p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {(Object.keys(typeLabels) as SourceGroup[]).map((key) => {
+              {/* PS-01 — seuls les publics ENABLED_SOURCE_GROUPS sont rendus (les autres ne sont pas grisés : absents du DOM) */}
+              {(Object.keys(typeLabels) as SourceGroup[]).filter((key) => ENABLED_SOURCE_GROUPS.includes(key)).map((key) => {
                 const isEcole = key === 'ecole_la_patience'
                 const cardStyle = isEcole
                   ? { ...S.typeBtn, padding: '24px 18px', background: '#DCFCE7', borderColor: '#16A34A', borderWidth: 3 }
@@ -406,17 +412,19 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
               </label>
             </div>
 
-            {/* Navigation */}
+            {/* Navigation — pas de « Retour » quand l'étape choix du public est masquée */}
             <div style={S.navRow}>
-              <button
-                onClick={() => {
-                  setStep(1)
-                  setError(null)
-                }}
-                style={S.backBtn}
-              >
-                Retour
-              </button>
+              {FIRST_STEP === 1 && (
+                <button
+                  onClick={() => {
+                    setStep(1)
+                    setError(null)
+                  }}
+                  style={S.backBtn}
+                >
+                  Retour
+                </button>
+              )}
               <button onClick={handleToStep3} style={S.nextBtn}>
                 Continuer
               </button>
@@ -430,10 +438,12 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
             <h2 style={S.title}>Tout est bon ?</h2>
 
             <div style={S.recapBlock}>
-              <div style={S.recapRow}>
-                <span style={S.recapLabel}>Type</span>
-                <span style={sourceGroup === 'ecole_la_patience' ? { ...S.recapValue, color: '#1D4ED8', fontSize: 16, fontWeight: 800 } : S.recapValue}>{typeLabels[sourceGroup].title}</span>
-              </div>
+              {FIRST_STEP === 1 && (
+                <div style={S.recapRow}>
+                  <span style={S.recapLabel}>Type</span>
+                  <span style={sourceGroup === 'ecole_la_patience' ? { ...S.recapValue, color: '#1D4ED8', fontSize: 16, fontWeight: 800 } : S.recapValue}>{typeLabels[sourceGroup].title}</span>
+                </div>
+              )}
               <div style={S.recapRow}>
                 <span style={S.recapLabel}>Compte</span>
                 <span style={S.recapValue}>{prenom} {nom}</span>

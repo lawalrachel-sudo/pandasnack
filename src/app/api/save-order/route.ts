@@ -47,6 +47,35 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // PS-01 — sécurité serveur (AVANT insert order) : tout article à la carte ou plat de formule
+    // inactif ou coming_soon = true → 400. Un article « Bientôt disponible ! » n'est jamais commandable.
+    const alcIds = Array.from(new Set(items.filter(i => !i.isFormula && i.itemId).map(i => i.itemId)))
+    if (alcIds.length > 0) {
+      const { data: alcRows } = await supabase
+        .from("catalog_items").select("id, active, coming_soon").in("id", alcIds)
+      const rows = (alcRows || []) as { id: string; active: boolean; coming_soon: boolean | null }[]
+      if (rows.length !== alcIds.length || rows.some(r => !r.active || r.coming_soon)) {
+        return NextResponse.json({ error: "Article indisponible ou bientôt disponible" }, { status: 400 })
+      }
+    }
+    // Phase 1 (Brief 3-E) — pour formula avec plat choisi, lookup catalog_item_id du vrai plat
+    // → permet HACCP, swap inline, display propre. formula_choices reste pour audit/legacy.
+    const platSkus = Array.from(new Set(
+      items.filter(i => i.isFormula && i.selectedPlat).map(i => i.selectedPlat as string)
+    ))
+    let platSkuToId: Record<string, string> = {}
+    if (platSkus.length > 0) {
+      const { data: plats } = await supabase
+        .from("catalog_items")
+        .select("id, sku, active, coming_soon")
+        .in("sku", platSkus)
+      const rows = (plats || []) as { id: string; sku: string; active: boolean; coming_soon: boolean | null }[]
+      if (rows.length !== platSkus.length || rows.some(p => !p.active || p.coming_soon)) {
+        return NextResponse.json({ error: "Plat indisponible ou bientôt disponible" }, { status: 400 })
+      }
+      platSkuToId = Object.fromEntries(rows.map(p => [p.sku, p.id]))
+    }
+
     // Prix vitrine = TTC. Pas de TVA ajoutée par-dessus (B2C art. L112-1 Code conso).
     // LTC pas redevable TVA en v1.0 (art. 293B CGI). Colonnes vat_* gardées pour archive future.
     const subtotalCents = items.reduce((sum, i) => sum + i.priceCents * (i.quantity || 1), 0)
@@ -73,22 +102,6 @@ export async function POST(req: NextRequest) {
     if (orderErr || !order) {
       console.error("Save order error:", orderErr)
       return NextResponse.json({ error: "Erreur sauvegarde commande" }, { status: 500 })
-    }
-
-    // Phase 1 (Brief 3-E) — pour formula avec plat choisi, lookup catalog_item_id du vrai plat
-    // → permet HACCP, swap inline, display propre. formula_choices reste pour audit/legacy.
-    const platSkus = Array.from(new Set(
-      items.filter(i => i.isFormula && i.selectedPlat).map(i => i.selectedPlat as string)
-    ))
-    let platSkuToId: Record<string, string> = {}
-    if (platSkus.length > 0) {
-      const { data: plats } = await supabase
-        .from("catalog_items")
-        .select("id, sku")
-        .in("sku", platSkus)
-      platSkuToId = Object.fromEntries(
-        (plats || []).map((p: { id: string; sku: string }) => [p.sku, p.id])
-      )
     }
 
     const orderItems = items.map((item) => {
