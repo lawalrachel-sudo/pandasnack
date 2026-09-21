@@ -10,6 +10,7 @@ import { HeaderMetier } from "@/components/HeaderMetier"
 import { sauceCheckboxApplies, setSauceInNotes } from "@/lib/menu-options"
 import { visForSource as visForSourceShared, isMenuPlatSku } from "@/lib/visibility"
 import { RENTREE_BANNER, SECTION_LABELS, SNACK_SECTION, HOWTO_STEPS, HOWTO_TITLE, HOWTO_PILL } from "@/lib/banner"
+import { InfoParentsBanner } from "@/components/InfoParentsBanner"
 
 // ============================================================================
 // TYPES
@@ -493,8 +494,12 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
           <h2 className="font-display font-semibold text-lg leading-snug">{RENTREE_BANNER.title}</h2>
           <p className="text-sm mt-1.5 opacity-95">{RENTREE_BANNER.subtitle}</p>
         </div>
+      </section>
+      {/* PS-04 — Info parents (commande la veille avant 20h), juste sous le bandeau horaires */}
+      <InfoParentsBanner />
+      <section aria-label="Aide" className="px-4 pb-4">
         {/* PS-02 — pilule discrète de rappel du toast pédagogique, à droite sous le bandeau */}
-        <div className="flex justify-end mt-2">
+        <div className="flex justify-end">
           <button type="button" className="howto-pill focus-ring" onClick={openHow}>
             <span aria-hidden="true">💡</span> {HOWTO_PILL}
           </button>
