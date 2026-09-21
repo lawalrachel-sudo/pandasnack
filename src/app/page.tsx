@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { Logo } from "@/components/Logo"
+import { InfoParentsBanner } from "@/components/InfoParentsBanner"
 
 export default function Home() {
   return (
@@ -15,6 +16,9 @@ export default function Home() {
       <p className="text-center mb-8 max-w-sm" style={{ color: 'var(--ink-soft)' }}>
         Sandwichs, croques, pasta box, salades et boissons maison.
       </p>
+
+      {/* PS-04 — Info parents (commande la veille avant 20h), visible à chaque visite */}
+      <div className="w-full mb-4"><InfoParentsBanner /></div>
 
       <div className="flex flex-col gap-3 w-full max-w-xs">
         <Link
