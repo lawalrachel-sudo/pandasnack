@@ -123,12 +123,24 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   const [howOpen, setHowOpen] = useState(false)
   const [platPulse, setPlatPulse] = useState(false)
   const platRef = useRef<HTMLDivElement | null>(null)
+  // PS-03c — ouverture automatique UNE fois par appareil (localStorage ps_howto_seen = '1' à la
+  // première fermeture). howAuto = true seulement pour cette première ouverture (→ pulsation).
+  const HOWTO_SEEN_KEY = "ps_howto_seen"
+  const howAutoRef = useRef(false)
   useEffect(() => {
-    const t = setTimeout(() => setHowOpen(true), 2000)
+    let seen = false
+    try { seen = localStorage.getItem(HOWTO_SEEN_KEY) === "1" } catch { /* stockage indisponible : on affiche */ }
+    if (seen) return
+    const t = setTimeout(() => { howAutoRef.current = true; setHowOpen(true) }, 2000)
     return () => clearTimeout(t)
   }, [])
+  // Pilule : réouverture à la demande, jamais de pulsation
+  function openHow() { howAutoRef.current = false; setHowOpen(true) }
   function closeHow() {
     setHowOpen(false)
+    if (!howAutoRef.current) return
+    howAutoRef.current = false
+    try { localStorage.setItem(HOWTO_SEEN_KEY, "1") } catch { /* non persisté : réaffiché à la prochaine visite */ }
     // Après démontage du toast : centrer le bloc plat puis pulser 3 fois (animation CSS .ps-pulse)
     requestAnimationFrame(() => {
       platRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
@@ -483,7 +495,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
         </div>
         {/* PS-02 — pilule discrète de rappel du toast pédagogique, à droite sous le bandeau */}
         <div className="flex justify-end mt-2">
-          <button type="button" className="howto-pill focus-ring" onClick={() => setHowOpen(true)}>
+          <button type="button" className="howto-pill focus-ring" onClick={openHow}>
             <span aria-hidden="true">💡</span> {HOWTO_PILL}
           </button>
         </div>
