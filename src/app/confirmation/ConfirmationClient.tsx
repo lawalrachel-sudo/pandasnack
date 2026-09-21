@@ -105,7 +105,7 @@ export function ConfirmationClient({ order, items, remainingPendingCount = 0, ne
             ⏳ Tu as encore {remainingPendingCount} commande{remainingPendingCount > 1 ? "s" : ""} à payer
           </p>
           <Link href={`/checkout?order=${nextPendingOrderId}`}
-            className="block w-full h-11 rounded-lg font-semibold text-white text-center leading-[2.75rem]"
+            className="block w-full h-12 rounded-xl font-display font-semibold text-white text-center leading-[3rem]"
             style={{ background: "var(--accent)" }}>
             Continuer →
           </Link>
@@ -113,14 +113,22 @@ export function ConfirmationClient({ order, items, remainingPendingCount = 0, ne
       )}
 
       {/* Actions */}
-      <div className="space-y-3 mt-6">
-        <Link href="/panier" className="block w-full h-12 rounded-xl font-semibold text-white text-center leading-[3rem]" style={{ background: "var(--accent)" }}>
-          Voir mon panier
-        </Link>
-        <Link href="/commander" className="block w-full h-12 rounded-xl font-semibold text-center leading-[3rem] border" style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>
-          Commander pour un autre jour
-        </Link>
-      </div>
+      {/* PS-01b — un seul CTA plein : « Continuer → » s'il reste des commandes à payer, sinon « Voir mon panier ». */}
+      {(() => {
+        const hasNext = isPaid && remainingPendingCount > 0 && !!nextPendingOrderId
+        return (
+          <div className="space-y-4 mt-6">
+            <Link href="/panier"
+              className={`block w-full h-12 rounded-xl font-display font-semibold text-center leading-[3rem] ${hasNext ? "border" : "text-white"}`}
+              style={hasNext ? { borderColor: "var(--accent)", color: "var(--accent)" } : { background: "var(--accent)" }}>
+              Voir mon panier
+            </Link>
+            <Link href="/commander" className="block w-full text-center text-sm underline underline-offset-2 min-h-11 leading-[2.75rem]" style={{ color: "var(--ink-soft)" }}>
+              Commander pour un autre jour
+            </Link>
+          </div>
+        )
+      })()}
 
       {/* Info cutoff */}
       <div className="mt-6 rounded-xl p-4 text-xs" style={{ background: "#FEF3E2", color: "var(--ink)" }}>

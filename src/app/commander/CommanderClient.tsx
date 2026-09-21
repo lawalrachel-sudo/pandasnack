@@ -429,7 +429,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       <HeaderMetier sg={sg} />
 
       {/* PS-01 — Bandeau rentrée permanent (texte dans src/lib/banner.ts). Remplace le HERO Portes Ouvertes. */}
-      <section aria-label="Rentrée" className="px-4 pt-1 pb-3">
+      <section aria-label="Rentrée" className="px-4 pt-2 pb-4">
         <div className="rounded-2xl px-4 py-4 text-center" style={{ background: "var(--accent)", color: "var(--ink-on-accent)", boxShadow: "0 2px 16px var(--shadow)" }}>
           <h2 className="font-display font-semibold text-lg leading-snug">{RENTREE_BANNER.title}</h2>
           <p className="text-sm mt-1.5 opacity-95">{RENTREE_BANNER.subtitle}</p>
@@ -444,7 +444,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
 
       {/* Profil */}
       {activeProfils.length > 1 && (
-        <div className="px-4 pt-2">
+        <div className="px-4 pt-2 pb-4">
           <h2 className="font-bold text-sm mb-2" style={{ color: "var(--ink-soft)" }}>Commande pour</h2>
           <div className="flex gap-2 overflow-x-auto pb-1">
             {activeProfils.map((p, idx) => {
@@ -461,7 +461,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
         </div>
       )}
       {activeProfils.length === 1 && selectedProfil && (
-        <div className="px-4 pt-2">
+        <div className="px-4 pt-2 pb-4">
           <p className="text-sm" style={{ color: "var(--ink-soft)" }}>
             Commande pour <strong style={{ color: "var(--ink)" }}>{selectedProfil.prenom}</strong>
             {selectedProfil.classe && <span className="ml-1 text-xs">({CLF[selectedProfil.classe]})</span>}
@@ -476,8 +476,8 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
         </div>
       )}
 
-      {/* Slot */}
-      <div className="px-4 py-2">
+      {/* Slot — PS-01b : une décision par bloc, 16 px entre blocs */}
+      <div className="px-4 pb-4">
         <h2 className="font-bold text-sm mb-2" style={{ color: "var(--ink-soft)" }}>Jour de livraison</h2>
         {slots.length === 0 ? (
           <div className="rounded-xl p-4 text-sm" style={{ background: "var(--bg-alt)", color: "var(--ink-soft)" }}>Aucun créneau ouvert pour le moment.</div>
@@ -499,7 +499,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       </div>
 
       {selectedSlot && (
-        <div className="px-4 mb-2">
+        <div className="px-4 mb-4">
           <p className="text-xs font-semibold px-3 py-1.5 rounded-lg inline-block" style={{ background: "var(--bg-alt)", color: "var(--ink)" }}>
             {dateLabel}{selectedProfil && <span> — {selectedProfil.prenom}</span>}
           </p>
@@ -633,7 +633,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       {/* À LA CARTE — PT2: Bento Toupiti as card, PT3: single title       */}
       {/* ================================================================ */}
       {showALC && (
-        <div className="px-4 space-y-4">
+        <div className="px-4 space-y-6">
           {/* §6 decoy — pour pandattitude, l'à la carte est présentée comme l'option secondaire :
               titre plus discret + ancrage prix vs le Menu Panda (plat seul 5,50€ vs menu complet 10€). */}
           {sg === "pandattitude" ? (
@@ -676,7 +676,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
 
       {/* Snacks */}
       {snackItems.length > 0 && (
-        <section className="px-4 mt-6" aria-label={SNACK_SECTION.title}>
+        <section className="px-4 mt-8" aria-label={SNACK_SECTION.title}>
           <h2 className="font-semibold text-lg mb-0.5" style={{ color: "var(--ink)" }}>{SNACK_SECTION.emoji} {SNACK_SECTION.title}</h2>
           <p className="text-xs mb-2" style={{ color: "var(--ink-soft)" }}>Pour {selectedProfil?.prenom ?? "toi"}</p>
           <div className="pgrid">
@@ -769,9 +769,10 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
               <button onClick={() => setAlcTopOpen(false)} className="text-2xl leading-none" aria-label="Fermer">&times;</button>
             </div>
             <div className="p-5">
+              {/* PS-01b — même règle image que les cartes : 4/3, 96/120 px, jamais plus large que le conteneur */}
               {alcItem.image_url && (
-                <div className="rounded-xl overflow-hidden mb-4 aspect-[16/9]">
-                  <img src={buildImgUrl(alcItem.image_url)} alt={alcItem.name} className="w-full h-full object-cover" />
+                <div className="pcard-img mb-4">
+                  <img src={buildImgUrl(alcItem.image_url)} alt={alcItem.name} />
                 </div>
               )}
               <div className="space-y-2 mb-4">

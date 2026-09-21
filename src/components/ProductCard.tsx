@@ -75,7 +75,7 @@ export function ProductCard({
     >
       {comingSoon && <span className="soon-badge">{COMING_SOON_LABEL}</span>}
       <div className={comingSoon ? "pcard-soon-body" : "flex flex-col flex-1"}>
-        <div className="pcard-img">{image}</div>
+        <div className="pcard-img-wrap"><div className="pcard-img">{image}</div></div>
         <div className="p-2.5 flex flex-col flex-1">
           <h4 className="font-display font-semibold text-sm leading-tight" style={{ color: "var(--ink)" }}>{name}</h4>
           {showDescription && description && (

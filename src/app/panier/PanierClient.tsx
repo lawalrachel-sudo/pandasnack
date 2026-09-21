@@ -419,13 +419,13 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
   }
 
   return (
-    <div className="min-h-screen pb-20 max-w-lg mx-auto">
+    <div className={`min-h-screen max-w-lg mx-auto ${selectedOrderIds.size > 0 ? "pb-44" : "pb-20"}`}>
       <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} pendingCount={pendingCount} />
       <HeaderMetier sg={account.source_group} />
 
-      <div className="px-4 pt-3">
-        <h1 className="text-xl font-bold mb-1" style={{ color: "var(--ink)" }}>Mon panier</h1>
-        <p className="text-xs mb-4" style={{ color: "var(--ink-soft)" }}>Tes commandes en attente de paiement</p>
+      <div className="px-4 pt-3 mb-4">
+        <h1 className="text-xl font-semibold mb-1" style={{ color: "var(--ink)" }}>Mon panier</h1>
+        <p className="text-xs" style={{ color: "var(--ink-soft)" }}>Coche les jours à payer, puis paie en bas de l&apos;écran.</p>
       </div>
 
       {profilsForMetier.length > 1 && (
@@ -498,57 +498,59 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
         </div>
       )}
 
-      {/* B-γ — GRAND TOTAL + bouton Payer mes N commandes (multi-checkout Stripe) */}
+      {/* B-γ + PS-01b — GRAND TOTAL + UN SEUL CTA « Payer », barre fixe en bas d'écran (au-dessus de la BottomNav).
+          « Payer sur place » reste un lien discret : jamais deux CTA de même poids. */}
       {selectedOrderIds.size > 0 && (
-        <div className="mx-4 mb-4 p-3 rounded-xl border-2 shadow-md" style={{ borderColor: "var(--accent)", background: "var(--card)" }}>
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--ink-soft)" }}>
-              GRAND TOTAL · {selectedOrderIds.size} cmd
-            </span>
-            <span className="text-lg font-display font-semibold" style={{ color: "var(--accent)" }}>{fmtPrice(selectedSum)}</span>
-          </div>
-          {/* UX-C — encart pédagogie wallet (cliquable), au-dessus des boutons de paiement */}
-          <Link href="/recharger" className="block rounded-lg p-2.5 mb-2" style={{ background: "var(--bg-alt)", border: "1px solid var(--border)" }}>
-            <p className="text-xs leading-snug" style={{ color: "var(--ink)" }}>
-              💰 <strong>Panda Wallet</strong> : paye tes repas à l&apos;avance et gagne {walletBonusText} sur chaque recharge →
-            </p>
-          </Link>
-          {/* Paiement en ligne principal (wallet + CB via checkout-multi) */}
-          <button onClick={handlePayMulti} disabled={payingMulti}
-            aria-label={`Payer ${selectedOrderIds.size} commande${selectedOrderIds.size > 1 ? "s" : ""} pour ${fmtPrice(selectedSum)}`}
-            className="focus-ring flex items-center justify-center w-full h-12 rounded-xl font-display font-semibold text-white shadow-lg active:scale-[0.98] transition-transform text-center px-3 disabled:opacity-50"
-            style={{ background: "var(--accent)" }}>
-            {payingMulti ? "Redirection..." : `💳 Payer mes ${selectedOrderIds.size} commande${selectedOrderIds.size > 1 ? "s" : ""}`}
-          </button>
-          {/* UX-B — "Payer sur place" rétrogradé : lien discret sous le bouton principal (pandattitude). */}
-          {isPandattitude && (
-            <button onClick={handlePayOnSite} disabled={confirmingOnSite}
-              aria-label={`Confirmer ${selectedOrderIds.size} commande${selectedOrderIds.size > 1 ? "s" : ""} à régler sur place`}
-              className="focus-ring w-full text-center text-xs mt-2.5 underline underline-offset-2 disabled:opacity-50"
-              style={{ color: "var(--ink-soft)" }}>
-              {confirmingOnSite ? "Confirmation..." : "Ou payer sur place au comptoir (CB/espèces)"}
+        <div className="fixed bottom-16 left-0 right-0 z-40 border-t" style={{ background: "var(--card)", borderColor: "var(--border)", boxShadow: "0 -4px 16px var(--shadow)" }}>
+          <div className="max-w-lg mx-auto px-4 pt-3 pb-3">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--ink-soft)" }}>
+                Total · {selectedOrderIds.size} commande{selectedOrderIds.size > 1 ? "s" : ""}
+              </span>
+              <span className="text-lg font-display font-semibold" style={{ color: "var(--accent)" }}>{fmtPrice(selectedSum)}</span>
+            </div>
+            {/* Paiement en ligne principal (wallet + CB via checkout-multi) */}
+            <button onClick={handlePayMulti} disabled={payingMulti}
+              aria-label={`Payer ${selectedOrderIds.size} commande${selectedOrderIds.size > 1 ? "s" : ""} pour ${fmtPrice(selectedSum)}`}
+              className="focus-ring flex items-center justify-center w-full h-12 rounded-xl font-display font-semibold text-white shadow-lg active:scale-[0.98] transition-transform text-center px-3 disabled:opacity-50"
+              style={{ background: "var(--accent)" }}>
+              {payingMulti ? "Redirection..." : `💳 Payer ${fmtPrice(selectedSum)}`}
             </button>
-          )}
+            {/* UX-B — "Payer sur place" rétrogradé : lien discret sous le bouton principal (pandattitude). */}
+            {isPandattitude && (
+              <button onClick={handlePayOnSite} disabled={confirmingOnSite}
+                aria-label={`Confirmer ${selectedOrderIds.size} commande${selectedOrderIds.size > 1 ? "s" : ""} à régler sur place`}
+                className="focus-ring w-full text-center text-xs mt-2 underline underline-offset-2 disabled:opacity-50"
+                style={{ color: "var(--ink-soft)" }}>
+                {confirmingOnSite ? "Confirmation..." : "Ou payer sur place au comptoir (CB/espèces)"}
+              </button>
+            )}
+          </div>
         </div>
       )}
 
       {wallet && (
         <div className="mx-4 mb-4 rounded-xl p-3 flex items-center gap-3" style={{ background: "var(--bg-alt)" }}>
           <img src={WALLET_IMG} alt="Wallet" className="w-10 h-10 rounded-full object-cover" />
-          <div>
+          <div className="flex-1">
             <p className="text-xs" style={{ color: "var(--ink-soft)" }}>Solde Panda Wallet</p>
             <p className="font-display font-semibold text-lg" style={{ color: "var(--accent-2)" }}>{fmtPrice(wallet.balance_cents)}</p>
+            {/* UX-C — pédagogie wallet, en lien discret (plus d'encart dans la barre de paiement) */}
+            <Link href="/recharger" className="text-xs underline underline-offset-2" style={{ color: "var(--ink-soft)" }}>
+              Recharger et gagner {walletBonusText} →
+            </Link>
           </div>
         </div>
       )}
 
       {groupedOrders.length > 0 && (
-        <div className="px-4 mb-4">
+        <div className="px-4 mb-4 text-right">
+          {/* PS-01b — impression rétrogradée en lien discret (pas un CTA) */}
           <button onClick={handlePrint}
             aria-label="Imprimer ou télécharger en PDF la liste de mes commandes"
-            className="focus-ring w-full h-11 rounded-xl text-sm font-semibold border"
-            style={{ borderColor: "var(--border)", color: "var(--ink-soft)" }}>
-            Imprimer / Telecharger PDF
+            className="focus-ring text-xs underline underline-offset-2 min-h-11"
+            style={{ color: "var(--ink-soft)" }}>
+            Imprimer / PDF
           </button>
         </div>
       )}
@@ -740,9 +742,10 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
                                       </div>
                                       <span className="font-semibold text-sm shrink-0">{fmtPrice(item.line_total_cents)}</span>
                                     </div>
-                                    {/* B-β — Modifier/Retirer masqués si jour passé */}
+                                    {/* B-β — Modifier/Retirer masqués si jour passé.
+                                        PS-01b — une action secondaire (Modifier, contour) + un lien discret (Retirer) */}
                                     {lineModifiable && (
-                                      <div className="flex gap-2 mt-2">
+                                      <div className="flex items-center gap-3 mt-2">
                                         {isEditable && (
                                           <button onClick={() => startEdit(item)}
                                             className="focus-ring flex-1 text-center px-3 py-2 rounded-md text-xs font-semibold border min-h-9"
@@ -754,9 +757,9 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
                                         )}
                                         <button onClick={() => handleDeleteItem(item.id)}
                                           aria-label={`Retirer ${item.notes || "cet article"} du panier`}
-                                          className={`focus-ring ${isEditable ? "flex-1" : "w-full"} text-center px-3 py-1.5 rounded-md text-xs font-semibold text-white`}
-                                          style={{ background: "var(--status-cancelled)" }}>
-                                          🗑️ Retirer
+                                          className="focus-ring text-xs underline underline-offset-2 min-h-9 px-1"
+                                          style={{ color: "var(--status-cancelled)" }}>
+                                          Retirer
                                         </button>
                                       </div>
                                     )}
@@ -776,27 +779,26 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
 
                       {/* B-β+γ — bouton "Payer cette commande" individuel SUPPRIMÉ — paiement via bouton groupé bottom */}
                       {/* "Ajouter un repas" : MASQUÉ si passé */}
+                      {/* PS-01b — pied de commande : « Ajouter un repas » (contour) + « Annuler » en lien discret.
+                          Plus de bouton rouge pleine largeur concurrent du CTA Payer. */}
                       {canModify && (
-                        <div className="px-3 pb-3 border-t space-y-2 pt-3" style={{ borderColor: "var(--border)" }}>
+                        <div className="px-3 pb-3 border-t pt-3" style={{ borderColor: "var(--border)" }}>
                           <button onClick={() => openAddItem(order)}
                             aria-label={`Ajouter un repas à la commande ${order.order_number}`}
                             className="focus-ring flex items-center justify-center w-full h-11 rounded-lg text-sm font-semibold border"
                             style={{ borderColor: "var(--accent)", color: "var(--accent)", background: "var(--card)" }}>
                             Ajouter un repas
                           </button>
-                        </div>
-                      )}
-
-                      {/* B-β — "Annuler toute la commande" MASQUÉ si passé */}
-                      {canCancel && (
-                        <div className="px-3 pb-3 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
-                          <button
-                            className="focus-ring w-full h-11 rounded-lg text-xs font-semibold text-white"
-                            style={{ background: "var(--status-cancelled)" }}
-                            aria-label={`Annuler toute la commande ${order.order_number}`}
-                            onClick={() => handleCancel(order.id)}>
-                            Annuler toute la commande
-                          </button>
+                          {/* B-β — "Annuler toute la commande" MASQUÉ si passé */}
+                          {canCancel && (
+                            <button
+                              className="focus-ring w-full text-center text-xs underline underline-offset-2 mt-2 min-h-9"
+                              style={{ color: "var(--status-cancelled)" }}
+                              aria-label={`Annuler toute la commande ${order.order_number}`}
+                              onClick={() => handleCancel(order.id)}>
+                              Annuler toute la commande
+                            </button>
+                          )}
                         </div>
                       )}
 
@@ -933,7 +935,7 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
                       className="rounded-xl border p-3 text-left active:scale-[0.98] transition-transform disabled:opacity-50"
                       style={{ borderColor: "var(--border)", background: "var(--card)" }}
                     >
-                      <div className="pcard-img rounded-lg mb-2">
+                      <div className="pcard-img mb-2">
                         {item.image_url
                           ? <img src={item.image_url} alt={item.name} loading="lazy" />
                           : <div className="w-full h-full flex items-center justify-center text-3xl">{item.emoji || "🐼"}</div>}
