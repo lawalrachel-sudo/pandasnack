@@ -419,7 +419,7 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
   }
 
   return (
-    <div className={`min-h-screen max-w-lg mx-auto ${selectedOrderIds.size > 0 ? "pb-44" : "pb-20"}`}>
+    <div className={`min-h-screen ps-page ${selectedOrderIds.size > 0 ? "pb-44" : "pb-20"}`}>
       <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} pendingCount={pendingCount} />
       <HeaderMetier sg={account.source_group} />
 
@@ -502,7 +502,7 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
           « Payer sur place » reste un lien discret : jamais deux CTA de même poids. */}
       {selectedOrderIds.size > 0 && (
         <div className="fixed bottom-16 left-0 right-0 z-40 border-t" style={{ background: "var(--card)", borderColor: "var(--border)", boxShadow: "0 -4px 16px var(--shadow)" }}>
-          <div className="max-w-lg mx-auto px-4 pt-3 pb-3">
+          <div className="ps-col mx-auto px-4 pt-3 pb-3">
             <div className="flex justify-between items-center mb-2">
               <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--ink-soft)" }}>
                 Total · {selectedOrderIds.size} commande{selectedOrderIds.size > 1 ? "s" : ""}
@@ -890,7 +890,7 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
       {/* H2.1 — Modal Ajouter un repas à une commande pending */}
       {addItemOrderId && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-end justify-center">
-          <div className="w-full max-w-lg rounded-t-2xl max-h-[85vh] overflow-y-auto" style={{ background: "var(--card)" }}>
+          <div className="w-full ps-col rounded-t-2xl max-h-[85vh] overflow-y-auto" style={{ background: "var(--card)" }}>
             <div className="sticky top-0 z-10 flex justify-between items-center px-5 py-4 border-b" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
               <div>
                 <h3 className="font-bold text-lg">Ajouter un repas</h3>

@@ -82,7 +82,7 @@ export default async function PlanningPage() {
   const sortedDates = Object.keys(byDate).sort()
 
   return (
-    <div className="min-h-screen pb-28 max-w-lg mx-auto">
+    <div className="min-h-screen pb-28 ps-page">
       <NavbarServer />
       <HeaderMetier sg={account.source_group} />
 

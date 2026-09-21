@@ -21,6 +21,10 @@ interface ProductCardProps {
   comingSoon?: boolean
   /** Description masquée par défaut (cartes compactes) ; true pour l'afficher. */
   showDescription?: boolean
+  /** PS-02 — variante « grande image » (carrousel Article seul) : même composant, vignette 200 px. */
+  large?: boolean
+  /** PS-02 — petit libellé au-dessus du nom (ex. catégorie dans le carrousel). */
+  kicker?: string | null
 }
 
 // Crop appliqué aux images Cloudinary pour retirer le watermark Gemini (coin bas-droit)
@@ -52,6 +56,8 @@ export function ProductCard({
   priceLabel,
   comingSoon = false,
   showDescription = false,
+  large = false,
+  kicker,
 }: ProductCardProps) {
   const [showAllergens, setShowAllergens] = useState(false)
 
@@ -68,7 +74,7 @@ export function ProductCard({
 
   return (
     <div
-      className={`pcard ${comingSoon ? "pcard-soon" : "cursor-pointer transition-transform hover:scale-[1.02]"}`}
+      className={`pcard ${large ? "pcard-lg" : ""} ${comingSoon ? "pcard-soon" : "cursor-pointer transition-transform hover:scale-[1.02]"}`}
       onClick={comingSoon ? undefined : () => onSelect(id)}
       role={comingSoon ? undefined : "button"}
       aria-disabled={comingSoon || undefined}
@@ -77,6 +83,7 @@ export function ProductCard({
       <div className={comingSoon ? "pcard-soon-body" : "flex flex-col flex-1"}>
         <div className="pcard-img-wrap"><div className="pcard-img">{image}</div></div>
         <div className="p-2.5 flex flex-col flex-1">
+          {kicker && <p className="text-[11px] font-semibold uppercase tracking-wide mb-0.5" style={{ color: "var(--ink-soft)" }}>{kicker}</p>}
           <h4 className="font-display font-semibold text-sm leading-tight" style={{ color: "var(--ink)" }}>{name}</h4>
           {showDescription && description && (
             <p className="text-xs mt-0.5" style={{ color: "var(--ink-soft)" }}>{description}</p>

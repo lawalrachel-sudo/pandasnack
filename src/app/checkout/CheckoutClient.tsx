@@ -176,7 +176,7 @@ export function CheckoutClient({ order, items, wallet, account, cutoffPassed, wa
   // --- Cutoff passed (terminal screen) ---
   if (cutoffPassed) {
     return (
-      <div className="min-h-screen max-w-lg mx-auto px-4 py-8">
+      <div className="min-h-screen ps-page px-4 py-8">
         <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} pendingCount={pendingCount} />
         <div className="text-center mt-16">
           <div className="text-5xl mb-4">⏰</div>
@@ -197,7 +197,7 @@ export function CheckoutClient({ order, items, wallet, account, cutoffPassed, wa
   }
 
   return (
-    <div className="min-h-screen max-w-lg mx-auto px-4 pb-8">
+    <div className="min-h-screen ps-page px-4 pb-8">
       <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} pendingCount={pendingCount} />
 
       {/* Cancellation banner (after Stripe cancel_url) */}

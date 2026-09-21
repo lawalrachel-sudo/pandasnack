@@ -34,7 +34,7 @@ export function ConfirmationClient({ order, items, remainingPendingCount = 0, ne
   const deliveryName = order.service_slots?.delivery_points?.name
 
   return (
-    <div className="min-h-screen max-w-lg mx-auto px-4 py-8">
+    <div className="min-h-screen ps-page px-4 py-8">
       {/* Header */}
       <div className="text-center mb-8">
         <div className="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center text-4xl"

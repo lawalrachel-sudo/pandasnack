@@ -164,7 +164,7 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
   const TAB_LABELS = { profils: "Profils", wallet: "Panda Wallet", compte: "Mon compte" } as const
 
   return (
-    <div className="min-h-screen pb-28 max-w-lg mx-auto">
+    <div className="min-h-screen pb-28 ps-page">
       <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} pendingCount={pendingCount} />
       <HeaderMetier sg={account.source_group} />
 

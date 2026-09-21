@@ -72,7 +72,7 @@ export function RechargerClient({ accountId, familyName, walletBalance, configs,
   }
 
   return (
-    <div className="min-h-screen pb-28 max-w-lg mx-auto">
+    <div className="min-h-screen pb-28 ps-page">
       <Navbar walletBalance={walletBalance} familyName={familyName} pendingCount={pendingCount} />
 
       <div className="px-4 pt-6">

@@ -39,7 +39,7 @@ export function BottomNav() {
         className="fixed bottom-0 left-0 right-0 z-30 border-t shadow-lg"
         style={{ background: '#FFFFFF', borderColor: 'var(--border)' }}
       >
-        <div className="max-w-lg mx-auto grid grid-cols-5 items-end py-2 px-1">
+        <div className="ps-col mx-auto grid grid-cols-5 items-end py-2 px-1">
           {NAV_ITEMS.map(({ href, label, img, emoji }) => {
             const active = pathname === href || (href !== "/" && pathname?.startsWith(href))
             const size = active ? 32 : 26

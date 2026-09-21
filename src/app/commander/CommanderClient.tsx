@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useCallback, useEffect } from "react"
+import { useMemo, useState, useCallback, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Navbar } from "@/components/Navbar"
@@ -9,7 +9,7 @@ import { useCart } from "@/lib/cart-context"
 import { HeaderMetier } from "@/components/HeaderMetier"
 import { sauceCheckboxApplies, setSauceInNotes } from "@/lib/menu-options"
 import { visForSource as visForSourceShared, isMenuPlatSku } from "@/lib/visibility"
-import { RENTREE_BANNER, SECTION_LABELS, SNACK_SECTION } from "@/lib/banner"
+import { RENTREE_BANNER, SECTION_LABELS, SNACK_SECTION, HOWTO_STEPS, HOWTO_TITLE, HOWTO_PILL } from "@/lib/banner"
 
 // ============================================================================
 // TYPES
@@ -118,6 +118,41 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   const [alcToppings, setAlcToppings] = useState<string[]>([])
   const [alcSauce, setAlcSauce] = useState(false)
 
+  // PS-02 B — toast « Comment ça marche ? » (auto 2 s après l'arrivée, rappel via pilule) +
+  // pulsation du bloc « Choisis ton plat » à la fermeture.
+  const [howOpen, setHowOpen] = useState(false)
+  const [platPulse, setPlatPulse] = useState(false)
+  const platRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const t = setTimeout(() => setHowOpen(true), 2000)
+    return () => clearTimeout(t)
+  }, [])
+  function closeHow() {
+    setHowOpen(false)
+    // Après démontage du toast : centrer le bloc plat puis pulser 3 fois (animation CSS .ps-pulse)
+    requestAnimationFrame(() => {
+      platRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
+      setPlatPulse(true)
+    })
+  }
+
+  // PS-02 C — carrousel « Article seul » : index courant pour l'indicateur (points)
+  const alcCarouselRef = useRef<HTMLDivElement | null>(null)
+  const [alcIdx, setAlcIdx] = useState(0)
+  function onAlcScroll() {
+    const el = alcCarouselRef.current
+    const first = el?.firstElementChild as HTMLElement | null
+    if (!el || !first) return
+    const step = first.offsetWidth + 12  // largeur carte + --grid-gap
+    setAlcIdx(Math.max(0, Math.round(el.scrollLeft / step)))
+  }
+  function scrollAlcTo(i: number) {
+    const el = alcCarouselRef.current
+    const first = el?.firstElementChild as HTMLElement | null
+    if (!el || !first) return
+    el.scrollTo({ left: i * (first.offsetWidth + 12), behavior: "smooth" })
+  }
+
   // Helper d'ajout async — POST /api/order-item avec slotId (find-or-create)
   const addToCartAsync = useCallback(async (payload: {
     catalogItemId?: string | null
@@ -211,8 +246,11 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   // ============================================================================
 
   // PS-01 — source unique dans src/lib/visibility.ts (partagée avec PanierClient).
+  // PS-02 §6 — MÊME prédicat de base pour le slot plat du Menu Panda ET le carrousel Article seul :
+  // catalog_items.active + visibilité public. Ensuite seul le flag diffère (sellable_in_menu vs
+  // sellable_alone) ; coming_soon est porté tel quel par ProductCard (grisé « Bientôt ! » des deux côtés).
   function visForSource(item: CatalogItem): boolean {
-    return visForSourceShared(item, sg, sd)
+    return item.active && visForSourceShared(item, sg, sd)
   }
 
   function visForSlot(item: CatalogItem): boolean {
@@ -223,7 +261,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
 
   const menuPlatItems = useMemo(() => {
     return categories.flatMap((c) => c.catalog_items)
-      .filter((i) => i.active && i.sellable_in_menu && visForSource(i))
+      .filter((i) => i.sellable_in_menu && visForSource(i))
       // BRIEF Menu Panda (17/06) + PS-01 — SKUs « Plat principal » (BURGER/CLUB/SOUP inclus), cf. visibility.ts
       .filter((i) => isMenuPlatSku(i.sku, sg))
       .sort((a, b) => a.sort_order - b.sort_order)
@@ -259,6 +297,15 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
     return { alcSections: sections, snackItems: snacks }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categories, sg, sd])
+
+  // PS-02 C — carrousel Article seul : sections aplaties (ordre catégorie puis item), Bubble Tea
+  // extrait (§7 : bloc fixe sous le carrousel, jamais dans le swipe).
+  const BBL_SKU = "DRINK-BBL"
+  const { alcCarouselItems, bblItem } = useMemo(() => {
+    const flat = alcSections.flatMap((sec) => sec.items.map((item) => ({ item, kicker: `${sec.emoji ? `${sec.emoji} ` : ""}${sec.title}` })))
+    const bbl = flat.find((x) => x.item.sku === BBL_SKU)?.item ?? null
+    return { alcCarouselItems: flat.filter((x) => x.item.sku !== BBL_SKU), bblItem: bbl }
+  }, [alcSections])
 
   const visFormulas = useMemo(() => {
     return menuFormulas.filter((f) => {
@@ -420,8 +467,8 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   // ============================================================================
 
   return (
-    // Desktop-only — conteneur élargi à 860px (mobile inchangé : max-w-lg)
-    <div className="min-h-screen pb-20 max-w-lg md:max-w-2xl mx-auto overflow-x-hidden">
+    // PS-02 — largeur portée par la coque (.ps-shell : 430 px mobile / 1100 px vue ordinateur)
+    <div className="min-h-screen pb-20 ps-page overflow-x-hidden">
       <Navbar walletBalance={wallet?.balance_cents} familyName={account.nom_compte} pendingCount={pendingCount}
         greeting="Bienvenue chez Panda Snack 🐼 — Compose ton menu, choisis tes jours, c'est prêt." />
 
@@ -434,7 +481,32 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
           <h2 className="font-display font-semibold text-lg leading-snug">{RENTREE_BANNER.title}</h2>
           <p className="text-sm mt-1.5 opacity-95">{RENTREE_BANNER.subtitle}</p>
         </div>
+        {/* PS-02 — pilule discrète de rappel du toast pédagogique, à droite sous le bandeau */}
+        <div className="flex justify-end mt-2">
+          <button type="button" className="howto-pill focus-ring" onClick={() => setHowOpen(true)}>
+            <span aria-hidden="true">💡</span> {HOWTO_PILL}
+          </button>
+        </div>
       </section>
+
+      {/* PS-02 B — Toast plein écran « Comment ça marche ? » */}
+      {howOpen && (
+        <div className="howto-overlay" role="dialog" aria-modal="true" aria-labelledby="howto-title">
+          <div className="howto-card">
+            <button type="button" className="howto-close focus-ring" onClick={closeHow} aria-label="Fermer">&times;</button>
+            <h2 id="howto-title" className="font-display font-semibold text-xl pr-8" style={{ color: "var(--accent)" }}>{HOWTO_TITLE}</h2>
+            <ol className="howto-list">
+              {HOWTO_STEPS.map((st) => (
+                <li key={st.text} className={`howto-row${st.key ? " is-key" : ""}`}>
+                  <span className="howto-icon" aria-hidden="true">{st.icon}</span>
+                  <span>{st.text}</span>
+                </li>
+              ))}
+            </ol>
+            <button type="button" onClick={closeHow} className="pcard-btn mt-5 text-sm focus-ring">C&apos;est parti !</button>
+          </div>
+        </div>
+      )}
 
       {addedToast && (
         <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 rounded-xl text-sm font-semibold text-white shadow-lg animate-fade-in" style={{ background: "var(--accent-2)" }}>
@@ -526,6 +598,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
           : "https://res.cloudinary.com/dbkpvp9ts/image/upload/v1776901351/Bento_3boulette_RIZ_POULET_carottes_cuites.png"
         return (
           <div className="px-4 mb-6">
+            <div ref={platRef} className={platPulse ? "ps-pulse" : undefined} onAnimationEnd={() => setPlatPulse(false)}>
             {/* P0a #6 — titre section École en bleu */}
             <h2 className="font-bold text-lg mb-1 text-center" style={{ color: "#1D4ED8" }}>Menu Panda du jour</h2>
             {/* UX 1 — sous-titre composition unifiée */}
@@ -555,6 +628,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
                 </div>
               </div>
             )}
+            </div>
           </div>
         )
       })()}
@@ -574,14 +648,17 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
             </div>
             {/* §3 — Swipe des plats inline, tous sur un pied d'égalité (bento inclus). Tap = ajout dans le Menu Panda à 10€.
                 PS-01 : cartes ProductCard compactes, coming_soon → grisé + badge, aucun onClick. */}
-            <h3 className="font-semibold text-base mb-2" style={{ color: "var(--ink)" }}>Choisis ton plat</h3>
-            <div className="pgrid">
-              {menuPlatItems.map((item) => (
-                <ProductCard key={item.id} id={item.id} name={item.name} description={item.description}
-                  priceCents={mp.price_cents} priceLabel={fmtPrice(mp.price_cents)} imageUrl={item.image_url} emoji={item.emoji}
-                  isMenuOnly={false} allergens={item.allergens} ctaLabel="Choisir"
-                  comingSoon={!!item.coming_soon} onSelect={() => pickMenuPandaPlat(item)} />
-              ))}
+            {/* PS-02 B4 — bloc ciblé par scrollIntoView + pulsation ×3 à la fermeture du toast */}
+            <div ref={platRef} className={platPulse ? "ps-pulse" : undefined} onAnimationEnd={() => setPlatPulse(false)}>
+              <h3 className="font-semibold text-base mb-2" style={{ color: "var(--ink)" }}>Choisis ton plat</h3>
+              <div className="pgrid">
+                {menuPlatItems.map((item) => (
+                  <ProductCard key={item.id} id={item.id} name={item.name} description={item.description}
+                    priceCents={mp.price_cents} priceLabel={fmtPrice(mp.price_cents)} imageUrl={item.image_url} emoji={item.emoji}
+                    isMenuOnly={false} allergens={item.allergens} ctaLabel="Choisir"
+                    comingSoon={!!item.coming_soon} onSelect={() => pickMenuPandaPlat(item)} />
+                ))}
+              </div>
             </div>
           </div>
         )
@@ -593,6 +670,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
         const mp = visFormulas.find((f) => f.code === "MENU_PANDA_GUEST")
         return (
           <div className="px-4 mb-6">
+            <div ref={platRef} className={platPulse ? "ps-pulse" : undefined} onAnimationEnd={() => setPlatPulse(false)}>
             <h2 className="font-bold text-lg mb-1 text-center" style={{ color: "#1D4ED8" }}>Menu Panda du jour</h2>
             {/* UX 1 — sous-titre composition unifiée */}
             <p className="text-sm font-bold mb-1" style={{ color: "#B91C1C" }}>PLAT (au choix) + BOISSON DU JOUR + DESSERT DU JOUR</p>
@@ -625,6 +703,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
                 </div>
               </div>
             )}
+            </div>
           </div>
         )
       })()}
@@ -657,20 +736,48 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
             </div>
           )}
 
-          {/* PS-01 — Sections par catégorie (ordre sort_order), titre Fredoka + emoji DB, grille 2/3/4 colonnes */}
-          {alcSections.map((sec) => (
-            <section key={sec.id} aria-label={sec.title}>
-              <h2 className="font-semibold text-lg mb-2" style={{ color: "var(--ink)" }}>{sec.emoji ? `${sec.emoji} ` : ""}{sec.title}</h2>
-              <div className="pgrid">
-                {sec.items.map((item) => (
+          {/* PS-02 C — Carrousel « Article seul » : une carte par écran (swipe droite → gauche), image en grand,
+              même composant ProductCard que le slot plat (image, nom, prix, allergènes ; crudités via addItem → modal),
+              catégorie en kicker, indicateur de position (points). Bubble Tea hors carrousel (§7). */}
+          {alcCarouselItems.length > 0 && (
+            <section aria-label="Article seul">
+              <div ref={alcCarouselRef} className="pcarousel" onScroll={onAlcScroll}>
+                {alcCarouselItems.map(({ item, kicker }) => (
                   <ProductCard key={item.id} id={item.id} name={item.name} description={item.description}
                     priceCents={item.price_alone_cents} imageUrl={item.image_url} emoji={item.emoji}
                     isMenuOnly={!item.sellable_alone && item.sellable_in_menu} allergens={item.allergens}
-                    comingSoon={!!item.coming_soon} onSelect={addItem} />
+                    comingSoon={!!item.coming_soon} onSelect={addItem} large kicker={kicker} />
+                ))}
+              </div>
+              <div className="pdots" role="tablist" aria-label="Position dans les articles">
+                {alcCarouselItems.map(({ item }, i) => (
+                  <button key={item.id} type="button" role="tab" aria-selected={i === alcIdx} aria-label={`${i + 1} / ${alcCarouselItems.length} — ${item.name}`}
+                    className={`pdot${i === alcIdx ? " is-active" : ""}`} onClick={() => scrollAlcTo(i)} />
                 ))}
               </div>
             </section>
-          ))}
+          )}
+
+          {/* PS-02 §7 — Bubble Tea : bloc fixe en bas de la section Article seul, jamais dans le swipe */}
+          {bblItem && bblItem.price_alone_cents != null && (
+            <div className={`bbl-block${bblItem.coming_soon ? " is-soon" : ""}`}>
+              <div className="flex items-center gap-3 min-w-0">
+                {bblItem.image_url ? (
+                  <img src={buildImgUrl(bblItem.image_url)} alt="" className="w-12 h-12 rounded-xl object-cover flex-none" style={{ background: "var(--bg-alt)" }} />
+                ) : (
+                  <span className="text-2xl flex-none" aria-hidden="true">{bblItem.emoji ?? "🧋"}</span>
+                )}
+                <div className="min-w-0">
+                  <p className="font-display font-semibold text-base leading-tight" style={{ color: "var(--ink)" }}>+ {bblItem.name} {fmtPrice(bblItem.price_alone_cents)}</p>
+                  <p className="text-xs" style={{ color: "var(--ink-soft)" }}>{bblItem.coming_soon ? "Bientôt disponible !" : "À ajouter à ton article seul"}</p>
+                </div>
+              </div>
+              <button type="button" className="pcard-btn text-sm focus-ring flex-none" disabled={!!bblItem.coming_soon}
+                onClick={() => addItem(bblItem.id)} aria-label={`Ajouter ${bblItem.name}`}>
+                {bblItem.coming_soon ? "Bientôt !" : "Ajouter"}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -697,7 +804,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       {/* ================================================================ */}
       {mfOpen && mfFormula && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-end justify-center">
-          <div className="w-full max-w-lg rounded-t-2xl max-h-[85vh] overflow-y-auto" style={{ background: "var(--card)" }}>
+          <div className="w-full ps-col rounded-t-2xl max-h-[85vh] overflow-y-auto" style={{ background: "var(--card)" }}>
             <div className="sticky top-0 z-10 flex justify-between items-center px-5 py-4 border-b" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
               <div>
                 <h3 className="font-bold text-lg">Changer de plat dans le Menu Panda</h3>
@@ -758,7 +865,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       {/* ================================================================ */}
       {alcTopOpen && alcItem && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-end justify-center">
-          <div className="w-full max-w-lg rounded-t-2xl max-h-[85vh] overflow-y-auto" style={{ background: "var(--card)" }}>
+          <div className="w-full ps-col rounded-t-2xl max-h-[85vh] overflow-y-auto" style={{ background: "var(--card)" }}>
             <div className="sticky top-0 z-10 flex justify-between items-center px-5 py-4 border-b" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
               <div>
                 <h3 className="font-bold text-lg">{alcItem.name}</h3>
