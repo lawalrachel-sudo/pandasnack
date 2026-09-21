@@ -2,7 +2,7 @@
 // Texte éditable ici sans toucher au composant (CommanderClient). Permanent, non daté.
 export const RENTREE_BANNER = {
   title: "À la rentrée, Panda prévoit tout : le repas commandé d'avance, le snack sur place.",
-  subtitle: "Ouvert les mercredis et samedis, à partir de 12h et jusqu'à la fin des cours.",
+  subtitle: "Ouvert le mercredi et le samedi dès 12h, jusqu'au début des cours (fermé pendant les cours). Le samedi, on rouvre à l'inter-cours, de 15h à 15h30.",
 } as const
 
 // Libellés de sections /commander (PS-01 Opération Beauty), indexés par catalog_categories.id.
