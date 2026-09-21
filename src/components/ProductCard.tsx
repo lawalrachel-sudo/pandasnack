@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { COMING_SOON_LABEL } from "@/lib/banner"
 
 interface ProductCardProps {
   id: string
@@ -12,7 +13,14 @@ interface ProductCardProps {
   isMenuOnly: boolean
   allergens?: string[] | null
   onSelect: (id: string) => void
-  disabled?: boolean  // Portes Ouvertes — item visible mais non commandable (grisé + toast au tap)
+  /** Libellé du bouton (« Ajouter » par défaut, « Choisir » dans le swipe Menu Panda). */
+  ctaLabel?: string
+  /** Prix affiché en override (ex. prix du Menu Panda dans le swipe). */
+  priceLabel?: string
+  /** PS-01 — catalog_items.coming_soon : visible, grisé, badge, aucun onClick. */
+  comingSoon?: boolean
+  /** Description masquée par défaut (cartes compactes) ; true pour l'afficher. */
+  showDescription?: boolean
 }
 
 // Crop appliqué aux images Cloudinary pour retirer le watermark Gemini (coin bas-droit)
@@ -26,6 +34,10 @@ function buildImageUrl(url: string): string {
   return url
 }
 
+function fmtPrice(c: number): string {
+  return `${(c / 100).toFixed(2).replace(".", ",")} €`
+}
+
 export function ProductCard({
   id,
   name,
@@ -36,88 +48,69 @@ export function ProductCard({
   isMenuOnly,
   allergens,
   onSelect,
-  disabled = false,
+  ctaLabel = "Ajouter",
+  priceLabel,
+  comingSoon = false,
+  showDescription = false,
 }: ProductCardProps) {
   const [showAllergens, setShowAllergens] = useState(false)
 
-  const priceDisplay =
-    isMenuOnly || priceCents == null
-      ? "en menu"
-      : `${(priceCents / 100).toFixed(2).replace(".", ",")} €`
+  const priceDisplay = priceLabel ?? (isMenuOnly || priceCents == null ? "en menu" : fmtPrice(priceCents))
+  const allergenList = allergens && allergens.length > 0 ? allergens.join(" · ") : null
 
-  const allergenList =
-    allergens && allergens.length > 0 ? allergens.join(" · ") : null
+  const image = imageUrl ? (
+    <img src={buildImageUrl(imageUrl)} alt={name} loading="lazy" />
+  ) : (
+    <div className="w-full h-full flex items-center justify-center" style={{ fontSize: "3.5rem", lineHeight: 1 }} aria-label={name}>
+      <span role="img">{emoji ?? "🐼"}</span>
+    </div>
+  )
 
   return (
     <div
-      className={`rounded-2xl overflow-hidden transition-transform ${disabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:scale-[1.02]"}`}
-      style={{ background: "var(--card)", boxShadow: `0 2px 12px var(--shadow)` }}
-      onClick={() => onSelect(id)}
-      aria-disabled={disabled}
+      className={`pcard ${comingSoon ? "pcard-soon" : "cursor-pointer transition-transform hover:scale-[1.02]"}`}
+      onClick={comingSoon ? undefined : () => onSelect(id)}
+      role={comingSoon ? undefined : "button"}
+      aria-disabled={comingSoon || undefined}
     >
-      <div className="aspect-[4/3] overflow-hidden">
-        {imageUrl ? (
-          <img
-            src={buildImageUrl(imageUrl)}
-            alt={name}
-            className="w-full h-full object-cover"
-            loading="lazy"
-          />
-        ) : (
-          <div
-            className="w-full h-full flex items-center justify-center"
-            style={{ background: "var(--bg-alt)", fontSize: "5rem", lineHeight: 1 }}
-            aria-label={name}
-          >
-            <span role="img">{emoji ?? "🐼"}</span>
+      {comingSoon && <span className="soon-badge">{COMING_SOON_LABEL}</span>}
+      <div className={comingSoon ? "pcard-soon-body" : "flex flex-col flex-1"}>
+        <div className="pcard-img-wrap"><div className="pcard-img">{image}</div></div>
+        <div className="p-2.5 flex flex-col flex-1">
+          <h4 className="font-display font-semibold text-sm leading-tight" style={{ color: "var(--ink)" }}>{name}</h4>
+          {showDescription && description && (
+            <p className="text-xs mt-0.5" style={{ color: "var(--ink-soft)" }}>{description}</p>
+          )}
+
+          <div className="flex items-center justify-between mt-1 gap-2">
+            <span className="font-display font-semibold text-base whitespace-nowrap">{priceDisplay}</span>
+            {/* Allergènes — lien discret, n'ouvre pas la sélection */}
+            <button
+              type="button"
+              className="text-[11px] underline underline-offset-2 decoration-dotted"
+              style={{ color: "var(--ink-soft)" }}
+              aria-expanded={showAllergens}
+              onClick={(e) => { e.stopPropagation(); setShowAllergens((v) => !v) }}
+            >
+              ⓘ Allergènes
+            </button>
           </div>
-        )}
-      </div>
-      <div className="p-3">
-        <h4 className="font-semibold text-sm">{name}</h4>
-        {description && (
-          <p className="text-xs mt-0.5" style={{ color: "var(--ink-soft)" }}>
-            {description}
-          </p>
-        )}
 
-        {/* Allergen link */}
-        <button
-          className="text-[11px] mt-1 underline underline-offset-2 decoration-dotted"
-          style={{ color: "var(--ink-soft)" }}
-          onClick={(e) => {
-            e.stopPropagation()
-            setShowAllergens(!showAllergens)
-          }}
-        >
-          Allergènes
-        </button>
+          {showAllergens && (
+            <div className="mt-1 text-[11px] px-2 py-1 rounded-lg" style={{ background: "var(--bg-alt)" }} onClick={(e) => e.stopPropagation()}>
+              {allergenList
+                ? <span style={{ color: "var(--accent)" }}>{allergenList}</span>
+                : <span style={{ color: "var(--accent-2)" }}>Aucun allergène majeur</span>}
+            </div>
+          )}
 
-        {showAllergens && (
-          <div
-            className="mt-1 text-[11px] px-2 py-1 rounded-lg"
-            style={{ background: "var(--bg-alt)" }}
-          >
-            <strong>{name}</strong>
-            <br />
-            {allergenList ? (
-              <span style={{ color: "var(--accent)" }}>{allergenList}</span>
+          <div className="mt-auto pt-2">
+            {comingSoon ? (
+              <span className="pcard-btn text-xs" aria-hidden="true">{COMING_SOON_LABEL}</span>
             ) : (
-              <span style={{ color: "var(--accent-2)" }}>
-                Aucun allergène majeur
-              </span>
+              <span className="pcard-btn text-sm">{isMenuOnly ? "Via Menu" : ctaLabel}</span>
             )}
           </div>
-        )}
-
-        <div className="flex items-center justify-between mt-2 gap-2">
-          <span className="font-bold text-base whitespace-nowrap">{priceDisplay}</span>
-          <span
-            className="text-xs font-semibold px-2.5 py-1.5 rounded-lg text-white whitespace-nowrap"
-            style={{ background: disabled ? "var(--ink-soft)" : "var(--accent)" }}
-          >
-            {disabled ? "Indispo" : isMenuOnly ? "Via Menu" : "Ajouter"}
-          </span>
         </div>
       </div>
     </div>
