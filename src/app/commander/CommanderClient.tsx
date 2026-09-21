@@ -610,9 +610,9 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
           : "https://res.cloudinary.com/dbkpvp9ts/image/upload/v1776901351/Bento_3boulette_RIZ_POULET_carottes_cuites.png"
         return (
           <div className="px-4 mb-6">
-            <div ref={platRef} className={platPulse ? "ps-pulse" : undefined} onAnimationEnd={() => setPlatPulse(false)}>
-            {/* P0a #6 — titre section École en bleu */}
-            <h2 className="font-bold text-lg mb-1 text-center" style={{ color: "#1D4ED8" }}>Menu Panda du jour</h2>
+            <div ref={platRef}>
+            {/* P0a #6 — titre section École en bleu. PS-03b : pulsation sur le titre seul */}
+            <h2 className={`font-bold text-lg mb-1 text-center${platPulse ? " ps-pulse" : ""}`} style={{ color: "#1D4ED8" }} onAnimationEnd={() => setPlatPulse(false)}>Menu Panda du jour</h2>
             {/* UX 1 — sous-titre composition unifiée */}
             <p className="text-sm font-bold mb-1" style={{ color: "#B91C1C" }}>PLAT (au choix) + BOISSON DU JOUR + DESSERT DU JOUR</p>
             {bento && (
@@ -660,9 +660,10 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
             </div>
             {/* §3 — Swipe des plats inline, tous sur un pied d'égalité (bento inclus). Tap = ajout dans le Menu Panda à 10€.
                 PS-01 : cartes ProductCard compactes, coming_soon → grisé + badge, aucun onClick. */}
-            {/* PS-02 B4 — bloc ciblé par scrollIntoView + pulsation ×3 à la fermeture du toast */}
-            <div ref={platRef} className={platPulse ? "ps-pulse" : undefined} onAnimationEnd={() => setPlatPulse(false)}>
-              <h3 className="font-semibold text-base mb-2" style={{ color: "var(--ink)" }}>Choisis ton plat</h3>
+            {/* PS-02 B4 — bloc ciblé par scrollIntoView (block center) ; PS-03b : pulsation ×3 sur le TITRE seul,
+                titre centré, même style que « Ou juste un article seul » */}
+            <div ref={platRef}>
+              <h3 className={`font-semibold text-lg text-center mb-2${platPulse ? " ps-pulse" : ""}`} style={{ color: "var(--ink)" }} onAnimationEnd={() => setPlatPulse(false)}>Choisis ton plat</h3>
               <div className="pgrid">
                 {menuPlatItems.map((item) => (
                   <ProductCard key={item.id} id={item.id} name={item.name} description={item.description}
@@ -682,8 +683,8 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
         const mp = visFormulas.find((f) => f.code === "MENU_PANDA_GUEST")
         return (
           <div className="px-4 mb-6">
-            <div ref={platRef} className={platPulse ? "ps-pulse" : undefined} onAnimationEnd={() => setPlatPulse(false)}>
-            <h2 className="font-bold text-lg mb-1 text-center" style={{ color: "#1D4ED8" }}>Menu Panda du jour</h2>
+            <div ref={platRef}>
+            <h2 className={`font-bold text-lg mb-1 text-center${platPulse ? " ps-pulse" : ""}`} style={{ color: "#1D4ED8" }} onAnimationEnd={() => setPlatPulse(false)}>Menu Panda du jour</h2>
             {/* UX 1 — sous-titre composition unifiée */}
             <p className="text-sm font-bold mb-1" style={{ color: "#B91C1C" }}>PLAT (au choix) + BOISSON DU JOUR + DESSERT DU JOUR</p>
             {bento && (
