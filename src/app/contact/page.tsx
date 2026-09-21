@@ -2,7 +2,7 @@ import { NavbarServer } from "@/components/NavbarServer"
 
 export default async function ContactPage() {
   return (
-    <div className="min-h-screen pb-28 max-w-lg mx-auto">
+    <div className="min-h-screen pb-28 ps-page">
       <NavbarServer />
 
       <div className="px-4 pt-10 text-center">

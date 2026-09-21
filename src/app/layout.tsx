@@ -13,6 +13,12 @@ export const metadata: Metadata = {
   title: "Panda Snack — Commande en ligne",
   description: "Commande tes repas Panda Snack en ligne. Sandwichs, croques, pasta box, salades et boissons maison.",
   manifest: "/manifest.json",
+  // PS-02 — favicon + icône écran d'accueil = panda cuisto (src/app/icon.png, apple-icon.png,
+  // favicon.ico générés depuis public/icons/icon-512.png). Next émet aussi les <link> conventionnels.
+  icons: {
+    icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -28,14 +34,19 @@ export const viewport: Viewport = {
   userScalable: false,
 }
 
+// PS-02 — choix « Vue mobile / Vue ordinateur » (localStorage ps_layout, défaut 'mobile') appliqué
+// AVANT l'hydratation pour éviter tout flash : data-layout sur <html>, lu par globals.css (.ps-shell).
+const LAYOUT_BOOT = `try{var l=localStorage.getItem('ps_layout');document.documentElement.setAttribute('data-layout',l==='desktop'?'desktop':'mobile')}catch(e){document.documentElement.setAttribute('data-layout','mobile')}`
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
   return (
-    <html lang="fr" className={`h-full antialiased overflow-x-hidden ${fredoka.variable} ${nunito.variable}`}>
+    <html lang="fr" data-layout="mobile" suppressHydrationWarning className={`h-full antialiased overflow-x-hidden ${fredoka.variable} ${nunito.variable}`}>
       <body className="min-h-full flex flex-col overflow-x-hidden">
+        <script dangerouslySetInnerHTML={{ __html: LAYOUT_BOOT }} />
         <LayoutClient>{children}</LayoutClient>
       </body>
     </html>

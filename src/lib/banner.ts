@@ -16,3 +16,14 @@ export const SECTION_LABELS: Record<string, string> = {
 
 export const SNACK_SECTION = { title: "Un petit en-cas", emoji: "🍿" } as const
 export const COMING_SOON_LABEL = "Bientôt disponible !"
+
+// PS-02 — Toast pédagogique « Comment ça marche ? » (/commander) : auto 2 s après l'arrivée,
+// rappel via la pilule sous le bandeau. `key` = étape que les parents oublient (en premier, en gras).
+export const HOWTO_TITLE = "Comment ça marche ?"
+export const HOWTO_PILL = "Comment ça marche ?"
+export const HOWTO_STEPS: ReadonlyArray<{ icon: string; text: string; key?: boolean }> = [
+  { icon: "📅", text: "Choisis le JOUR de ton repas (mercredi ou samedi).", key: true },
+  { icon: "🍱", text: "Choisis ton plat : Menu Panda (plat + Bubble Tea + dessert) ou un article seul." },
+  { icon: "🥗", text: "Pour un sandwich ou un club : choisis tes crudités." },
+  { icon: "⏰", text: "Commande avant la veille 20h ; paiement en ligne ou sur place." },
+]
