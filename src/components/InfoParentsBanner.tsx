@@ -4,7 +4,9 @@ import { useEffect, useState } from "react"
 
 // PS-04 — Bandeau « Info parents » : commande la veille avant 20h. Visible par TOUS les parents à
 // chaque visite (aucun bouton fermer, aucun localStorage), juste sous le bandeau horaires (PS-03).
-// Même famille visuelle que RENTREE_BANNER, teinte ambre (--accent-3) pour se distinguer, icône ⏰.
+// Même famille visuelle que RENTREE_BANNER ; la distinction = icône ⏰ + contenu.
+// PS-04c — contraste : le couple du bandeau horaires (--accent #C85A3C / blanc) vaut 4,21:1 (< 4,5 AA),
+// donc fond sombre --ink (#3A2A20) + texte crème --bg (#FBF5EC) = 12,65:1 (tokens existants).
 // Disparaît automatiquement après INFO_PARENTS_UNTIL (date calendaire en heure Martinique, UTC-4).
 export const INFO_PARENTS_UNTIL = "2026-10-07"
 
@@ -29,9 +31,9 @@ export function InfoParentsBanner() {
 
   return (
     <section aria-label="Info parents" className="px-4 pb-4">
-      <div className="rounded-2xl px-4 py-4 text-center font-display" style={{ background: "var(--accent-3)", color: "var(--ink)", boxShadow: "0 2px 16px var(--shadow)" }}>
+      <div className="rounded-2xl px-4 py-4 text-center font-display" style={{ background: "var(--ink)", color: "var(--bg)", boxShadow: "0 2px 16px var(--shadow)" }}>
         <p className="font-semibold text-lg leading-snug"><span aria-hidden="true">⏰</span> {INFO_PARENTS.title}</p>
-        <p className="text-sm mt-1.5 font-normal" style={{ opacity: 0.92 }}>{INFO_PARENTS.body}</p>
+        <p className="text-sm mt-1.5 font-normal">{INFO_PARENTS.body}</p>
       </div>
     </section>
   )
