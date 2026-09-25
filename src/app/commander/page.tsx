@@ -1,6 +1,7 @@
 import { createServerSupabase } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { CommanderClient } from "./CommanderClient"
+import { destinationApresAuth } from "@/lib/profil-gate"
 
 export const dynamic = "force-dynamic"
 
@@ -22,6 +23,13 @@ export default async function CommanderPage() {
     .single()
 
   if (!account) redirect("/auth?error=no_account")
+
+  // PS-05c — garde d'entrée : pas de profil enfant commandable, pas de page de commande.
+  // C'est ici et pas dans le middleware : la garde exige deux lectures DB, que le runtime
+  // Edge paierait sur CHAQUE requête (assets et API compris). /commander est le seul point
+  // d'entrée de création de commande, la garde y suffit.
+  const dest = destinationApresAuth(account, account.profils || [], "/commander")
+  if (dest !== "/commander") redirect(dest)
 
   // Wallet (* inclut last_recharge_cents pour le pricing futur)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

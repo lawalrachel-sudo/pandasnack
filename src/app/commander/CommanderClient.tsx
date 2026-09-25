@@ -11,6 +11,7 @@ import { sauceCheckboxApplies, setSauceInNotes } from "@/lib/menu-options"
 import { visForSource as visForSourceShared, isMenuPlatSku } from "@/lib/visibility"
 import { RENTREE_BANNER, SECTION_LABELS, SNACK_SECTION, HOWTO_STEPS, HOWTO_TITLE, HOWTO_PILL } from "@/lib/banner"
 import { InfoParentsBanner } from "@/components/InfoParentsBanner"
+import { profilCommandable } from "@/lib/profil-gate"
 
 // ============================================================================
 // TYPES
@@ -32,7 +33,7 @@ interface CatalogItem {
 interface Category { id: string; name: string; emoji: string | null; sort_order: number; morning_available: boolean | null; catalog_items: CatalogItem[] }
 interface MenuFormula { id: string; code: string; name: string; description: string | null; price_cents: number; image_url: string | null; emoji: string | null; active: boolean; sort_order: number }
 interface Topping { id: string; name: string; emoji: string | null; active: boolean; sort_order: number; applies_to_category_ids: string[] | null }
-interface Profil { id: string; account_id: string; prenom: string; classe: Classe | null; metier: Metier; is_default: boolean; active: boolean; notes_allergies: string | null }
+interface Profil { id: string; account_id: string; prenom: string; classe: Classe | null; metier: Metier; is_default: boolean; active: boolean; notes_allergies: string | null; type_profil?: string | null; archived_at?: string | null }
 interface Account { id: string; nom_compte: string; email: string; source_group: SourceGroup | null; source_detail: string | null }
 interface Wallet { balance_cents: number }
 interface DeliveryPoint { id: string; name: string; address: string | null; delivery_time_local: string | null }
@@ -180,7 +181,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
     setAddInFlight(true)
     try {
       // selectedProfilId courant — find via profils (filter active inline)
-      const pr = profils.find((p) => p.active && p.id === selectedProfilId) || null
+      const pr = profils.find((p) => p.id === selectedProfilId && profilCommandable(p, sgToMetier(account.source_group))) || null
       const res = await fetch("/api/order-item", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -218,12 +219,14 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   const pageMetier = useMemo<Metier>(() => sgToMetier(account.source_group), [account.source_group])
   // Bug 2+3 — exclure le profil parent (classe NULL sur ecole/pandattitude). Sur panda_guest,
   // tout le monde commande (pas de notion parent/enfant). Le parent reste éditable via /mon-espace.
-  const activeProfils = useMemo(() => profils.filter((p) => {
-    if (!p.active) return false
-    if (p.metier !== pageMetier) return false
-    if (pageMetier === "panda_guest") return true
-    return !!p.classe  // ecole/pandattitude : seulement les profils avec classe/créneau renseigné
-  }), [profils, pageMetier])
+  // PS-05c — un seul prédicat, partagé avec la garde serveur (/commander, /auth/*) :
+  // profil actif, non archivé, du bon métier, type_profil='eleve' et classe appartenant
+  // au référentiel. Exclut le profil parent 'adulte' du trigger, même réactivé ou doté
+  // d'une classe en texte libre ('Pandattitude') par l'ancien éditeur admin.
+  const activeProfils = useMemo(
+    () => profils.filter((p) => profilCommandable(p, pageMetier)),
+    [profils, pageMetier]
+  )
   const selectedProfil = useMemo(() => {
     if (selectedProfilId) return activeProfils.find((p) => p.id === selectedProfilId) || activeProfils[0] || null
     return activeProfils.find((p) => p.is_default) || activeProfils[0] || null

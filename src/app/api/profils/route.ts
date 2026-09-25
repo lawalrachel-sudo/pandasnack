@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabase as createClient } from "@/lib/supabase/server"
+import { CLASSES_PAR_METIER, classeValidePourMetier, type Metier } from "@/lib/profil-gate"
 
 // POST — Ajouter un profil
 export async function POST(req: NextRequest) {
@@ -24,26 +25,45 @@ export async function POST(req: NextRequest) {
     return "ecole"
   })()
 
-  // Vérifier si c'est le premier profil de ce metier (sera default pour ce metier)
+  // PS-05c — `classe` doit appartenir au référentiel du métier (même garde qu'au PATCH) :
+  // une classe hors référentiel produirait un profil non commandable, donc invisible.
+  const classeNettoyee = typeof classe === "string" ? classe.trim() : classe
+  if (classeNettoyee && !classeValidePourMetier(String(classeNettoyee), derivedMetier as Metier)) {
+    return NextResponse.json({
+      error: `Classe invalide. Valeurs attendues : ${CLASSES_PAR_METIER[derivedMetier as Metier].join(", ") || "aucune"}.`,
+    }, { status: 400 })
+  }
+
+  // PS-05c — `is_default` se décide sur les profils DÉJÀ marqués par défaut pour ce
+  // métier, pas sur le nombre de profils actifs. Le trigger de création de compte pose
+  // un profil parent `is_default = true` (inactif) : l'ancien calcul repassait donc
+  // `is_default: true` sur un compte neuf et entrait en collision avec lui.
   const { count } = await supabase
     .from("profils").select("id", { count: "exact", head: true })
-    .eq("account_id", account.id).eq("metier", derivedMetier).eq("active", true)
+    .eq("account_id", account.id).eq("metier", derivedMetier)
+    .eq("is_default", true).is("archived_at", null)
 
   const { data: profil, error } = await supabase
     .from("profils")
     .insert({
       account_id: account.id,
       prenom: prenom.trim(),
-      classe: classe || null,
+      classe: classeNettoyee || null,
       notes_allergies: notes_allergies || null,
       metier: derivedMetier,
+      // Panda Guest = le parent commande pour lui-même ; sinon on crée un profil enfant.
+      type_profil: derivedMetier === "panda_guest" ? "adulte" : "eleve",
       is_default: (count || 0) === 0,
       active: true,
     })
-    .select("id, prenom, metier")
+    .select("id, prenom, metier, classe, active, type_profil")
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error("[profils][POST]", error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+  if (!profil) return NextResponse.json({ error: "Profil non créé" }, { status: 500 })
   return NextResponse.json({ success: true, profil })
 }
 
@@ -63,20 +83,55 @@ export async function PATCH(req: NextRequest) {
 
   // Vérifier que le profil appartient à ce compte
   const { data: existing } = await supabase
-    .from("profils").select("id").eq("id", profilId).eq("account_id", account.id).single()
+    .from("profils").select("id, metier, type_profil").eq("id", profilId).eq("account_id", account.id).maybeSingle()
   if (!existing) return NextResponse.json({ error: "Profil introuvable" }, { status: 404 })
 
+  const metier: Metier = existing.metier === "ecole" || existing.metier === "panda_guest"
+    ? existing.metier
+    : "pandattitude"
+
   const allowedFields: Record<string, unknown> = {}
-  if ("active" in updates) allowedFields.active = updates.active
+  if ("active" in updates) {
+    // PS-05c — le profil « parent » (type_profil = 'adulte') créé par le trigger de
+    // création de compte ne doit jamais devenir commandable sur École / Pandattitude :
+    // un compte avait passé commande dessus après une réactivation (audit PS-05).
+    if (updates.active === true && metier !== "panda_guest" && existing.type_profil !== "eleve") {
+      return NextResponse.json({
+        error: "Ce profil est le profil du compte parent : il ne peut pas être activé pour commander. Ajoute un profil enfant.",
+      }, { status: 400 })
+    }
+    allowedFields.active = updates.active
+  }
   if ("prenom" in updates) allowedFields.prenom = updates.prenom
-  if ("classe" in updates) allowedFields.classe = updates.classe
+  if ("classe" in updates) {
+    const v = updates.classe
+    const classe = typeof v === "string" ? v.trim() : v
+    // Même référentiel que la garde de commande : pas de classe en texte libre.
+    if (classe !== null && classe !== "" && !classeValidePourMetier(String(classe), metier)) {
+      return NextResponse.json({
+        error: `Classe invalide. Valeurs attendues : ${CLASSES_PAR_METIER[metier].join(", ") || "aucune"}.`,
+      }, { status: 400 })
+    }
+    allowedFields.classe = classe === "" ? null : classe
+  }
   if ("notes_allergies" in updates) allowedFields.notes_allergies = updates.notes_allergies
 
-  const { error } = await supabase
-    .from("profils").update(allowedFields).eq("id", profilId)
+  if (Object.keys(allowedFields).length === 0) {
+    return NextResponse.json({ error: "Aucun champ à modifier" }, { status: 400 })
+  }
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ success: true })
+  const { data: patched, error } = await supabase
+    .from("profils").update(allowedFields).eq("id", profilId).eq("account_id", account.id)
+    .select("id, active, classe")
+
+  if (error) {
+    console.error("[profils][PATCH]", error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+  if (!patched || patched.length === 0) {
+    return NextResponse.json({ error: "Profil non modifié" }, { status: 409 })
+  }
+  return NextResponse.json({ success: true, profil: patched[0] })
 }
 
 // DELETE — Soft delete (archived_at = NOW), avec garde-fou ≥ 1 profil non archivé
