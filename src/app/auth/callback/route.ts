@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { destinationApresAuth } from '@/lib/profil-gate'
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
@@ -29,18 +30,26 @@ export async function GET(request: Request) {
 
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      // Vérifier si le compte existe déjà
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
+        // PS-05c — la destination ne se décide plus sur `source_group` (posé par le
+        // trigger de création de compte, donc toujours rempli : tout le monde filait
+        // sur /commander sans jamais voir l'onboarding), mais sur la présence d'un
+        // profil enfant réellement commandable.
         const { data: account } = await supabase
           .from('accounts')
-          .select('id, source_group')
+          .select('id, source_group, telephone, cgu_accepted_at')
           .eq('auth_user_id', user.id)
-          .single()
+          .maybeSingle()
 
-        // Nouveau user (source_group pas encore choisi) → onboarding
-        const dest = (account && account.source_group && account.source_group !== 'divers') ? next : '/onboarding'
-        return NextResponse.redirect(`${origin}${dest}`)
+        const { data: profils } = account
+          ? await supabase
+              .from('profils')
+              .select('active, classe, metier, type_profil, archived_at')
+              .eq('account_id', account.id)
+          : { data: [] }
+
+        return NextResponse.redirect(`${origin}${destinationApresAuth(account, profils, next)}`)
       }
       return NextResponse.redirect(`${origin}${next}`)
     }

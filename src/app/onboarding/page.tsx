@@ -1,6 +1,7 @@
 import { createServerSupabase } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { OnboardingClient } from "./OnboardingClient"
+import { destinationApresAuth } from "@/lib/profil-gate"
 
 export const dynamic = "force-dynamic"
 
@@ -13,15 +14,20 @@ export default async function OnboardingPage() {
 
   if (!user) redirect("/auth")
 
-  // Si le compte existe déjà, on va direct à /commander
+  // PS-05c — on ne renvoie vers /commander que si le parent a VRAIMENT un profil enfant
+  // commandable. L'ancien test portait sur `source_group`, que le trigger de création de
+  // compte remplit systématiquement : l'onboarding était donc inaccessible, y compris
+  // pour qui y venait à la main.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: account } = await (supabase as any)
     .from("accounts")
-    .select("id, source_group")
+    .select("id, source_group, telephone, cgu_accepted_at, profils(active, classe, metier, type_profil, archived_at)")
     .eq("auth_user_id", user.id)
-    .single()
+    .maybeSingle()
 
-  if (account && account.source_group && account.source_group !== 'divers') redirect("/commander")
+  if (account && destinationApresAuth(account, account.profils || [], "/commander") === "/commander") {
+    redirect("/commander")
+  }
 
   // Données user pour pré-remplir
   const prenom = user.user_metadata?.prenom || ""

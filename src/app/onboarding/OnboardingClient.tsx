@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { Logo } from '@/components/Logo'
 import { CURRENT_CGU_VERSION } from '@/lib/legal'
 import { ENABLED_SOURCE_GROUPS, type SourceGroup } from '@/lib/visibility'
+import type { EleveProposable } from '@/lib/eleves-connus'
 
 // PS-01 — Publics proposés à l'inscription. Un seul public → l'étape de choix est SUPPRIMÉE
 // (source_group posé directement, on démarre à l'étape profils). Le code École La Patience /
@@ -52,6 +53,49 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // PS-05c — élèves déjà inscrits rattachés à l'e-mail du compte (lus en service_role
+  // par /api/eleves-connus ; la table n'est pas lisible depuis le navigateur).
+  const [eleves, setEleves] = useState<EleveProposable[] | null>(null)   // null = chargement
+  const [annee, setAnnee] = useState<string | null>(null)
+  const [elevesErr, setElevesErr] = useState<string | null>(null)
+  const [coches, setCoches] = useState<Record<string, boolean>>({})
+  const [creneaux, setCreneaux] = useState<Record<string, string>>({})
+  // Saisie manuelle : systématique quand aucun élève connu, sinon sur demande.
+  const [saisieManuelle, setSaisieManuelle] = useState(false)
+
+  useEffect(() => {
+    let annule = false
+    ;(async () => {
+      try {
+        const res = await fetch('/api/eleves-connus')
+        const data = await res.json()
+        if (annule) return
+        if (!res.ok) {
+          setElevesErr(data.error || 'Liste des élèves indisponible.')
+          setEleves([])
+          setSaisieManuelle(true)
+          return
+        }
+        const list: EleveProposable[] = data.eleves || []
+        setEleves(list)
+        setAnnee(data.annee || null)
+        // Pré-cochage : tous les enfants trouvés sont proposés cochés.
+        setCoches(Object.fromEntries(list.map((e) => [e.id, true])))
+        setCreneaux(Object.fromEntries(list.map((e) => [e.id, e.classe || ''])))
+        if (list.length === 0) setSaisieManuelle(true)
+      } catch {
+        if (annule) return
+        setElevesErr('Liste des élèves indisponible (réseau).')
+        setEleves([])
+        setSaisieManuelle(true)
+      }
+    })()
+    return () => { annule = true }
+  }, [])
+
+  const elevesCoches = (eleves || []).filter((e) => coches[e.id])
+  const profilsManuelsRemplis = profils.filter((p) => p.prenom.trim())
+
   // === ÉTAPE 1 : Choix du type ===
   function handleChooseType(type: SourceGroup) {
     setSourceGroup(type)
@@ -94,20 +138,38 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
       setError('Merci de renseigner ton numéro de téléphone.')
       return false
     }
-    for (let i = 0; i < profils.length; i++) {
-      if (!profils[i].prenom.trim()) {
-        setError(`Merci de renseigner le prénom du profil ${i + 1}.`)
-        return false
-      }
-      if (sourceGroup === 'ecole_la_patience' && !profils[i].classe) {
-        setError(`Merci de choisir la classe pour ${profils[i].prenom}.`)
-        return false
-      }
-      if (sourceGroup === 'pandattitude' && !profils[i].classe) {
-        setError(`Merci de choisir le créneau (Mer/Ven/Sam) pour ${profils[i].prenom}.`)
+
+    // PS-05c — au moins un enfant : coché dans la liste des élèves connus, ou saisi à la main.
+    if (elevesCoches.length === 0 && profilsManuelsRemplis.length === 0) {
+      setError(
+        (eleves || []).length > 0
+          ? 'Coche au moins un enfant, ou ajoute-le à la main.'
+          : 'Merci de renseigner au moins un enfant.'
+      )
+      return false
+    }
+
+    // Créneau obligatoire pour chaque élève coché dont la liste ne donne pas le créneau.
+    for (const e of elevesCoches) {
+      if (!creneaux[e.id]) {
+        setError(`Merci de choisir le créneau (Mer/Ven/Sam) pour ${e.prenom}.`)
         return false
       }
     }
+
+    // Les profils saisis à la main sont validés comme avant. Un profil totalement vide
+    // est simplement ignoré (le parent a pu ouvrir le bloc sans s'en servir).
+    for (const p of profilsManuelsRemplis) {
+      if (sourceGroup === 'ecole_la_patience' && !p.classe) {
+        setError(`Merci de choisir la classe pour ${p.prenom}.`)
+        return false
+      }
+      if (sourceGroup === 'pandattitude' && !p.classe) {
+        setError(`Merci de choisir le créneau (Mer/Ven/Sam) pour ${p.prenom}.`)
+        return false
+      }
+    }
+
     if (!acceptCgu) {
       setError('Tu dois accepter les CGU/CGV pour continuer.')
       return false
@@ -149,24 +211,48 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
         .single()
 
       if (accErr) throw accErr
+      if (!account?.id) throw new Error("Le compte n'a pas pu être mis à jour.")
 
-      // 2. Créer les profils — metier dérivé du sourceGroup choisi étape 1
-      const metier: Metier = sgToMetier(sourceGroup!)
-      const profilRows = profils.map((p, i) => ({
-        account_id: account.id,
-        prenom: p.prenom.trim(),
-        classe: p.classe,
-        metier,
-        notes_allergies: p.notes_allergies.trim() || null,
-        is_default: i === 0,
-      }))
+      // 2. Créer les profils enfants.
+      //
+      // PS-05c — l'insert direct depuis le navigateur (ancien code) échouait sans
+      // qu'on sache pourquoi : les deux chemins passent désormais par des routes
+      // serveur qui vérifient l'erreur Postgres et la renvoient au parent.
+      //   a) élèves cochés dans la liste officielle → /api/eleves-connus (service_role)
+      //   b) profils saisis à la main               → /api/profils
+      let crees = 0
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: profErr } = await (supabase as any)
-        .from('profils')
-        .insert(profilRows)
+      if (elevesCoches.length > 0) {
+        const res = await fetch('/api/eleves-connus', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            eleves: elevesCoches.map((e) => ({ id: e.id, classe: creneaux[e.id] || e.classe })),
+          }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data.error || "Création des profils impossible.")
+        crees += data.created || 0
+      }
 
-      if (profErr) throw profErr
+      for (const p of profilsManuelsRemplis) {
+        const res = await fetch('/api/profils', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prenom: p.prenom.trim(),
+            classe: p.classe,
+            notes_allergies: p.notes_allergies.trim() || null,
+          }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data.error || `Création du profil ${p.prenom} impossible.`)
+        crees += 1
+      }
+
+      // Garde-fou : on ne laisse plus partir un parent vers /commander sans profil
+      // utilisable — c'était exactement le scénario « 0 commande » de l'audit PS-05.
+      if (crees === 0) throw new Error("Aucun profil n'a été créé. Réessaie ou contacte-nous.")
 
       // 3. Wallet déjà créé par le trigger DB — pas besoin d'insert
 
@@ -302,8 +388,78 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
               />
             </label>
 
-            {/* Profils */}
-            {profils.map((p, i) => (
+            {/* ---- PS-05c : élèves déjà inscrits rattachés à cet e-mail ---- */}
+            {eleves === null && (
+              <p style={{ ...S.subtitle, margin: '4px 0 12px' }}>Recherche de tes enfants inscrits…</p>
+            )}
+
+            {eleves !== null && eleves.length > 0 && (
+              <div style={S.elevesBlock}>
+                <h3 style={S.elevesTitle}>Vos enfants inscrits</h3>
+                <p style={S.elevesHint}>
+                  Trouvés sur la liste {annee ? `${annee} ` : ''}avec l&apos;adresse <strong>{email}</strong>.
+                  Décoche ceux qui ne mangent pas au Panda Snack.
+                </p>
+                {eleves.map((e) => (
+                  <div key={e.id} style={S.eleveRow}>
+                    <label style={S.eleveLabel}>
+                      <input
+                        type="checkbox"
+                        checked={!!coches[e.id]}
+                        onChange={(ev) => setCoches({ ...coches, [e.id]: ev.target.checked })}
+                        style={S.checkbox}
+                      />
+                      <span>
+                        <strong>{e.prenom}</strong>
+                        {e.nom && <span style={{ color: '#6B5742' }}> {e.nom}</span>}
+                      </span>
+                    </label>
+
+                    {/* Créneau : pré-rempli depuis la liste, à choisir si la liste ne le donne pas. */}
+                    {coches[e.id] && classeOptionsForMetier.length > 0 && (
+                      <label style={{ ...S.label, marginTop: 6 }}>
+                        Créneau cours dessin
+                        <select
+                          value={creneaux[e.id] || ''}
+                          onChange={(ev) => setCreneaux({ ...creneaux, [e.id]: ev.target.value })}
+                          style={S.input}
+                        >
+                          <option value="">Choisir…</option>
+                          {classeOptionsForMetier.map((c) => (
+                            <option key={c} value={c}>{classeLabels[c]}</option>
+                          ))}
+                        </select>
+                        {!e.classe && e.classeSource && (
+                          <span style={{ fontSize: 12, color: '#9B8A75' }}>
+                            Liste : « {e.classeSource} » — confirme le créneau.
+                          </span>
+                        )}
+                      </label>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {eleves !== null && eleves.length === 0 && (
+              <div style={S.elevesBlock}>
+                <p style={{ ...S.elevesHint, margin: 0 }}>
+                  {elevesErr
+                    ? elevesErr
+                    : `Aucun élève inscrit cette année à cette adresse (${email}). Ajoute ton enfant ci-dessous.`}
+                </p>
+              </div>
+            )}
+
+            {/* Bascule vers la saisie manuelle quand des élèves ont été trouvés */}
+            {eleves !== null && eleves.length > 0 && !saisieManuelle && (
+              <button onClick={() => setSaisieManuelle(true)} style={S.addBtn}>
+                + Ajouter un enfant qui n&apos;est pas dans la liste
+              </button>
+            )}
+
+            {/* Profils saisis à la main */}
+            {saisieManuelle && profils.map((p, i) => (
               <div key={i} style={S.profilCard}>
                 <div style={S.profilHeader}>
                   <span style={{ fontWeight: 700, color: '#3A2A20', fontSize: 14 }}>
@@ -373,7 +529,7 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
             ))}
 
             {/* Bouton ajouter profil (pas pour guest) */}
-            {sourceGroup !== 'panda_guest' && (
+            {saisieManuelle && sourceGroup !== 'panda_guest' && (
               <button onClick={addProfil} style={S.addBtn}>
                 + Ajouter un profil
               </button>
@@ -459,10 +615,24 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
             </div>
 
             <h3 style={{ fontSize: 14, fontWeight: 700, color: '#3A2A20', margin: '16px 0 8px' }}>
-              {sourceGroup === 'panda_guest' ? 'Ton profil' : `Profil${profils.length > 1 ? 's' : ''} (${profils.length})`}
+              {sourceGroup === 'panda_guest'
+                ? 'Ton profil'
+                : `Profil${elevesCoches.length + profilsManuelsRemplis.length > 1 ? 's' : ''} (${elevesCoches.length + profilsManuelsRemplis.length})`}
             </h3>
-            {profils.map((p, i) => (
-              <div key={i} style={S.recapProfil}>
+            {elevesCoches.map((e) => (
+              <div key={e.id} style={S.recapProfil}>
+                <strong>{e.prenom}</strong>
+                {e.nom && <span style={{ color: '#6B5742' }}> {e.nom}</span>}
+                {creneaux[e.id] && (
+                  <span style={{ color: '#6B5742' }}>
+                    {' '}
+                    — {classeLabels[creneaux[e.id] as Classe] || creneaux[e.id]}
+                  </span>
+                )}
+              </div>
+            ))}
+            {profilsManuelsRemplis.map((p, i) => (
+              <div key={`m${i}`} style={S.recapProfil}>
                 <strong>{p.prenom}</strong>
                 {p.classe && (
                   <span style={{ color: '#6B5742' }}>
@@ -604,6 +774,40 @@ const S: Record<string, React.CSSProperties> = {
     padding: '14px 16px',
     marginBottom: 10,
     background: '#FEFBF7',
+  },
+  // PS-05c — bloc « Vos enfants inscrits »
+  elevesBlock: {
+    border: '1px solid #C85A3C',
+    borderRadius: 14,
+    padding: '14px 16px',
+    marginBottom: 12,
+    background: '#FEF3E2',
+  },
+  elevesTitle: {
+    fontSize: 15,
+    fontWeight: 800,
+    color: '#3A2A20',
+    margin: '0 0 4px',
+  },
+  elevesHint: {
+    fontSize: 13,
+    color: '#6B5742',
+    lineHeight: 1.45,
+    margin: '0 0 10px',
+  },
+  eleveRow: {
+    borderTop: '1px solid #F0DCC4',
+    paddingTop: 10,
+    marginTop: 10,
+  },
+  eleveLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    fontSize: 15,
+    color: '#3A2A20',
+    minHeight: 44,
+    cursor: 'pointer',
   },
   profilHeader: {
     display: 'flex',

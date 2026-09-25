@@ -15,21 +15,21 @@ export default async function ConfirmationPage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/connexion")
 
-  // Niveau 1 fix multi-checkout : marquer TOUTES les orders rattachées à cette session
-  // paid (pas juste celle dans ?order=). En multi, la session Stripe couvre N orders mais
-  // success_url ne référence qu'une (firstOrderId) — sans ce filtre par session_id, les N-1
-  // autres restaient pending alors que Stripe avait bien encaissé l'intégralité.
-  // Idempotence garantie par .eq("status","pending_payment") : un refresh ne re-trigge rien.
-  if (params.session_id && params.session_id !== "SIMULATED_TEST" && params.session_id !== "SIMULATED_TEST_MULTI") {
-    await supabase.from("orders").update({
-      status: "paid",
-      paid_at: new Date().toISOString(),
-    })
-    .eq("stripe_checkout_session_id", params.session_id)
-    .eq("status", "pending_payment")
-  }
+  // PS-05c — cette page est en LECTURE SEULE.
+  //
+  // Elle passait auparavant une commande en `paid` à partir du seul `?session_id=` de
+  // l'URL, sans rien vérifier auprès de Stripe : revenir sur l'URL de succès après avoir
+  // abandonné le paiement suffisait à obtenir une commande payée (audit PS-05).
+  // Le webhook Stripe (`/api/stripe/webhook`, signature vérifiée) est désormais la seule
+  // source d'un passage à `paid`. Si le webhook n'est pas encore arrivé, la page affiche
+  // simplement « en attente de paiement ».
 
-  // Récupérer la commande + items
+  const { data: account } = await supabase
+    .from("accounts").select("id").eq("auth_user_id", user.id).maybeSingle()
+  if (!account) redirect("/onboarding")
+
+  // Récupérer la commande + items — bornée au compte connecté : un id de commande
+  // appartenant à un autre parent ne doit rien révéler.
   const { data: order } = await supabase
     .from("orders")
     .select(`
@@ -38,7 +38,8 @@ export default async function ConfirmationPage({
       service_slots!inner(service_date, day_type, delivery_points(name))
     `)
     .eq("id", orderId)
-    .single()
+    .eq("account_id", account.id)
+    .maybeSingle()
 
   if (!order) redirect("/commander")
 

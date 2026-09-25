@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { Navbar } from "@/components/Navbar"
 import { HeaderMetier } from "@/components/HeaderMetier"
+import type { EleveProposable } from "@/lib/eleves-connus"
 
 const WALLET_IMG = "https://res.cloudinary.com/dbkpvp9ts/image/upload/v1776714727/PANDA_WALLET.jpg"
 // BUG B — labels classe scolaires + créneaux pandattitude
@@ -37,7 +38,7 @@ function EyeIcon({ open }: { open: boolean }) {
   )
 }
 
-interface Profil { id: string; prenom: string; classe: string | null; metier: string; is_default: boolean; active: boolean; notes_allergies: string | null }
+interface Profil { id: string; prenom: string; classe: string | null; metier: string; is_default: boolean; active: boolean; notes_allergies: string | null; type_profil?: string | null }
 interface WalletTx { id: string; type: string; amount_cents: number; balance_after_cents: number; description: string | null; created_at: string }
 
 interface Props {
@@ -112,6 +113,51 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
   const activeProfils = profils.filter(p => p.active)
   const inactiveProfils = profils.filter(p => !p.active)
 
+  // PS-05c — « Ajouter un enfant » : on propose d'abord les élèves de la liste officielle
+  // rattachés à l'e-mail du compte et pas encore ajoutés. Saisie manuelle en repli.
+  const [eleves, setEleves] = useState<EleveProposable[] | null>(null)
+  const [coches, setCoches] = useState<Record<string, boolean>>({})
+  const [creneaux, setCreneaux] = useState<Record<string, string>>({})
+  const [elevesMsg, setElevesMsg] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (tab !== "profils" || eleves !== null) return
+    let annule = false
+    ;(async () => {
+      try {
+        const res = await fetch("/api/eleves-connus")
+        const data = await res.json()
+        if (annule) return
+        const list: EleveProposable[] = res.ok ? data.eleves || [] : []
+        setEleves(list)
+        setCoches(Object.fromEntries(list.map(e => [e.id, true])))
+        setCreneaux(Object.fromEntries(list.map(e => [e.id, e.classe || ""])))
+      } catch {
+        if (!annule) setEleves([])
+      }
+    })()
+    return () => { annule = true }
+  }, [tab, eleves])
+
+  async function addElevesConnus() {
+    const choisis = (eleves || []).filter(e => coches[e.id])
+    if (choisis.length === 0) { setElevesMsg("Coche au moins un enfant."); return }
+    const sansCreneau = choisis.find(e => !creneaux[e.id])
+    if (sansCreneau) { setElevesMsg(`Choisis le créneau pour ${sansCreneau.prenom}.`); return }
+    setSaving(true)
+    setElevesMsg(null)
+    try {
+      const res = await fetch("/api/eleves-connus", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eleves: choisis.map(e => ({ id: e.id, classe: creneaux[e.id] })) }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) window.location.reload()
+      else setElevesMsg(data.error || "Erreur lors de l'ajout")
+    } catch { setElevesMsg("Erreur réseau") }
+    setSaving(false)
+  }
+
   async function addProfil() {
     if (!newPrenom.trim()) return
     setSaving(true)
@@ -128,7 +174,9 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
 
   async function toggleProfil(profilId: string, active: boolean) {
     const res = await fetch("/api/profils", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ profilId, active }) })
-    if (res.ok) window.location.reload()
+    if (res.ok) { window.location.reload(); return }
+    const data = await res.json().catch(() => ({}))
+    alert(data.error || "Erreur lors de la modification du profil")
   }
 
   async function saveField(field: "phone" | "nom_compte") {
@@ -275,16 +323,67 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
               {inactiveProfils.map(p => (
                 <div key={p.id} className="flex items-center justify-between py-2 px-3 rounded-lg mb-1" style={{ background: "var(--bg-alt)" }}>
                   <span className="text-sm" style={{ color: "var(--ink-soft)" }}>{p.prenom}</span>
-                  <button onClick={() => toggleProfil(p.id, true)} className="text-xs font-medium" style={{ color: "var(--accent)" }}>Réactiver</button>
+                  {/* PS-05c — le profil du compte parent n'est pas réactivable : il ne
+                      commande pas. Seuls les profils enfants peuvent l'être. */}
+                  {p.type_profil === "eleve" || account.source_group === "panda_guest" ? (
+                    <button onClick={() => toggleProfil(p.id, true)} className="text-xs font-medium" style={{ color: "var(--accent)" }}>Réactiver</button>
+                  ) : (
+                    <span className="text-[11px]" style={{ color: "var(--ink-soft)" }}>profil du compte</span>
+                  )}
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* PS-05c — élèves inscrits pas encore ajoutés au compte */}
+          {eleves && eleves.length > 0 && (
+            <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: "var(--accent)", background: "#FEF3E2" }}>
+              <h3 className="font-bold text-sm">Enfants inscrits cette année</h3>
+              <p className="text-xs" style={{ color: "var(--ink-soft)" }}>
+                Trouvés sur la liste avec ton adresse. Coche ceux à ajouter.
+              </p>
+              {eleves.map(e => (
+                <div key={e.id} className="pt-2 border-t" style={{ borderColor: "#F0DCC4" }}>
+                  <label className="flex items-center gap-3 min-h-11 text-sm cursor-pointer">
+                    <input type="checkbox" checked={!!coches[e.id]} className="w-5 h-5"
+                      onChange={ev => setCoches({ ...coches, [e.id]: ev.target.checked })} />
+                    <span><strong>{e.prenom}</strong>{e.nom && <span style={{ color: "var(--ink-soft)" }}> {e.nom}</span>}</span>
+                  </label>
+                  {coches[e.id] && account.source_group !== "panda_guest" && (
+                    <label className="block">
+                      <span className="text-xs font-medium" style={{ color: "var(--ink-soft)" }}>
+                        {account.source_group === "pandattitude" ? "Créneau cours dessin" : "Classe"}
+                      </span>
+                      <select value={creneaux[e.id] || ""} onChange={ev => setCreneaux({ ...creneaux, [e.id]: ev.target.value })}
+                        className="w-full mt-1 h-11 px-3 rounded-lg border text-sm"
+                        style={{ borderColor: "var(--border)", background: "var(--bg)" }}>
+                        <option value="">— choisir —</option>
+                        <option value="mercredi">Mercredi</option>
+                        <option value="vendredi">Vendredi</option>
+                        <option value="samedi">Samedi</option>
+                      </select>
+                      {!e.classe && e.classeSource && (
+                        <span className="text-xs" style={{ color: "var(--ink-soft)" }}>
+                          Liste : « {e.classeSource} » — confirme le créneau.
+                        </span>
+                      )}
+                    </label>
+                  )}
+                </div>
+              ))}
+              {elevesMsg && <p className="text-xs" style={{ color: "#DC2626" }}>{elevesMsg}</p>}
+              <button onClick={addElevesConnus} disabled={saving}
+                className="w-full h-11 rounded-lg font-semibold text-white text-sm disabled:opacity-50"
+                style={{ background: "var(--accent)" }}>
+                {saving ? "..." : "Ajouter au compte"}
+              </button>
             </div>
           )}
 
           {!showAddProfil ? (
             <button onClick={() => setShowAddProfil(true)} className="w-full h-12 rounded-xl font-semibold border border-dashed text-sm"
               style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>
-              + Ajouter un profil
+              {eleves && eleves.length > 0 ? "+ Ajouter un enfant hors liste" : "+ Ajouter un enfant"}
             </button>
           ) : (
             <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: "var(--accent)", background: "var(--card)" }}>

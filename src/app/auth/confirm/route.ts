@@ -1,6 +1,7 @@
 import { createServerSupabase } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import { type EmailOtpType } from "@supabase/supabase-js"
+import { destinationApresAuth } from "@/lib/profil-gate"
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
@@ -20,16 +21,24 @@ export async function GET(request: Request) {
 
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        // FIX BUG 3: select id ET source_group (avant: select('id') seul → source_group toujours undefined)
+        // PS-05c — même règle que /auth/callback : c'est la présence d'un profil enfant
+        // commandable qui décide, pas `source_group` (toujours posé par le trigger).
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: account } = await (supabase as any)
           .from('accounts')
-          .select('id, source_group')
+          .select('id, source_group, telephone, cgu_accepted_at')
           .eq('auth_user_id', user.id)
-          .single()
+          .maybeSingle()
 
-        const dest = (account && account.source_group && account.source_group !== 'divers') ? next : '/onboarding'
-        return NextResponse.redirect(`${origin}${dest}`)
+        const { data: profils } = account
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ? await (supabase as any)
+              .from('profils')
+              .select('active, classe, metier, type_profil, archived_at')
+              .eq('account_id', account.id)
+          : { data: [] }
+
+        return NextResponse.redirect(`${origin}${destinationApresAuth(account, profils, next)}`)
       }
       return NextResponse.redirect(`${origin}${next}`)
     }
