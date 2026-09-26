@@ -10,7 +10,7 @@ export default async function CGUPage() {
 
           <h2 className="text-base font-bold mt-6 mb-2">1. Accès au service</h2>
           <p className="text-sm mb-3">
-            L&apos;accès à pandasnack.vercel.app est réservé aux familles enregistrées auprès de Panda Snack.
+            L&apos;accès à pandasnack.online est réservé aux familles enregistrées auprès de Panda Snack.
             La connexion se fait par lien magique envoyé par email.
           </p>
 
@@ -49,7 +49,7 @@ export default async function CGUPage() {
           </p>
 
           <p className="text-xs mt-8" style={{ color: 'var(--ink-soft)' }}>
-            Dernière mise à jour : 17 avril 2026 · La Tribe Corp SARL · Martinique
+            Dernière mise à jour : 26 septembre 2026 · La Tribe Corp SARL · Martinique
           </p>
         </div>
       </div>
