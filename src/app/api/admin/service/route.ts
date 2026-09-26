@@ -80,6 +80,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: ordErr.message }, { status: 500 })
   }
 
+  // PS-06c-b — résolution des toppings (id → nom) pour afficher les options (carottes, piment…).
+  const { data: toppingsRef } = await admin.from("toppings").select("id, name")
+  const topName: Record<string, string> = Object.fromEntries(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (toppingsRef || []).map((t: any) => [t.id, t.name])
+  )
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const orders = (ordersRaw || []).map((o: any) => {
     const items = (o.order_items || [])
@@ -105,16 +112,21 @@ export async function GET(req: NextRequest) {
       parent_nom: o.accounts?.nom_compte || null,
       parent_telephone: o.accounts?.telephone || null,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      items: items.map((it: any) => ({
-        notes: it.notes,
-        menu_formula_name: it.menu_formulas?.name || null,
-        catalog_item_name: it.catalog_items?.name || null,
-        catalog_item_sku: it.catalog_items?.sku || null,
-        category_id: it.catalog_items?.category_id || null,
-        allergens: it.catalog_items?.allergens || [],
-        qty: it.quantity || 1,
-        has_sauce: notesHaveSauce(it.notes),
-      })),
+      items: items.map((it: any) => {
+        const ids: string[] = it.topping_ids || it.formula_choices?.toppings || []
+        const toppings = ids.map((id) => topName[id]).filter(Boolean)
+        return {
+          notes: it.notes,
+          menu_formula_name: it.menu_formulas?.name || null,
+          catalog_item_name: it.catalog_items?.name || null,
+          catalog_item_sku: it.catalog_items?.sku || null,
+          category_id: it.catalog_items?.category_id || null,
+          allergens: it.catalog_items?.allergens || [],
+          qty: it.quantity || 1,
+          toppings,
+          has_sauce: notesHaveSauce(it.notes) || toppings.some((n) => /sauce\s*piment|piment/i.test(n)),
+        }
+      }),
     }
   })
 

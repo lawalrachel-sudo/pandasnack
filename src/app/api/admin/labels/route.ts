@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabase } from "@/lib/supabase/server"
 import { requireAdmin, SOURCE_LABELS } from "@/lib/auth/admin"
 import { getSupabaseAdmin } from "@/lib/supabase/admin"
-import { notesHaveSauce, SAUCE_PIMENT_NOTE } from "@/lib/menu-options"
+import { notesHaveSauce } from "@/lib/menu-options"
+import { isProduction, composeItemLabel } from "@/lib/service-du-jour"
 
 export const dynamic = "force-dynamic"
 
@@ -60,6 +61,11 @@ export async function GET(req: NextRequest) {
   }
   const sourceGroup = sp.get("source_group")
 
+  // PS-06c — on récupère TOUTES les commandes du jour (tous statuts) et on applique en JS
+  // EXACTEMENT le prédicat « à préparer » de Service du jour (isProduction + hors is_test),
+  // au lieu de dédoubler le filtre en chaîne PostgREST `.or(...)`. Les deux vues ne peuvent
+  // plus diverger (bug Sofia du 26/09 : une étiquette manquante alors que la commande
+  // figurait bien au Service du jour).
   let query = admin
     .from("orders")
     .select(`
@@ -74,18 +80,28 @@ export async function GET(req: NextRequest) {
       )
     `)
     .eq("service_slots.service_date", serviceDate)
-    // §7 — les étiquettes incluent les "sur place" non encaissées (production cuisine)
-    .or("status.eq.paid,and(status.eq.pending_payment,payment_method.eq.on_site)")
 
   if (sourceGroup) query = query.eq("accounts.source_group", sourceGroup)
-  // §7 — jamais d'étiquette pour un compte de test.
-  query = query.eq("accounts.is_test", false)
 
-  const { data, error } = await query
+  const { data: dataAll, error } = await query
+  // Filtre production identique à classifySections(...).aPreparer : paid OU on_site pending,
+  // jamais annulée, jamais un compte de test.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = (dataAll || []).filter((o: any) =>
+    !o.accounts?.is_test &&
+    isProduction({ status: o.status, payment_method: o.payment_method } as Parameters<typeof isProduction>[0])
+  )
   if (error) {
     console.error("[admin/labels]", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
+
+  // PS-06c-b — toppings (id → nom) pour imprimer les options sur l'étiquette.
+  const { data: toppingsRef } = await admin.from("toppings").select("id, name")
+  const topName: Record<string, string> = Object.fromEntries(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (toppingsRef || []).map((t: any) => [t.id, t.name])
+  )
 
   // prepared_at = service_date 08:00 Martinique (UTC-4) → ISO
   const preparedAt = new Date(`${serviceDate}T08:00:00-04:00`).toISOString()
@@ -110,22 +126,20 @@ export async function GET(req: NextRequest) {
     const profilPrenom = prenomSet.size > 0 ? Array.from(prenomSet).join(" · ") : "—"
     const profilClasse = classeSet.size === 1 ? Array.from(classeSet)[0] : null
 
-    // Items : 1 entrée par order_item, libellé court (formula → plat OR catalog item name)
-    const labelItems: LabelItem[] = items.map((it: { menu_formulas?: { name?: string }; catalog_items?: { name?: string }; notes?: string }) => {
-      const formulaName = it.menu_formulas?.name
-      const platName = it.catalog_items?.name
-      // Pour formula : "Menu Panda — Steak de légumes"
-      // Pour solo : juste le nom catalog
-      // Pour formula sans plat : juste le formula name
-      let name: string
-      if (formulaName && platName) name = `${formulaName} — ${platName}`
-      else if (formulaName) name = formulaName
-      else if (platName) name = platName
-      else name = (it.notes || "Article").slice(0, 60)
-      // §5 — le nom d'étiquette est reconstruit (pas tiré de `notes`) : ré-injecter la sauce
-      // piment pour qu'elle s'imprime. Texte seul (pas d'emoji) — imprimante thermique.
-      if (notesHaveSauce(it.notes) && !name.includes(SAUCE_PIMENT_NOTE)) name = `${name} + ${SAUCE_PIMENT_NOTE}`
-      return { name }
+    // PS-06c-b — Items : plat + options via la fonction commune composeItemLabel, avec les
+    // toppings RÉSOLUS (carottes, laitue, beurre…) et le piment. Plus de perte d'options.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const labelItems: LabelItem[] = items.map((it: any) => {
+      const ids: string[] = it.topping_ids || it.formula_choices?.toppings || []
+      const toppingNames = ids.map((id) => topName[id]).filter(Boolean)
+      const hasSauce = notesHaveSauce(it.notes) || toppingNames.some((n) => /sauce\s*piment|piment/i.test(n))
+      const { text } = composeItemLabel({
+        formulaName: it.menu_formulas?.name || null,
+        platName: it.catalog_items?.name || null,
+        toppingNames,
+        hasSauce,
+      })
+      return { name: text || (it.notes || "Article").slice(0, 80) }
     })
 
     // Allergènes consolidés (unique)
