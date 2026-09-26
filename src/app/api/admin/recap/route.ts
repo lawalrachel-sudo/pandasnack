@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     .select(`
       id, status, total_cents, payment_method,
       service_slots!inner(service_date),
-      accounts!inner(source_group, source_detail),
+      accounts!inner(source_group, source_detail, is_test),
       order_items(
         id, notes, formula_choices, topping_ids,
         menu_formulas(id, name, code),
@@ -42,6 +42,8 @@ export async function GET(req: NextRequest) {
     .lte("service_slots.service_date", to)
 
   if (sourceGroup) query = query.eq("accounts.source_group", sourceGroup)
+  // PS-06b §7 — comptes de test hors production et hors compteurs.
+  query = query.eq("accounts.is_test", false)
 
   const { data: ordersAll, error } = await query
   if (error) {
