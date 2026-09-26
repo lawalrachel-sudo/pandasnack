@@ -7,7 +7,19 @@ import { cookies } from "next/headers"
 // handlers + server components) — PAS en middleware Edge, donc node:crypto OK.
 
 export const ADMIN_COOKIE_NAME = "admin_session"
-export const ADMIN_COOKIE_MAX_AGE = 60 * 60 * 24 * 30 // 30 jours en secondes
+// PS-05b — session admin longue (90 jours), renouvelée à chaque visite (/api/admin/renew).
+export const ADMIN_COOKIE_MAX_AGE = 60 * 60 * 24 * 90 // 90 jours en secondes
+
+// Options communes du cookie admin (login + renew), pour une seule source de vérité.
+export function adminCookieOptions() {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge: ADMIN_COOKIE_MAX_AGE,
+  }
+}
 
 function getSecret(): string {
   const secret = process.env.ADMIN_COOKIE_SECRET

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { destinationApresAuth } from '@/lib/profil-gate'
+import { withLongSession } from '@/lib/supabase/cookie-options'
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
           },
           setAll(cookiesToSet) {
             cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options)
+              cookieStore.set(name, value, withLongSession(name, options))
             })
           },
         },

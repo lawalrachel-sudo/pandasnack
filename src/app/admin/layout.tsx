@@ -1,16 +1,28 @@
 import type { Metadata } from "next"
+import { AdminSessionKeepAlive } from "./AdminSessionKeepAlive"
 
 // Metadata override pour toutes les pages /admin/*.
-// Favicon distinct (assiette terracotta) pour bookmark dashboard reconnaissable
-// vs favicon client par défaut (logo Panda Snack défini dans src/app/icon.jpg).
+// PS-05b — PWA admin séparée : manifest dédié (scope /admin/) + icône 🥘 distincte du
+// panda cuisto client. Le manifest client (scope /) reste intact.
 export const metadata: Metadata = {
   title: "Panda Snack · Admin",
+  manifest: "/admin/manifest.webmanifest",
   icons: {
     icon: "/favicon-admin.svg",
-    apple: "/favicon-admin.svg",
+    apple: "/icons/admin-apple-touch.png",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Admin PS",
   },
 }
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>
+  return (
+    <>
+      <AdminSessionKeepAlive />
+      {children}
+    </>
+  )
 }
