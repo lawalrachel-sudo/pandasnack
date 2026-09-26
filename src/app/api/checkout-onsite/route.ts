@@ -61,8 +61,11 @@ export async function POST(req: NextRequest) {
 
     // PS-06d §2 — notifier au moment de la TRANSITION vers on_site (création de la commande
     // sur place), jamais sur une re-confirmation d'une commande déjà on_site.
+    // PS-06d-b — on transmet l'instant de la transition comme référence anti-rattrapage
+    // (la commande a pu être posée au panier des heures plus tôt).
+    const transitionAt = new Date().toISOString()
     for (const u of updated) {
-      if (!wasOnSite.has(u.id)) await notifyNewOrder(u.id)
+      if (!wasOnSite.has(u.id)) await notifyNewOrder(u.id, { eventAt: transitionAt })
     }
 
     // Retour au panier : /confirmation suppose un paiement en ligne (et son chaînage

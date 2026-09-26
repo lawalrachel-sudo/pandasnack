@@ -68,16 +68,35 @@ describe("notifyNewOrder", () => {
     expect(payload.text).toMatch(/piment/i)
   })
 
-  it("garde anti-rattrapage : commande trop ancienne → pas d'envoi (created_at burné)", async () => {
+  it("garde anti-rattrapage : événement trop ancien → pas d'envoi", async () => {
     vi.stubEnv("RESEND_API_KEY", "re_test")
-    const old = { ...ORDER, created_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString() }
+    // on_site jamais payée, créée ET confirmée il y a 3 h, ré-entrée tardive
+    const old = { ...ORDER, paid_at: null, created_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString() }
     mocks.admin = makeSupabaseStub({
       user: null,
       resolve: (ctx) => ctx.op === "update" ? { data: [{ id: "o1" }] } : { data: old },
     })
-    const r = await notifyNewOrder("o1")
+    const r = await notifyNewOrder("o1", { eventAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString() })
     expect(r).toEqual({ sent: false, reason: "catch_up" })
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("PS-06d-b : panier créé il y a 3 h, PAYÉ à l'instant → mail ENVOYÉ (garde depuis paid_at)", async () => {
+    vi.stubEnv("RESEND_API_KEY", "re_test")
+    fetchMock.mockResolvedValue({ ok: true, status: 200, text: async () => "" })
+    const created = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString()
+    const paid = new Date().toISOString()
+    const order = { ...ORDER, payment_method: "wallet_card", created_at: created, paid_at: paid }
+    mocks.admin = makeSupabaseStub({
+      user: null,
+      resolve: (ctx) => ctx.op === "update" ? { data: [{ id: "o1" }] } : { data: order },
+    })
+    const r = await notifyNewOrder("o1")
+    expect(r.sent).toBe(true)
+    const payload = JSON.parse(fetchMock.mock.calls[0][1].body)
+    // le mail garde l'heure de PASSAGE (created_at) ET signale « Payée le … »
+    expect(payload.text).toContain("Commande passée le")
+    expect(payload.text).toContain("Payée le")
   })
 
   it("déjà notifiée (0 ligne réservée) : n'envoie pas", async () => {

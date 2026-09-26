@@ -36,11 +36,30 @@ export function formatServiceDay(serviceDate: string | null | undefined): string
 }
 
 // La commande est-elle trop ancienne pour être notifiée (rattrapage) ?
-export function isCatchUp(createdAtIso: string | null | undefined, now: number = Date.now()): boolean {
-  if (!createdAtIso) return false
-  const t = new Date(createdAtIso).getTime()
+// `ref` = instant de l'ÉVÉNEMENT déclencheur (paiement / confirmation), pas la création.
+export function isCatchUp(ref: string | null | undefined, now: number = Date.now()): boolean {
+  if (!ref) return false
+  const t = new Date(ref).getTime()
   if (!Number.isFinite(t)) return false
   return now - t > NOTIFY_MAX_AGE_MS
+}
+
+// PS-06d-b §2 — ligne « Payée le … » / « Confirmée sur place le … » ajoutée quand l'événement
+// (paiement wallet/Stripe = paidAt, ou confirmation on_site = eventAt) diffère de la création
+// de plus d'une minute. Sinon rien (panier payé dans la foulée).
+export function buildEventLine(
+  createdAt: string | null | undefined,
+  paidAt: string | null | undefined,
+  eventAt: string | null | undefined
+): string {
+  const created = createdAt ? new Date(createdAt).getTime() : NaN
+  const different = (iso: string | null | undefined) => {
+    if (!iso || !Number.isFinite(created)) return false
+    return Math.abs(new Date(iso).getTime() - created) >= 60 * 1000
+  }
+  if (paidAt && different(paidAt)) return `Payée le ${formatCreatedAtMartinique(paidAt)}`
+  if (!paidAt && eventAt && different(eventAt)) return `Confirmée sur place le ${formatCreatedAtMartinique(eventAt)}`
+  return ""
 }
 
 function admin() {
@@ -64,7 +83,10 @@ function paiementLabel(paymentMethod: string | null, paidAt: string | null): str
  * Envoie l'e-mail « nouvelle commande » pour `orderId`, une seule fois.
  * Ne lève jamais : retourne un statut informatif pour les tests/logs.
  */
-export async function notifyNewOrder(orderId: string): Promise<{ sent: boolean; reason?: string }> {
+export async function notifyNewOrder(
+  orderId: string,
+  opts: { eventAt?: string } = {}
+): Promise<{ sent: boolean; reason?: string }> {
   try {
     const db = admin()
     if (!db) { console.error("[notify] SUPABASE_SERVICE_ROLE_KEY manquant — notification ignorée"); return { sent: false, reason: "no_db" } }
@@ -106,11 +128,13 @@ export async function notifyNewOrder(orderId: string): Promise<{ sent: boolean; 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const o = order as any
 
-    // PS-06d — garde anti-rattrapage : ne jamais envoyer un mail pour une commande trop
-    // ancienne (code déployé après coup, ré-entrée tardive). notified_at reste posé, donc
-    // pas de nouvelle tentative. Le flux normal notifie en quelques secondes.
-    if (isCatchUp(o.created_at)) {
-      console.error(`[notify] rattrapage évité : commande ${o.order_number} créée ${o.created_at}, non notifiée`)
+    // PS-06d-b — garde anti-rattrapage mesurée depuis l'ÉVÉNEMENT déclencheur, pas depuis
+    // created_at : une commande est créée dès le panier (draft) et peut n'être payée que des
+    // heures plus tard. Référence = paid_at (wallet/Stripe) OU eventAt (transition on_site,
+    // transmis par checkout-onsite) OU, à défaut, created_at.
+    const eventAt: string = o.paid_at || opts.eventAt || o.created_at
+    if (isCatchUp(eventAt)) {
+      console.error(`[notify] rattrapage évité : commande ${o.order_number}, événement ${eventAt}, non notifiée`)
       return { sent: false, reason: "catch_up" }
     }
     const items = (o.order_items || [])
@@ -134,20 +158,23 @@ export async function notifyNewOrder(orderId: string): Promise<{ sent: boolean; 
     const subject = `🥘 ${child} · ${serviceDay}`
     // Heure de PASSAGE de la commande (created_at) en clair, heure Martinique — jamais l'heure d'envoi.
     const passeeLe = `Commande passée le ${formatCreatedAtMartinique(o.created_at)} (heure Martinique)`
+    // PS-06d-b §2 — quand le paiement/la confirmation a lieu à un moment DIFFÉRENT de la
+    // création (panier posé plus tôt), on l'indique en plus.
+    const eventLine = buildEventLine(o.created_at, o.paid_at, opts.eventAt)
     const paiement = paiementLabel(o.payment_method, o.paid_at)
     const adminLink = `https://pandasnack.online/admin/dashboard`
     const html = `
       <div style="font-family:system-ui,sans-serif;color:#2b2018;max-width:480px">
         <h2 style="margin:0 0 8px">Nouvelle commande — ${child}</h2>
         <p style="margin:0 0 2px"><strong>Jour de service :</strong> ${serviceDay}</p>
-        <p style="margin:0 0 8px;color:#6b5742">${passeeLe} · ${o.order_number}</p>
+        <p style="margin:0 0 8px;color:#6b5742">${passeeLe}${eventLine ? `<br>${eventLine}` : ""} · ${o.order_number}</p>
         <ul style="padding-left:18px">${lignes.map((l: string) => `<li>${l}</li>`).join("")}</ul>
         <p style="margin:8px 0"><strong>Paiement :</strong> ${paiement}<br><strong>Montant :</strong> ${euros(o.total_cents || 0)}</p>
         <p><a href="${adminLink}" style="color:#C85A3C">Ouvrir le service du jour →</a></p>
       </div>`
     const text = `Nouvelle commande — ${child}\n`
       + `Jour de service : ${serviceDay}\n`
-      + `${passeeLe} · ${o.order_number}\n\n`
+      + `${passeeLe}\n${eventLine ? eventLine + "\n" : ""}${o.order_number}\n\n`
       + lignes.map((l: string) => `- ${l}`).join("\n")
       + `\n\nPaiement : ${paiement}\nMontant : ${euros(o.total_cents || 0)}\n${adminLink}`
 
