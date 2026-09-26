@@ -120,6 +120,18 @@ export function EtiquettesClient({ serviceDate }: { serviceDate: string }) {
       <style jsx global>{`
         @page { size: A4; margin: 13.5mm 0; }
         body { background: #f3f4f6; }
+        /* PS-06c-d — à l'écran, la grille A4 (210mm) déborde sur mobile (~390px). On la rend
+           défilable horizontalement, scrollbar TOUJOURS visible pour repérer la colonne de
+           droite (Sofia). À l'impression, ce conteneur est neutralisé (cf. @media print). */
+        .labels-scroll {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: auto;
+          padding-bottom: 10px;
+        }
+        .labels-scroll::-webkit-scrollbar { height: 12px; -webkit-appearance: none; }
+        .labels-scroll::-webkit-scrollbar-track { background: #e5e7eb; border-radius: 6px; }
+        .labels-scroll::-webkit-scrollbar-thumb { background: #9ca3af; border-radius: 6px; border: 2px solid #e5e7eb; }
         .labels-sheet {
           display: grid;
           grid-template-columns: 105mm 105mm;
@@ -219,6 +231,9 @@ export function EtiquettesClient({ serviceDate }: { serviceDate: string }) {
           .no-print { display: none !important; }
           .label { border: none !important; }
           .labels-sheet { gap: 0; }
+          /* PS-06c-d — pas de conteneur de défilement à l'impression : la grille A4 sort
+             intacte, aucune coupure de page. */
+          .labels-scroll { overflow: visible !important; padding-bottom: 0 !important; }
         }
       `}</style>
 
@@ -286,6 +301,13 @@ export function EtiquettesClient({ serviceDate }: { serviceDate: string }) {
         <p className="text-center py-8 text-gray-500">Aucune commande payée à étiqueter pour cette date.</p>
       )}
 
+      {!loading && !error && labels.length > 0 && (
+        <p className="no-print px-6 pt-3 text-xs text-gray-500">
+          ← Fais défiler horizontalement pour voir toutes les étiquettes (colonne de droite).
+        </p>
+      )}
+
+      <div className="labels-scroll">
       <div className="labels-sheet" style={{ marginTop: "13.5mm" }}>
         {labels.map(l => {
           // T7 — densification auto si > 5 items (cas rare, filet de sécurité)
@@ -318,6 +340,7 @@ export function EtiquettesClient({ serviceDate }: { serviceDate: string }) {
             </div>
           )
         })}
+      </div>
       </div>
     </div>
   )
