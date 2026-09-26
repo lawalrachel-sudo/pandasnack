@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
     .select(`
       id, order_number, status, payment_method,
       service_slots!inner(service_date, target_source_group),
-      accounts!inner(source_group, nom_compte),
+      accounts!inner(source_group, nom_compte, is_test),
       order_items(
         id, profil_id, prenom_libre, formula_choices, topping_ids, takeaway, notes,
         menu_formulas(name, dlc_hours),
@@ -78,6 +78,8 @@ export async function GET(req: NextRequest) {
     .or("status.eq.paid,and(status.eq.pending_payment,payment_method.eq.on_site)")
 
   if (sourceGroup) query = query.eq("accounts.source_group", sourceGroup)
+  // §7 — jamais d'étiquette pour un compte de test.
+  query = query.eq("accounts.is_test", false)
 
   const { data, error } = await query
   if (error) {

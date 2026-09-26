@@ -25,20 +25,31 @@ export async function POST(req: NextRequest) {
   const auth = await requireAdmin(supabase)
   if ("error" in auth) return auth.error
 
-  const { orderId } = await req.json().catch(() => ({})) as { orderId?: string }
+  const { orderId, mode } = await req.json().catch(() => ({})) as { orderId?: string; mode?: string }
   if (!orderId) return NextResponse.json({ error: "orderId requis" }, { status: 400 })
+
+  // PS-06b §3 — mode d'encaissement comptoir, stocké pour la caisse (PS-08).
+  // Facultatif pour compat ascendante ; validé quand fourni.
+  const VALID_MODES = ["especes", "cb_sumup"]
+  if (mode !== undefined && !VALID_MODES.includes(mode)) {
+    return NextResponse.json({ error: "mode invalide (especes | cb_sumup)" }, { status: 400 })
+  }
 
   const admin = getSupabaseAdmin()
   if (!admin) return NextResponse.json({ error: "Service indisponible" }, { status: 503 })
 
   const paidAt = new Date().toISOString()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const patch: Record<string, any> = { status: "paid", paid_at: paidAt }
+  if (mode) patch.payment_mode = mode
   const { data, error } = await admin
     .from("orders")
-    .update({ status: "paid", paid_at: paidAt })
+    .update(patch)
     .eq("id", orderId)
     .eq("payment_method", "on_site")
     .is("paid_at", null)
-    .select("id, paid_at, status")
+    .neq("status", "cancelled")
+    .select("id, paid_at, status, payment_mode")
   if (error) {
     console.error("[admin/mark-paid]", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
@@ -48,5 +59,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Commande introuvable ou déjà encaissée" }, { status: 404 })
   }
 
-  return NextResponse.json({ success: true, orderId, paid_at: paidAt, status: "paid" })
+  return NextResponse.json({ success: true, orderId, paid_at: paidAt, status: "paid", payment_mode: mode ?? null })
 }
