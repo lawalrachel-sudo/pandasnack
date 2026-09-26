@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabase as createClient } from "@/lib/supabase/server"
+import { notifyNewOrder } from "@/lib/notify"
 import { resolveOrigin } from "@/lib/origin"
 
 // POST /api/checkout-order
@@ -102,6 +103,7 @@ export async function POST(req: NextRequest) {
     // CASE 1: Fully paid by wallet → direct redirect to confirmation
     // ========================================================================
     if (result.card_charge_cents === 0) {
+      await notifyNewOrder(result.order_id)  // PS-06a §5 — wallet payé
       return NextResponse.json({
         success: true,
         orderId: result.order_id,
@@ -129,6 +131,8 @@ export async function POST(req: NextRequest) {
         })
         .eq("id", result.order_id)
         .eq("status", "pending_payment") // idempotency guard
+
+      await notifyNewOrder(result.order_id)  // PS-06a §5 — test mode payé
 
       return NextResponse.json({
         success: true,

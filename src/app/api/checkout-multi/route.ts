@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabase as createClient } from "@/lib/supabase/server"
+import { notifyNewOrder } from "@/lib/notify"
 import { resolveOrigin } from "@/lib/origin"
 
 // POST /api/checkout-multi — Brief 3-E B-γ : paiement multi-orders en 1 session Stripe
@@ -66,6 +67,7 @@ export async function POST(req: NextRequest) {
 
     // CASE 1 — toutes payées par wallet, pas besoin Stripe
     if (totalCardCharge === 0) {
+      for (const r of results) await notifyNewOrder(r.order_id)  // PS-06a §5
       return NextResponse.json({
         success: true,
         paidCount: results.length,
@@ -83,6 +85,7 @@ export async function POST(req: NextRequest) {
         await supabase.from("orders")
           .update({ status: "paid", paid_at: new Date().toISOString(), stripe_checkout_session_id: "SIMULATED_TEST_MULTI" })
           .eq("id", r.order_id).eq("status", "pending_payment")
+        await notifyNewOrder(r.order_id)  // PS-06a §5 — test mode
       }
       return NextResponse.json({
         success: true,
