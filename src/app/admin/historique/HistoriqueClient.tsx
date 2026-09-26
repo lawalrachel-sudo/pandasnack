@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import Link from "next/link"
+import { AdminBackButton } from "../AdminBackButton"
 
 interface Svc { service_date: string; revenue_cents: number; orders: number }
 
@@ -38,7 +38,7 @@ export function HistoriqueClient() {
 
   return (
     <div style={S.page}>
-      <Link href="/admin/dashboard" style={{ color: "var(--accent)", textDecoration: "none", fontSize: 14 }}>← Service du jour</Link>
+      <AdminBackButton />
       <h1 style={{ fontSize: 22, fontWeight: 800, margin: "12px 0 12px" }}>Historique</h1>
       {error && <p style={{ color: "#DC2626" }}>⚠ {error}</p>}
       {!services && !error && <p style={{ color: "var(--ink-soft)" }}>Chargement…</p>}

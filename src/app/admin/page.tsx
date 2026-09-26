@@ -9,12 +9,12 @@ export const dynamic = "force-dynamic"
 // Page d'accès admin : 1 champ mot de passe → dashboard.
 // Si déjà admin (cookie mot de passe OU compte avec accounts.is_admin) → dashboard direct.
 export default async function AdminLoginPage() {
-  if (await hasValidAdminCookie()) redirect("/admin/dashboard")
+  if (await hasValidAdminCookie()) redirect("/admin/home")
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase: any = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
-  if (await isAdminUser(supabase, user)) redirect("/admin/dashboard")
+  if (await isAdminUser(supabase, user)) redirect("/admin/home")
 
   return <AdminLoginClient />
 }

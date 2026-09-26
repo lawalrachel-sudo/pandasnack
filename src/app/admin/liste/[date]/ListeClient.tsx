@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import Link from "next/link"
+import { AdminBackButton } from "../../AdminBackButton"
 
 const SOURCE_LABELS: Record<string, string> = {
   pandattitude: "Pandattitude",
@@ -135,7 +135,7 @@ export function ListeClient({ serviceDate, sourceGroup }: { serviceDate: string;
       `}</style>
 
       <div className="no-print border-b border-gray-200 px-6 py-3 sticky top-0 bg-white z-10 flex items-center justify-between">
-        <Link href="/admin/dashboard" className="text-sm text-blue-600 hover:underline">← Retour dashboard</Link>
+        <AdminBackButton />
         <button
           onClick={() => window.print()}
           className="px-4 py-2 bg-orange-600 text-white text-sm font-semibold rounded-lg hover:bg-orange-700"

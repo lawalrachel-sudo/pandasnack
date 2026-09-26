@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { AdminBackButton } from "../AdminBackButton"
 import {
   classifySections,
   headerCounts,
@@ -98,6 +99,8 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
 
   return (
     <div style={S.page}>
+      {/* PS-06e — retour à l'accueil admin, même emplacement que les autres pages */}
+      <AdminBackButton />
       {/* ── Nav admin ── */}
       <nav style={S.nav}>
         <span style={S.navActive}>🥘 Service du jour</span>
