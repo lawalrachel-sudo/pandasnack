@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   classifySections,
+  composeItemLabel,
   headerCounts,
   isBubbleTea,
   isPaid,
@@ -144,11 +145,33 @@ describe("routeTotals", () => {
   })
 })
 
+describe("composeItemLabel (fonction commune étiquettes + cartes)", () => {
+  it("Elyas : plat + piment", () => {
+    const c = composeItemLabel({ formulaName: "Menu Panda", platName: "Pasta Box Bolognaise (bœuf)", toppingNames: ["Sauce piment"] })
+    expect(c.text).toBe("Menu Panda — Pasta Box Bolognaise (bœuf) · 🌶 piment")
+  })
+  it("Sofia : piment en tête puis garnitures dans l'ordre", () => {
+    const c = composeItemLabel({ formulaName: "Menu Panda", platName: "Thon Mayo", toppingNames: ["Carottes râpées", "Laitue", "Beurre", "Sauce piment"] })
+    expect(c.text).toBe("Menu Panda — Thon Mayo · 🌶 piment, Carottes râpées, Laitue, Beurre")
+  })
+  it("Leïa : une seule garniture, pas de piment", () => {
+    const c = composeItemLabel({ formulaName: "Menu Panda", platName: "Thon Mayo", toppingNames: ["Carottes râpées"] })
+    expect(c.text).toBe("Menu Panda — Thon Mayo · Carottes râpées")
+  })
+  it("article seul sans option", () => {
+    expect(composeItemLabel({ platName: "Croque simple" }).text).toBe("Croque simple")
+  })
+  it("hasSauce via drapeau (case à cocher) même sans topping piment", () => {
+    const c = composeItemLabel({ formulaName: "Menu Panda", platName: "Thon Mayo", toppingNames: [], hasSauce: true })
+    expect(c.options).toEqual(["🌶 piment"])
+  })
+})
+
 describe("itemLine", () => {
   it("extrait l'option piment", () => {
     const l = itemLine(item({ menu_formula_name: "Menu Panda", notes: "Menu Panda — Thon Mayo\nSAUCE PIMENT" }))
     expect(l.label).toBe("Menu Panda")
-    expect(l.options).toContain("🌶️ piment")
+    expect(l.options).toContain("🌶 piment")
   })
   it("extrait les toppings entre parenthèses sans dupliquer le piment", () => {
     const l = itemLine(item({ catalog_item_name: "Sandwich", notes: "Sandwich (Tomates, Laitue)" }))

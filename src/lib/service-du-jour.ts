@@ -17,6 +17,10 @@ export interface SvcItem {
   catalog_item_sku: string | null
   category_id: string | null
   qty: number
+  // PS-06c-b — options résolues depuis topping_ids (noms) + drapeau sauce piment.
+  // Renseignés par /api/admin/service ; absents → itemLine retombe sur le parsing de `notes`.
+  toppings?: string[]
+  has_sauce?: boolean
 }
 
 export interface SvcOrder {
@@ -171,23 +175,63 @@ export function routeTotals(orders: SvcOrder[]): RouteTotals {
 // ── Options lisibles d'un article (piment, sans crudité, toppings) ───────────
 
 export const SANS_CRUDITE = "sans crudité"
+export const PIMENT_LABEL = "🌶 piment"
+
+function estPiment(s: string): boolean {
+  return /sauce\s*piment|piment/i.test(s)
+}
+
+export interface ComposeInput {
+  formulaName?: string | null
+  platName?: string | null    // catalog_items.name : le plat d'un menu, ou l'article seul
+  toppingNames?: string[]     // résolus depuis topping_ids
+  hasSauce?: boolean          // sauce piment (case à cocher notée dans `notes`)
+}
 
 /**
- * Ligne d'affichage d'un item : nom + options entre parenthèses, telles qu'écrites
- * dans `notes` par /api/order-item. On renvoie aussi les options isolées pour pouvoir
- * les mettre en évidence côté UI (piment surtout).
+ * PS-06c-b — composition d'un article : UNE seule fonction commune aux étiquettes et aux
+ * cartes « Service du jour ». Le plat = « Menu Panda — Thon Mayo » (formule + plat) ou le
+ * nom de l'article seul. Les options viennent des toppings RÉSOLUS (jamais du parsing des
+ * parenthèses de `notes`, ambigu quand le plat en contient, ex. « Pasta Box (bœuf) »).
+ * Piment toujours en tête, en clair.
+ */
+export function composeItemLabel(input: ComposeInput): { plat: string; options: string[]; text: string } {
+  const { formulaName, platName } = input
+  const plat = formulaName
+    ? (platName ? `${formulaName} — ${platName}` : formulaName)
+    : (platName || "Article")
+  const names = input.toppingNames || []
+  const piment = !!input.hasSauce || names.some(estPiment)
+  const food = names.filter((n) => !estPiment(n))
+  const options = [...(piment ? [PIMENT_LABEL] : []), ...food]
+  return { plat, options, text: options.length ? `${plat} · ${options.join(", ")}` : plat }
+}
+
+/**
+ * Ligne d'affichage {label, options} d'un item, pour les cartes. Source primaire : les
+ * toppings résolus (it.toppings / it.has_sauce). À défaut (payload legacy sans toppings),
+ * on retombe sur le parsing de `notes` — en prenant la DERNIÈRE parenthèse (le groupe
+ * d'options est ajouté en fin), pour ne pas confondre avec « (bœuf) » dans le nom du plat.
  */
 export function itemLine(it: SvcItem): { label: string; options: string[] } {
+  if (it.toppings !== undefined || it.has_sauce !== undefined) {
+    const c = composeItemLabel({
+      formulaName: it.menu_formula_name, platName: it.catalog_item_name,
+      toppingNames: it.toppings || [], hasSauce: it.has_sauce,
+    })
+    return { label: c.plat, options: c.options }
+  }
+  // Fallback legacy : parsing de `notes`.
   const base = it.menu_formula_name || it.catalog_item_name || "Article"
   const notes = (it.notes || "").trim()
   const options: string[] = []
-  if (/sauce\s*piment/i.test(notes)) options.push("🌶️ piment")
+  if (/sauce\s*piment/i.test(notes)) options.push(PIMENT_LABEL)
   if (new RegExp(SANS_CRUDITE, "i").test(notes)) options.push(SANS_CRUDITE)
-  // Toppings entre parenthèses dans les notes : "Menu Panda — Thon (Tomates, Beurre)"
-  const paren = notes.match(/\(([^)]+)\)/)
-  if (paren) {
-    for (const t of paren[1].split(",").map((s) => s.trim()).filter(Boolean)) {
-      if (!/piment/i.test(t)) options.push(t)
+  const parens = [...notes.matchAll(/\(([^)]+)\)/g)]
+  const last = parens.length ? parens[parens.length - 1][1] : ""
+  if (last) {
+    for (const t of last.split(",").map((s) => s.trim()).filter(Boolean)) {
+      if (!estPiment(t) && t.toLowerCase() !== SANS_CRUDITE) options.push(t)
     }
   }
   return { label: base, options }
