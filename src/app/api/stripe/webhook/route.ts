@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getStripe } from "@/lib/stripe"
 import { createClient } from "@supabase/supabase-js"
+import { notifyNewOrder } from "@/lib/notify"
 import type Stripe from "stripe"
 
 function getSupabaseAdmin() {
@@ -125,10 +126,15 @@ export async function POST(request: Request) {
 
         // FIX BUG 5: utiliser credit_purchase (existe dans l'enum) + stripe_payment_intent_id (bon nom de colonne)
         // + mettre à jour last_recharge_cents pour le pricing wallet
+        // FIX PS-06a §4 : incrémenter total_credited_cents (oublié → paliers de prix faussés).
+        // On relit la valeur courante pour un incrément fiable (pas d'expression SQL côté client).
+        const { data: wRow } = await supabaseAdmin
+          .from("wallets").select("total_credited_cents").eq("id", wallet.id).single()
         await supabaseAdmin
           .from("wallets")
           .update({
             balance_cents: newBalance,
+            total_credited_cents: (wRow?.total_credited_cents || 0) + totalCredit,
             last_recharge_cents: amountCents,
             updated_at: new Date().toISOString(),
           })
@@ -162,7 +168,10 @@ export async function POST(request: Request) {
           .eq("status", "pending_payment")
           .select("id, status")
         if (upErr) console.error(`[Stripe webhook] order_payment ${orderId} update FAILED:`, upErr)
-        else console.log(`[Stripe webhook] order_payment ${orderId} → paid (rows=${updated?.length ?? 0})`)
+        else {
+          console.log(`[Stripe webhook] order_payment ${orderId} → paid (rows=${updated?.length ?? 0})`)
+          if ((updated?.length ?? 0) > 0) await notifyNewOrder(orderId)  // PS-06a §5
+        }
       } else {
         console.warn(`[Stripe webhook] order_payment session=${session.id} HAS NO order_id in metadata`)
       }
@@ -201,6 +210,7 @@ export async function POST(request: Request) {
           console.error(`[Stripe webhook] order ${oid} update FAILED:`, upErr)
         } else {
           console.log(`[Stripe webhook] order ${oid} ${before.status} → paid (rows=${updated?.length ?? 0})`)
+          if ((updated?.length ?? 0) > 0) await notifyNewOrder(oid)  // PS-06a §5
         }
       }
     } else {

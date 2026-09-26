@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabase as createClient } from "@/lib/supabase/server"
+import { notifyNewOrder } from "@/lib/notify"
 
 // POST /api/checkout-onsite — §7 : confirmation "Payer sur place (CB/espèces)"
 // Réservé aux comptes pandattitude. La commande part en cuisine SANS paiement en ligne :
@@ -44,6 +45,9 @@ export async function POST(req: NextRequest) {
     if (!updated || updated.length === 0) {
       return NextResponse.json({ error: "Aucune commande à confirmer" }, { status: 400 })
     }
+
+    // PS-06a §5 — la commande entre en production (à encaisser au comptoir) : notifier.
+    for (const u of updated) await notifyNewOrder(u.id)
 
     // Retour au panier : /confirmation suppose un paiement en ligne (et son chaînage
     // "payer les N autres" serait trompeur ici). Le panier affiche désormais ces commandes
