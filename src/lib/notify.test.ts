@@ -10,6 +10,7 @@ import { notifyNewOrder } from "./notify"
 
 const ORDER = {
   id: "o1", order_number: "PS-1", total_cents: 1000, payment_method: "on_site", paid_at: null,
+  created_at: new Date().toISOString(), // récente → pas de garde catch-up
   service_slots: { service_date: "2026-09-26" },
   accounts: { nom_compte: "Parent" },
   order_items: [{ quantity: 1, notes: "Menu Panda — Thon\nSAUCE PIMENT", menu_formulas: { name: "Menu Panda" }, catalog_items: null, profils: { prenom: "Sofia" } }],
@@ -56,11 +57,27 @@ describe("notifyNewOrder", () => {
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe("https://api.resend.com/emails")
     const payload = JSON.parse((init as { body: string }).body)
+    // PS-06d — objet = prénom enfant + jour de service ; le numéro passe dans le corps.
     expect(payload.subject).toContain("Sofia")
-    expect(payload.subject).toContain("PS-1")
+    expect(payload.subject).not.toContain("PS-1")
+    expect(payload.text).toContain("PS-1")
+    // heure de PASSAGE en clair, heure Martinique
+    expect(payload.text).toContain("heure Martinique")
     expect(payload.to).toEqual(["secretariat@pandattitude.com"])
     // l'option piment remonte dans le corps
     expect(payload.text).toMatch(/piment/i)
+  })
+
+  it("garde anti-rattrapage : commande trop ancienne → pas d'envoi (created_at burné)", async () => {
+    vi.stubEnv("RESEND_API_KEY", "re_test")
+    const old = { ...ORDER, created_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString() }
+    mocks.admin = makeSupabaseStub({
+      user: null,
+      resolve: (ctx) => ctx.op === "update" ? { data: [{ id: "o1" }] } : { data: old },
+    })
+    const r = await notifyNewOrder("o1")
+    expect(r).toEqual({ sent: false, reason: "catch_up" })
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it("déjà notifiée (0 ligne réservée) : n'envoie pas", async () => {

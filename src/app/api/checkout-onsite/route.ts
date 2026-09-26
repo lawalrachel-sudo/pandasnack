@@ -28,6 +28,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Paiement sur place non disponible" }, { status: 403 })
     }
 
+    // PS-06d — on note l'état AVANT confirmation pour ne notifier QUE les commandes
+    // réellement transitionnées vers on_site (une re-confirmation « payer sur place »
+    // d'une commande déjà on_site ne doit jamais renvoyer de mail).
+    const { data: before } = await supabase
+      .from("orders")
+      .select("id, payment_method")
+      .in("id", orderIds)
+      .eq("account_id", account.id)
+      .eq("status", "pending_payment")
+    const wasOnSite = new Set(
+      (before || []).filter((o: { payment_method: string | null }) => o.payment_method === "on_site").map((o: { id: string }) => o.id)
+    )
+
     // Confirme uniquement les commandes du compte encore en attente. RLS limite déjà au
     // propriétaire ; le filtre account_id + status verrouille en plus (idempotent : un renvoi
     // ne touche pas une commande déjà payée/annulée).
@@ -46,8 +59,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Aucune commande à confirmer" }, { status: 400 })
     }
 
-    // PS-06a §5 — la commande entre en production (à encaisser au comptoir) : notifier.
-    for (const u of updated) await notifyNewOrder(u.id)
+    // PS-06d §2 — notifier au moment de la TRANSITION vers on_site (création de la commande
+    // sur place), jamais sur une re-confirmation d'une commande déjà on_site.
+    for (const u of updated) {
+      if (!wasOnSite.has(u.id)) await notifyNewOrder(u.id)
+    }
 
     // Retour au panier : /confirmation suppose un paiement en ligne (et son chaînage
     // "payer les N autres" serait trompeur ici). Le panier affiche désormais ces commandes
