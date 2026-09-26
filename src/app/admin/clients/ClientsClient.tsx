@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { AdminBackButton } from "../AdminBackButton"
 
 interface Enfant { prenom: string; classe: string | null }
 interface Client {
@@ -56,7 +57,7 @@ export function ClientsClient() {
 
   return (
     <div style={S.page}>
-      <Link href="/admin/dashboard" style={S.back}>← Service du jour</Link>
+      <AdminBackButton />
       <h1 style={S.h1}>Clients</h1>
 
       <input

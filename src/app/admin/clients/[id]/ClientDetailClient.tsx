@@ -1,8 +1,8 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import Link from "next/link"
 import { bonusForAmount, type RechargeTier } from "@/lib/wallet-bonus"
+import { AdminBackButton } from "../../AdminBackButton"
 
 interface Profil { id: string; prenom: string; classe: string | null; active: boolean; archived_at: string | null; type_profil: string | null; notes_allergies: string | null }
 interface Tx { id: string; type: string; amount_cents: number; balance_after_cents: number; description: string | null; stripe_payment_intent_id: string | null; created_at: string }
@@ -79,8 +79,8 @@ export function ClientDetailClient({ accountId }: { accountId: string }) {
     finally { setSaving(false) }
   }
 
-  if (error) return <div style={S.page}><Link href="/admin/clients" style={S.back}>← Clients</Link><p style={{ color: "#DC2626" }}>⚠ {error}</p></div>
-  if (!data) return <div style={S.page}><Link href="/admin/clients" style={S.back}>← Clients</Link><p style={S.muted}>Chargement…</p></div>
+  if (error) return <div style={S.page}><AdminBackButton /><p style={{ color: "#DC2626" }}>⚠ {error}</p></div>
+  if (!data) return <div style={S.page}><AdminBackButton /><p style={S.muted}>Chargement…</p></div>
 
   const { account, profils, wallet, transactions, orders } = data
   const enfantsActifs = profils.filter((p) => p.active && !p.archived_at && p.type_profil === "eleve")
@@ -88,7 +88,7 @@ export function ClientDetailClient({ accountId }: { accountId: string }) {
 
   return (
     <div style={S.page}>
-      <Link href="/admin/clients" style={S.back}>← Clients</Link>
+      <AdminBackButton />
       <h1 style={S.h1}>{account.nom_compte}{account.is_test && <span style={S.testTag}> TEST</span>}</h1>
       <p style={S.sub}>{account.email}{account.telephone ? <> · <a href={`tel:${account.telephone}`} style={S.tel}>{account.telephone}</a></> : null}</p>
 

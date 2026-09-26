@@ -24,7 +24,7 @@ export function AdminLoginClient() {
 
       if (res.ok) {
         // Redirection dure pour que le cookie soit pris en compte côté serveur
-        window.location.href = "/admin/dashboard"
+        window.location.href = "/admin/home"
         return
       }
 

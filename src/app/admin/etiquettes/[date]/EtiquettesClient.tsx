@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
+import { AdminBackButton } from "../../AdminBackButton"
 
 const METIER_OPTIONS: { value: string; label: string }[] = [
   { value: "", label: "TOUS" },
@@ -240,7 +240,7 @@ export function EtiquettesClient({ serviceDate }: { serviceDate: string }) {
       <div className="no-print bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="px-6 py-4 flex items-center justify-between">
           <div>
-            <Link href="/admin/dashboard" className="text-sm text-blue-600 hover:underline">← Retour dashboard</Link>
+            <AdminBackButton />
             <div className="flex items-center gap-3 mt-1">
               <h1 className="text-xl font-bold">Étiquettes</h1>
               {/* T6 — date picker HTML5 natif */}

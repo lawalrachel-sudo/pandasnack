@@ -7,7 +7,7 @@ describe("manifest admin (PS-05b)", () => {
     expect(res.headers.get("Content-Type")).toContain("manifest")
     const m = await res.json()
     expect(m.scope).toBe("/admin/")
-    expect(m.start_url).toBe("/admin/dashboard")
+    expect(m.start_url).toBe("/admin/home")
     expect(m.name).toBe("Admin Panda Snack")
     expect(m.short_name).toBe("Admin PS")
     expect(m.display).toBe("standalone")

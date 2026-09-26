@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import Link from "next/link"
 import { classifySections, itemLine, routeTotals, type SvcOrder } from "@/lib/service-du-jour"
+import { AdminBackButton } from "../../AdminBackButton"
 
 // PS-06b §6 — Feuille de route A4 imprimable : liste à préparer (prénom + parent + commande
 // complète + options/notes + paiement), puis totaux par plat et boissons.
@@ -38,7 +38,7 @@ export function VeilleClient({ serviceDate }: { serviceDate: string }) {
       <style>{PRINT_CSS}</style>
 
       <div className="no-print veille-bar">
-        <Link href={`/admin/dashboard`} className="veille-back">← Service du jour</Link>
+        <AdminBackButton />
         <button onClick={() => window.print()} className="veille-print">🖨️ Imprimer</button>
       </div>
 

@@ -9,7 +9,7 @@ export function GET() {
     name: "Admin Panda Snack",
     short_name: "Admin PS",
     description: "Cuisine & comptoir Panda Snack — service du jour, encaissement, étiquettes.",
-    start_url: "/admin/dashboard",
+    start_url: "/admin/home",
     scope: "/admin/",
     display: "standalone",
     background_color: "#FBF5EC",

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { AdminBackButton } from "../AdminBackButton"
 
 interface Profil {
   id: string
@@ -77,7 +78,7 @@ export function ProfilsClient() {
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
           <div>
-            <Link href="/admin/dashboard" className="text-sm text-blue-600 hover:underline">← Dashboard</Link>
+            <AdminBackButton />
             <h1 className="text-xl font-bold text-gray-900 mt-1">Profils enfants</h1>
             <p className="text-xs text-gray-500">{visible.length} profil(s) {showInactive ? "(incluant inactifs)" : "actifs"}</p>
           </div>
