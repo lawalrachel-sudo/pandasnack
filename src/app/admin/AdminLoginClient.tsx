@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { Logo } from "@/components/Logo"
+import { InstallAdminButton } from "./InstallAdminButton"
 
 export function AdminLoginClient() {
   const [password, setPassword] = useState("")
@@ -90,6 +91,7 @@ export function AdminLoginClient() {
             {loading ? "Vérification…" : "Entrer"}
           </button>
         </form>
+        <InstallAdminButton />
       </div>
     </div>
   )
