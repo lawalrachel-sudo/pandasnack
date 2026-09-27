@@ -26,7 +26,7 @@ export default async function CGVPage() {
             Le Pass Panda est un porte-monnaie prépayé rechargeable par carte bancaire.
             Montant libre, minimum 10 €.
             Le solde est utilisable pour les commandes de repas et les achats au comptoir Panda Snack.
-            Validité : jusqu&apos;à la fin de l&apos;année scolaire en cours.
+            Validité : jusqu&apos;à la fin de l&apos;année scolaire en cours (30 juin).
             Le solde non utilisé est remboursable sur demande à la fin de la période.
           </p>
 

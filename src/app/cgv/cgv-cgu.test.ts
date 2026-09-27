@@ -20,7 +20,7 @@ describe("CGV/CGU (PS-05d-a)", () => {
   })
 
   it("validité du wallet = fin de l'année scolaire en cours", () => {
-    expect(cgv).toContain("à la fin de l&apos;année scolaire en cours")
+    expect(cgv).toContain("à la fin de l&apos;année scolaire en cours (30 juin)")
   })
 
   it("date de mise à jour = jour du merge (26 septembre 2026)", () => {
