@@ -4,7 +4,7 @@ import { ADMIN_TILES, tileHref } from "./admin-nav"
 describe("ADMIN_TILES (PS-06e)", () => {
   it("liste et ordre exacts des tuiles", () => {
     expect(ADMIN_TILES.map((t) => t.key)).toEqual([
-      "service", "veille", "etiquettes", "clients", "historique", "calculette", "boutique", "labo",
+      "service", "veille", "etiquettes", "clients", "historique", "calculette", "boutique", "caisse", "labo",
     ])
   })
 
@@ -13,6 +13,7 @@ describe("ADMIN_TILES (PS-06e)", () => {
     expect(disabled.map((t) => t.key)).toEqual(["labo"])
     for (const t of disabled) expect(t.badge).toBe("Bientôt")
     expect(ADMIN_TILES.find((t) => t.key === "boutique")!.disabled).toBeFalsy()
+    expect(ADMIN_TILES.find((t) => t.key === "caisse")!.disabled).toBeFalsy()
   })
 
   it("les tuiles actives ont un href réel", () => {
