@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabase } from "@/lib/supabase/server"
 import { requireAdmin } from "@/lib/auth/admin"
 import { getSupabaseAdmin } from "@/lib/supabase/admin"
+import { martiniqueToday } from "@/lib/caisse-date"
 import { isProduction } from "@/lib/service-du-jour"
 
 export const dynamic = "force-dynamic"
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
   const admin: any = getSupabaseAdmin()
   if (!admin) return NextResponse.json({ error: "SUPABASE_SERVICE_ROLE_KEY manquant" }, { status: 500 })
 
-  const date = req.nextUrl.searchParams.get("date") || new Date().toISOString().split("T")[0]
+  const date = req.nextUrl.searchParams.get("date") || martiniqueToday()
 
   // Articles vendables au comptoir.
   const { data: articlesRaw } = await admin

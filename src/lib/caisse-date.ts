@@ -1,10 +1,13 @@
-// PS-08a-b — Dates de clôture en fuseau Europe/Paris (le serveur tourne en UTC).
-// La caisse raisonne en jours de service ; « aujourd'hui » = jour civil parisien.
+// PS-08a-b / PS-08a-c — Dates de clôture au fuseau America/Martinique (UTC-4, sans heure
+// d'été). Le serveur tourne en UTC : la journée de service = jour civil MARTINIQUE, jamais
+// Europe/Paris ni UTC. Une seule source de vérité pour « aujourd'hui » côté caisse & comptoir.
 
-/** Date du jour (AAAA-MM-JJ) au fuseau Europe/Paris. */
-export function parisToday(now: Date = new Date()): string {
+export const CAISSE_TZ = "America/Martinique"
+
+/** Date du jour (AAAA-MM-JJ) au fuseau Martinique, pour un instant donné. */
+export function martiniqueToday(now: Date = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit",
+    timeZone: CAISSE_TZ, year: "numeric", month: "2-digit", day: "2-digit",
   }).format(now)
 }
 
@@ -25,7 +28,7 @@ export function yearStart(isoDate: string): string {
   return isoDate.slice(0, 4) + "-01-01"
 }
 
-/** Jour de service précédent (la clôture quotidienne porte sur la veille). */
+/** Jour précédent. */
 export function previousDay(isoDate: string): string {
   return addDays(isoDate, -1)
 }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { AdminBackButton } from "../AdminBackButton"
 import { JETON_OPTIONS, cartTotalCents, type PaymentMode } from "@/lib/comptoir"
+import { martiniqueToday } from "@/lib/caisse-date"
 
 interface Article { id: string; sku: string; name: string; price_alone_cents: number; stock_qty: number | null; is_special: boolean; allergens: string[] }
 interface Enfant { id: string; prenom: string; classe: string | null; account_id: string; plafond_gouter_cents: number | null }
@@ -14,7 +15,8 @@ function euro(c: number) { return `${(c / 100).toFixed(2).replace(".", ",")} €
 function uuid() { try { return crypto.randomUUID() } catch { return `k${Date.now()}${Math.random()}` } }
 
 export function BoutiqueClient() {
-  const today = useMemo(() => new Date().toISOString().split("T")[0], [])
+  // PS-08a-c — jour de service = jour civil Martinique (pas UTC), cohérent avec le comptoir SQL.
+  const today = useMemo(() => martiniqueToday(), [])
   const [articles, setArticles] = useState<Article[]>([])
   const [enfantsJour, setEnfantsJour] = useState<Enfant[]>([])
   const [sales, setSales] = useState<Sale[]>([])

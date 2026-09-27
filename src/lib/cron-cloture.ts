@@ -1,7 +1,16 @@
-// PS-08a-b — Logique pure de la clôture automatique (testable sans I/O).
-// Décide, pour une date d'exécution, quelles périodes clôturer. « sans action de Rachel ».
+// PS-08a-b / PS-08a-c — Logique pure de la clôture automatique (testable sans I/O).
+// Décide, pour un instant d'exécution, quelle période clôturer, en JOURS MARTINIQUE.
+// « sans action de Rachel ».
+//
+// Calendrier Vercel (UTC) vs Martinique (UTC-4) :
+//   - jour  : 03:30 UTC = 23:30 Martinique → on clôture le JOUR Martinique courant
+//             (la veille en UTC), dont le service est déjà passé.
+//   - mois  : 04:00 UTC le 1er = 00:00 Martinique le 1er → on clôture le mois qui vient
+//             de se terminer (mois du jour précédent en Martinique).
+//   - annee : 04:30 UTC le 1er janvier = 00:30 Martinique le 1er janvier → on clôture
+//             l'année précédente (CLOSING_YEAR_START, défaut 01-01).
 
-import { parisToday, previousDay, monthStart, addDays } from "./caisse-date"
+import { martiniqueToday, monthStart, addDays } from "./caisse-date"
 
 export type CronJob = "jour" | "mois" | "annee"
 
@@ -19,24 +28,25 @@ export function closingYearStart(isoDate: string, mmdd = "01-01"): string {
 }
 
 /**
- * Plan de clôture pour un job donné à une date d'exécution.
- * - jour  : clôture la veille (si activité).
- * - mois  : le 1er du mois, clôture le mois précédent.
- * - annee : le jour anniversaire de CLOSING_YEAR_START, clôture l'année précédente.
- * Renvoie null si rien à faire ce jour-là.
+ * Plan de clôture pour un job, à un instant d'exécution (par défaut : maintenant).
+ * Toutes les dates sont des jours Martinique.
+ * Renvoie null si rien à faire à cet instant.
  */
-export function planForJob(job: CronJob, runDate: string = parisToday(), yearStartMmdd = "01-01"): CloturePlan | null {
+export function planForJob(job: CronJob, now: Date = new Date(), yearStartMmdd = "01-01"): CloturePlan | null {
+  const mToday = martiniqueToday(now)
   if (job === "jour") {
-    return { type: "jour", start: previousDay(runDate), onlyIfActivity: true }
+    // Le jour Martinique courant : son service est terminé, on le fige.
+    return { type: "jour", start: mToday, onlyIfActivity: true }
   }
   if (job === "mois") {
-    if (!runDate.endsWith("-01")) return null // pas le 1er
-    const prevMonthAnyDay = addDays(monthStart(runDate), -1)
-    return { type: "mois", start: monthStart(prevMonthAnyDay), onlyIfActivity: false }
+    // Le mois qui vient de se terminer = mois du jour précédent (robuste que l'on soit
+    // le 1er à 00:00 ou le dernier jour à 23:xx en Martinique).
+    const ending = addDays(mToday, -1)
+    return { type: "mois", start: monthStart(ending), onlyIfActivity: false }
   }
-  // annee : uniquement le jour = CLOSING_YEAR_START
-  if (runDate.slice(5) !== yearStartMmdd) return null
-  const prevYear = String(Number(runDate.slice(0, 4)) - 1)
+  // annee : uniquement le jour anniversaire de CLOSING_YEAR_START (en Martinique).
+  if (mToday.slice(5) !== yearStartMmdd) return null
+  const prevYear = String(Number(mToday.slice(0, 4)) - 1)
   return { type: "annee", start: `${prevYear}-${yearStartMmdd}`, onlyIfActivity: false }
 }
 
