@@ -20,12 +20,16 @@ export interface VisibleItem {
   sellable_comptoir?: boolean | null
   sellable_alone?: boolean | null
   sellable_in_menu?: boolean | null
+  // PS-08a-d — une variante (parent_id renseigné) ne s'affiche jamais en précommande.
+  parent_id?: string | null
 }
 
 // Un article est-il visible pour ce public ? (coming_soon n'entre PAS ici : un article
 // « Bientôt disponible » reste visible, il est simplement non sélectionnable côté UI.)
 export function visForSource(item: VisibleItem, sg: string | null | undefined, sd?: string | null): boolean {
   if (item.active === false) return false
+  // PS-08a-d — une variante d'article comptoir n'existe jamais en précommande.
+  if (item.parent_id) return false
   // PS-08a — comptoir only (sellable_comptoir sans sellable_alone/in_menu) → jamais en précommande.
   if (item.sellable_comptoir && !item.sellable_alone && !item.sellable_in_menu) return false
   const sku = item.sku || ""

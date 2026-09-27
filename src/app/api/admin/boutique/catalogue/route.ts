@@ -15,42 +15,66 @@ async function guard() {
   return { admin }
 }
 
-// GET — liste des articles vendables au comptoir.
+function slugify(s: string): string {
+  return s.toUpperCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^A-Z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 20)
+}
+
+// GET — liste des articles vendables au comptoir (parents + variantes, à plat via parent_id).
 export async function GET() {
   const g = await guard()
   if ("error" in g) return g.error
   const { data, error } = await g.admin
     .from("catalog_items")
-    .select("id, sku, name, price_alone_cents, stock_qty, is_special, active, allergens, category_id")
+    .select("id, sku, name, price_alone_cents, stock_qty, is_special, active, allergens, category_id, parent_id")
     .eq("sellable_comptoir", true).order("sort_order")
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ articles: data || [] })
 }
 
-// POST — créer un article comptoir (catégorie GOUTER, invisible en précommande).
+// POST — créer un article comptoir OU une variante (si parent_id présent).
 export async function POST(req: NextRequest) {
   const g = await guard()
   if ("error" in g) return g.error
   const body = await req.json().catch(() => ({}))
   const name = (body?.name || "").trim()
-  const price = Math.round(Number(body?.price_alone_cents))
   if (!name) return NextResponse.json({ error: "Nom requis" }, { status: 400 })
+  const stock = body?.stock_qty === null || body?.stock_qty === undefined || body?.stock_qty === ""
+    ? null : Math.round(Number(body.stock_qty))
+
+  // --- Variante : hérite sku préfixe, prix, catégorie et flags du parent. ---
+  if (body?.parent_id) {
+    const { data: parent, error: pErr } = await g.admin
+      .from("catalog_items")
+      .select("id, sku, price_alone_cents, category_id, is_special, allergens")
+      .eq("id", body.parent_id).eq("sellable_comptoir", true).maybeSingle()
+    if (pErr || !parent) return NextResponse.json({ error: "Parent introuvable" }, { status: 400 })
+    const sku = `${parent.sku || "GOUT"}-${slugify(name)}-${Date.now().toString(36).slice(-4)}`
+    const { data, error } = await g.admin.from("catalog_items").insert({
+      parent_id: parent.id, category_id: parent.category_id, name, sku,
+      price_alone_cents: parent.price_alone_cents,   // prix = celui du parent (v1)
+      sellable_comptoir: true, sellable_alone: false, sellable_in_menu: false,
+      is_special: parent.is_special, active: body?.active === false ? false : true, sort_order: 90,
+      stock_qty: stock, allergens: parent.allergens || [],
+    }).select("id, sku, name, price_alone_cents, stock_qty, is_special, active, allergens, category_id, parent_id").single()
+    if (error) { console.error("[boutique/catalogue POST variant]", error); return NextResponse.json({ error: error.message }, { status: 500 }) }
+    return NextResponse.json({ article: data })
+  }
+
+  // --- Article parent (catégorie GOUTER, invisible en précommande). ---
+  const price = Math.round(Number(body?.price_alone_cents))
   if (!Number.isFinite(price) || price < 0) return NextResponse.json({ error: "Prix invalide" }, { status: 400 })
-
-  const sku = "GOUT-" + name.toUpperCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^A-Z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 24) + "-" + Date.now().toString(36).slice(-4)
-
+  const sku = "GOUT-" + slugify(name) + "-" + Date.now().toString(36).slice(-4)
   const { data, error } = await g.admin.from("catalog_items").insert({
     category_id: "GOUTER", name, sku, price_alone_cents: price,
     sellable_comptoir: true, sellable_alone: false, sellable_in_menu: false,
     is_special: !!body?.is_special, active: true, sort_order: 90,
-    stock_qty: body?.stock_qty === null || body?.stock_qty === undefined || body?.stock_qty === "" ? null : Math.round(Number(body.stock_qty)),
-    allergens: Array.isArray(body?.allergens) ? body.allergens : [],
-  }).select("id, sku, name, price_alone_cents, stock_qty, is_special, active, allergens").single()
+    stock_qty: stock, allergens: Array.isArray(body?.allergens) ? body.allergens : [],
+  }).select("id, sku, name, price_alone_cents, stock_qty, is_special, active, allergens, category_id, parent_id").single()
   if (error) { console.error("[boutique/catalogue POST]", error); return NextResponse.json({ error: error.message }, { status: 500 }) }
   return NextResponse.json({ article: data })
 }
 
-// PATCH — éditer un article (nom, prix, stock, actif, special, allergènes) ; ou réassort (+N stock).
+// PATCH — éditer un article/variante ; réassort ; le prix d'un parent est recopié sur ses variantes.
 export async function PATCH(req: NextRequest) {
   const g = await guard()
   if ("error" in g) return g.error
@@ -58,7 +82,6 @@ export async function PATCH(req: NextRequest) {
   const id = body?.id
   if (!id) return NextResponse.json({ error: "id requis" }, { status: 400 })
 
-  // Réassort : + reassort sur stock_qty (le stock doit être suivi).
   if (typeof body.reassort === "number" && body.reassort > 0) {
     const { data: cur } = await g.admin.from("catalog_items").select("stock_qty").eq("id", id).maybeSingle()
     const base = cur?.stock_qty ?? 0
@@ -82,7 +105,12 @@ export async function PATCH(req: NextRequest) {
   if (Object.keys(updates).length === 0) return NextResponse.json({ error: "Rien à modifier" }, { status: 400 })
 
   const { data, error } = await g.admin.from("catalog_items").update(updates).eq("id", id)
-    .eq("sellable_comptoir", true).select("id, name, price_alone_cents, stock_qty, is_special, active, allergens").single()
+    .eq("sellable_comptoir", true).select("id, name, price_alone_cents, stock_qty, is_special, active, allergens, parent_id").single()
   if (error) { console.error("[boutique/catalogue PATCH]", error); return NextResponse.json({ error: error.message }, { status: 500 }) }
+
+  // Le prix vit sur le parent : toute modif de prix est recopiée sur les variantes (v1, pas de prix propre).
+  if ("price_alone_cents" in updates && !data.parent_id) {
+    await g.admin.from("catalog_items").update({ price_alone_cents: updates.price_alone_cents }).eq("parent_id", id)
+  }
   return NextResponse.json({ article: data })
 }

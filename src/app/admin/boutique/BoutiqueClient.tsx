@@ -6,7 +6,10 @@ import { AdminBackButton } from "../AdminBackButton"
 import { JETON_OPTIONS, cartTotalCents, type PaymentMode } from "@/lib/comptoir"
 import { martiniqueToday } from "@/lib/caisse-date"
 
-interface Article { id: string; sku: string; name: string; price_alone_cents: number; stock_qty: number | null; is_special: boolean; allergens: string[] }
+interface Variant { id: string; sku: string; name: string; stock_qty: number | null }
+interface Article { id: string; sku: string; name: string; price_alone_cents: number; stock_qty: number | null; is_special: boolean; allergens: string[]; parent_id?: string | null; variants?: Variant[] }
+// Unité vendable : un article sans variante, ou une variante précise. C'est l'id envoyé à comptoir_sell.
+interface Unit { id: string; name: string; unit_price_cents: number; stock_qty: number | null }
 interface Enfant { id: string; prenom: string; classe: string | null; account_id: string; plafond_gouter_cents: number | null }
 interface Sale { id: string; sale_number: string; prenom: string | null; items: { name: string; qty: number }[]; total_cents: number; payment_mode: string; jeton_qty: number | null; reverses_sale_id: string | null }
 interface ChildCtx { profil_id: string; prenom: string; classe: string | null; account_id: string; balance_cents: number; plafond_gouter_cents: number | null; consumed_cents: number }
@@ -34,6 +37,7 @@ export function BoutiqueClient() {
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [reverseFor, setReverseFor] = useState<string | null>(null)
+  const [variantsFor, setVariantsFor] = useState<Article | null>(null)   // sélecteur de variantes ouvert
 
   const load = useCallback(async () => {
     setError(null)
@@ -72,16 +76,29 @@ export function BoutiqueClient() {
     if (res.ok) { setChild(json); setMode("wallet"); setQ(""); setResults([]) }
   }
 
+  // Unités vendables : article sans variante = lui-même ; article à variantes = ses variantes.
+  const unitsById = useMemo(() => {
+    const m = new Map<string, Unit>()
+    for (const a of articles) {
+      if (a.variants && a.variants.length > 0) {
+        for (const v of a.variants) m.set(v.id, { id: v.id, name: `${a.name} · ${v.name}`, unit_price_cents: a.price_alone_cents, stock_qty: v.stock_qty })
+      } else {
+        m.set(a.id, { id: a.id, name: a.name, unit_price_cents: a.price_alone_cents, stock_qty: a.stock_qty })
+      }
+    }
+    return m
+  }, [articles])
+
   const lines = useMemo(() =>
     Object.entries(cart).map(([id, qty]) => {
-      const a = articles.find((x) => x.id === id)!
-      return { catalog_item_id: id, qty, unit_price_cents: a?.price_alone_cents ?? 0, name: a?.name ?? "" }
-    }).filter((l) => l.qty > 0), [cart, articles])
+      const u = unitsById.get(id)
+      return { catalog_item_id: id, qty, unit_price_cents: u?.unit_price_cents ?? 0, name: u?.name ?? "" }
+    }).filter((l) => l.qty > 0), [cart, unitsById])
   const total = cartTotalCents(lines, mode)
 
-  function addToCart(a: Article) {
-    if (a.stock_qty !== null && (cart[a.id] || 0) >= a.stock_qty) return
-    setCart((c) => ({ ...c, [a.id]: (c[a.id] || 0) + 1 }))
+  function addUnit(u: Unit) {
+    if (u.stock_qty !== null && (cart[u.id] || 0) >= u.stock_qty) return
+    setCart((c) => ({ ...c, [u.id]: (c[u.id] || 0) + 1 }))
   }
   function setQty(id: string, qty: number) {
     setCart((c) => { const n = { ...c }; if (qty <= 0) delete n[id]; else n[id] = qty; return n })
@@ -96,7 +113,8 @@ export function BoutiqueClient() {
         idempotency_key: idemKey,
         service_date: today,
         payment_mode: mode,
-        account_id: mode === "wallet" ? child?.account_id : null,
+        // PS-08a-d : toujours transmettre le compte du profil (is_test hérité), quel que soit le mode.
+        account_id: child?.account_id ?? null,
         profil_id: child?.profil_id ?? null,
         prenom: child?.prenom ?? null,
         jeton_qty: mode === "jeton" ? jetonValue : null,
@@ -177,9 +195,19 @@ export function BoutiqueClient() {
       <h2 style={S.h2}>Articles</h2>
       <div style={S.grid}>
         {articles.map((a) => {
+          const hasVariants = !!(a.variants && a.variants.length > 0)
           const out = a.stock_qty !== null && a.stock_qty <= 0
+          if (hasVariants) {
+            return (
+              <button key={a.id} onClick={() => setVariantsFor(a)} style={{ ...S.article, ...(out ? S.articleOut : {}) }}>
+                <span style={S.artName}>{a.is_special ? "⭐ " : ""}{a.name}</span>
+                <span style={S.artPrice}>{euro(a.price_alone_cents)}</span>
+                <span style={S.artStock}>{a.variants!.length} variante{a.variants!.length > 1 ? "s" : ""}{a.stock_qty !== null ? ` · stock ${a.stock_qty}` : ""} ›</span>
+              </button>
+            )
+          }
           return (
-            <button key={a.id} onClick={() => !out && addToCart(a)} disabled={out} style={{ ...S.article, ...(out ? S.articleOut : {}) }}>
+            <button key={a.id} onClick={() => !out && addUnit({ id: a.id, name: a.name, unit_price_cents: a.price_alone_cents, stock_qty: a.stock_qty })} disabled={out} style={{ ...S.article, ...(out ? S.articleOut : {}) }}>
               <span style={S.artName}>{a.is_special ? "⭐ " : ""}{a.name}</span>
               <span style={S.artPrice}>{euro(a.price_alone_cents)}</span>
               {a.stock_qty !== null && <span style={{ ...S.artStock, color: out ? "#DC2626" : "var(--ink-soft)" }}>stock {a.stock_qty}</span>}
@@ -187,6 +215,28 @@ export function BoutiqueClient() {
           )
         })}
       </div>
+
+      {/* Sélecteur de variantes */}
+      {variantsFor && (
+        <div style={S.variantSheet}>
+          <div style={S.variantHead}>
+            <strong>{variantsFor.name}</strong>
+            <button onClick={() => setVariantsFor(null)} style={S.clearChild}>×</button>
+          </div>
+          <div style={S.chips}>
+            {variantsFor.variants!.map((v) => {
+              const vout = v.stock_qty !== null && v.stock_qty <= 0
+              return (
+                <button key={v.id} disabled={vout}
+                  onClick={() => { addUnit({ id: v.id, name: `${variantsFor.name} · ${v.name}`, unit_price_cents: variantsFor.price_alone_cents, stock_qty: v.stock_qty }) }}
+                  style={{ ...S.chip, ...(vout ? { opacity: 0.4 } : {}) }}>
+                  {v.name}{v.stock_qty !== null ? ` · ${v.stock_qty}` : ""}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Panier */}
       {lines.length > 0 && (
@@ -285,6 +335,8 @@ const S: Record<string, React.CSSProperties> = {
   artName: { fontWeight: 700, fontSize: 14 },
   artPrice: { fontWeight: 700, color: "var(--accent-2, #5A7F42)" },
   artStock: { fontSize: 11 },
+  variantSheet: { marginTop: 10, border: "1px solid var(--accent)", borderRadius: 14, padding: 12, background: "#FEF9F2" },
+  variantHead: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, fontSize: 15 },
   cart: { marginTop: 14, border: "1px solid var(--accent)", borderRadius: 14, padding: 12, background: "#FEF9F2" },
   cartLine: { display: "flex", alignItems: "center", gap: 8, padding: "6px 0", fontSize: 15 },
   qtyBtn: { width: 36, height: 36, borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg)", fontSize: 18, cursor: "pointer", color: "var(--ink)" },
