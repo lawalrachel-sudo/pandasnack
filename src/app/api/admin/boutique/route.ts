@@ -23,12 +23,29 @@ export async function GET(req: NextRequest) {
 
   const date = req.nextUrl.searchParams.get("date") || martiniqueToday()
 
-  // Articles vendables au comptoir.
+  // Articles vendables au comptoir (parents + variantes actives). Un parent avec variantes
+  // masque son propre stock : on expose Σ stock des variantes et la liste des variantes.
   const { data: articlesRaw } = await admin
     .from("catalog_items")
-    .select("id, sku, name, price_alone_cents, stock_qty, is_special, allergens, active")
+    .select("id, sku, name, price_alone_cents, stock_qty, is_special, allergens, active, parent_id")
     .eq("sellable_comptoir", true).eq("active", true).order("sort_order")
-  const articles = (articlesRaw || [])
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rows = (articlesRaw || []) as any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const variantsByParent = new Map<string, any[]>()
+  for (const r of rows) {
+    if (!r.parent_id) continue
+    const list = variantsByParent.get(r.parent_id) || []
+    list.push({ id: r.id, sku: r.sku, name: r.name, stock_qty: r.stock_qty })
+    variantsByParent.set(r.parent_id, list)
+  }
+  const articles = rows.filter((r) => !r.parent_id).map((p) => {
+    const variants = variantsByParent.get(p.id) || []
+    // Σ stock : somme des variantes suivies ; null si toutes non suivies.
+    const tracked = variants.filter((v) => v.stock_qty !== null && v.stock_qty !== undefined)
+    const stock_qty = variants.length ? (tracked.length ? tracked.reduce((s, v) => s + v.stock_qty, 0) : null) : p.stock_qty
+    return { ...p, variants, stock_qty }
+  })
 
   // Enfants du jour : profils avec une commande en production sur ce service (hors is_test).
   const { data: ordersRaw } = await admin
