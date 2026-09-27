@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   if (!idemKey) return NextResponse.json({ error: "Idempotency-Key requis" }, { status: 400 })
 
   const body = await req.json().catch(() => ({})) as {
-    accountId?: string; amountCents?: number; bonusCents?: number; mode?: string; note?: string
+    accountId?: string; amountCents?: number; bonusCents?: number; mode?: string; note?: string; sumup_receipt?: string
   }
   const { accountId, mode } = body
   const amountCents = Math.round(Number(body.amountCents))
@@ -65,13 +65,17 @@ export async function POST(req: NextRequest) {
     currentBalanceCents: wallet.balance_cents, currentTotalCreditedCents: wallet.total_credited_cents || 0,
   })
 
+  // PS-08a §4 — n° de reçu SumUp optionnel, ajouté à la description (pas de colonne).
+  const sumup = (body?.sumup_receipt || "").toString().trim()
+  const description = sumup ? `${plan.description} · reçu SumUp ${sumup}` : plan.description
+
   // Insert transaction AVEC la clé : c'est elle qui verrouille l'idempotence (unique index).
   const { error: txErr } = await admin.from("wallet_transactions").insert({
     wallet_id: wallet.id,
     type: "adjustment",
     amount_cents: plan.totalCreditCents,
     balance_after_cents: plan.newBalanceCents,
-    description: plan.description,
+    description,
     idempotency_key: idemKey,
     // created_by est un uuid : l'accès admin peut se faire par cookie (sans user Supabase),
     // on laisse NULL. La provenance « admin » est portée par type='adjustment' + description.
@@ -101,6 +105,6 @@ export async function POST(req: NextRequest) {
     bonus_cents: plan.bonusCents,
     total_credit_cents: plan.totalCreditCents,
     balance_after_cents: plan.newBalanceCents,
-    description: plan.description,
+    description,
   })
 }

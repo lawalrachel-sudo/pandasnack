@@ -1,0 +1,118 @@
+"use client"
+
+import { useCallback, useEffect, useState } from "react"
+import Link from "next/link"
+import { AdminBackButton } from "../../AdminBackButton"
+
+interface Article { id: string; sku: string; name: string; price_alone_cents: number; stock_qty: number | null; is_special: boolean; active: boolean; allergens: string[] }
+
+function euro(c: number) { return `${(c / 100).toFixed(2).replace(".", ",")} €` }
+
+export function CatalogueClient() {
+  const [articles, setArticles] = useState<Article[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [editing, setEditing] = useState<Article | null>(null)
+  const [creating, setCreating] = useState(false)
+  const [nName, setNName] = useState(""); const [nPrice, setNPrice] = useState(""); const [nStock, setNStock] = useState("")
+  const [busy, setBusy] = useState(false)
+
+  const load = useCallback(async () => {
+    setError(null)
+    try {
+      const res = await fetch("/api/admin/boutique/catalogue")
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || "Erreur")
+      setArticles(json.articles || [])
+    } catch (e) { setError((e as Error).message) }
+  }, [])
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { load() }, [load])
+
+  async function patch(id: string, body: Record<string, unknown>) {
+    setBusy(true)
+    try {
+      const res = await fetch("/api/admin/boutique/catalogue", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, ...body }) })
+      if (!res.ok) { const j = await res.json().catch(() => ({})); alert(j.error || "Erreur"); return }
+      setEditing(null); await load()
+    } finally { setBusy(false) }
+  }
+
+  async function create() {
+    if (!nName.trim() || !nPrice) return
+    setBusy(true)
+    try {
+      const res = await fetch("/api/admin/boutique/catalogue", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: nName.trim(), price_alone_cents: Math.round(parseFloat(nPrice.replace(",", ".")) * 100), stock_qty: nStock === "" ? null : Math.round(Number(nStock)) }),
+      })
+      if (!res.ok) { const j = await res.json().catch(() => ({})); alert(j.error || "Erreur"); return }
+      setCreating(false); setNName(""); setNPrice(""); setNStock(""); await load()
+    } finally { setBusy(false) }
+  }
+
+  return (
+    <div style={S.page}>
+      <AdminBackButton />
+      <div style={S.headRow}>
+        <h1 style={S.h1}>Catalogue comptoir</h1>
+        <Link href="/admin/boutique" style={S.link}>← Vente</Link>
+      </div>
+      {error && <p style={{ color: "#DC2626" }}>⚠ {error}</p>}
+
+      {!creating
+        ? <button onClick={() => setCreating(true)} style={S.addBtn}>+ Article</button>
+        : (
+          <div style={S.editBox}>
+            <input value={nName} onChange={(e) => setNName(e.target.value)} placeholder="Nom" style={S.input} />
+            <input value={nPrice} onChange={(e) => setNPrice(e.target.value)} placeholder="Prix (€)" inputMode="decimal" style={S.input} />
+            <input value={nStock} onChange={(e) => setNStock(e.target.value)} placeholder="Stock (vide = non suivi)" inputMode="numeric" style={S.input} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={create} disabled={busy} style={S.saveBtn}>Créer</button>
+              <button onClick={() => setCreating(false)} style={S.cancelBtn}>Annuler</button>
+            </div>
+          </div>
+        )}
+
+      {articles.map((a) => editing?.id === a.id ? (
+        <div key={a.id} style={S.editBox}>
+          <input defaultValue={a.name} onChange={(e) => setEditing({ ...editing!, name: e.target.value })} style={S.input} />
+          <input defaultValue={(a.price_alone_cents / 100).toString()} onChange={(e) => setEditing({ ...editing!, price_alone_cents: Math.round(parseFloat(e.target.value.replace(",", ".")) * 100) })} inputMode="decimal" style={S.input} />
+          <input defaultValue={a.stock_qty ?? ""} onChange={(e) => setEditing({ ...editing!, stock_qty: e.target.value === "" ? null : Math.round(Number(e.target.value)) })} placeholder="Stock (vide = non suivi)" inputMode="numeric" style={S.input} />
+          <label style={S.check}><input type="checkbox" defaultChecked={a.is_special} onChange={(e) => setEditing({ ...editing!, is_special: e.target.checked })} /> ⭐ Spécial</label>
+          <label style={S.check}><input type="checkbox" defaultChecked={a.active} onChange={(e) => setEditing({ ...editing!, active: e.target.checked })} /> Actif</label>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => patch(a.id, { name: editing!.name, price_alone_cents: editing!.price_alone_cents, stock_qty: editing!.stock_qty, is_special: editing!.is_special, active: editing!.active })} disabled={busy} style={S.saveBtn}>Enregistrer</button>
+            <button onClick={() => setEditing(null)} style={S.cancelBtn}>Annuler</button>
+          </div>
+        </div>
+      ) : (
+        <div key={a.id} style={{ ...S.row, opacity: a.active ? 1 : 0.5 }}>
+          <div style={{ flex: 1 }}>
+            <div style={S.name}>{a.is_special ? "⭐ " : ""}{a.name}{!a.active && " (inactif)"}</div>
+            <div style={S.meta}>{euro(a.price_alone_cents)}{a.stock_qty !== null ? ` · stock ${a.stock_qty}` : " · stock non suivi"}{a.allergens?.length ? ` · ${a.allergens.join(", ")}` : ""}</div>
+          </div>
+          {a.stock_qty !== null && <button onClick={() => patch(a.id, { reassort: 10 })} disabled={busy} style={S.reassort}>+10</button>}
+          <button onClick={() => setEditing(a)} style={S.editBtn}>✏️</button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+const S: Record<string, React.CSSProperties> = {
+  page: { maxWidth: 460, margin: "0 auto", padding: "12px 14px 40px", fontFamily: "var(--font-display, Fredoka), system-ui, sans-serif", color: "var(--ink)" },
+  headRow: { display: "flex", justifyContent: "space-between", alignItems: "baseline" },
+  h1: { fontSize: 22, fontWeight: 800, margin: "8px 0 12px" },
+  link: { color: "var(--accent)", textDecoration: "none", fontSize: 14 },
+  addBtn: { width: "100%", minHeight: 44, borderRadius: 12, border: "1px dashed var(--accent)", background: "none", color: "var(--accent)", fontWeight: 700, cursor: "pointer", fontFamily: "inherit", marginBottom: 12 },
+  editBox: { border: "1px solid var(--accent)", borderRadius: 12, padding: 12, marginBottom: 12, display: "flex", flexDirection: "column", gap: 8, background: "#FEF9F2" },
+  input: { height: 44, padding: "0 12px", borderRadius: 10, border: "1px solid var(--border)", fontSize: 15, background: "var(--bg)", color: "var(--ink)" },
+  check: { display: "flex", alignItems: "center", gap: 8, fontSize: 14, minHeight: 36 },
+  saveBtn: { flex: 1, minHeight: 44, background: "var(--accent)", color: "#fff", border: "none", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" },
+  cancelBtn: { minHeight: 44, padding: "0 16px", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 10, cursor: "pointer", fontFamily: "inherit", color: "var(--ink)" },
+  row: { display: "flex", alignItems: "center", gap: 8, padding: "10px 0", borderBottom: "1px solid var(--border)" },
+  name: { fontWeight: 700, fontSize: 15 },
+  meta: { fontSize: 12, color: "var(--ink-soft)", marginTop: 2 },
+  reassort: { minHeight: 40, padding: "0 10px", background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 8, cursor: "pointer", fontFamily: "inherit", color: "var(--ink)", fontSize: 13 },
+  editBtn: { minHeight: 40, padding: "0 10px", background: "none", border: "1px solid var(--border)", borderRadius: 8, cursor: "pointer" },
+}
