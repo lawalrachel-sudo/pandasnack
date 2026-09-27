@@ -34,6 +34,7 @@ export function ClientDetailClient({ accountId }: { accountId: string }) {
   const [montant, setMontant] = useState("")        // en euros, saisie libre
   const [mode, setMode] = useState("especes")
   const [note, setNote] = useState("")
+  const [sumup, setSumup] = useState("")  // PS-08a — n° reçu SumUp
   const [applyBonus, setApplyBonus] = useState(true)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
@@ -72,12 +73,12 @@ export function ClientDetailClient({ accountId }: { accountId: string }) {
       const res = await fetch("/api/admin/wallet/credit", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
-        body: JSON.stringify({ accountId, amountCents, bonusCents, mode, note: note.trim() || null }),
+        body: JSON.stringify({ accountId, amountCents, bonusCents, mode, note: note.trim() || null, sumup_receipt: mode === "cb_sumup" ? sumup.trim() || null : null }),
       })
       const json = await res.json()
       if (!res.ok) { setMsg({ ok: false, text: json.error || "Erreur" }); return }
       setMsg({ ok: true, text: json.duplicate ? "Déjà crédité." : `Crédité : ${euro(json.total_credit_cents)}.` })
-      setMontant(""); setNote(""); setApplyBonus(true)
+      setMontant(""); setNote(""); setSumup(""); setApplyBonus(true)
       await load()
     } catch { setMsg({ ok: false, text: "Erreur réseau" }) }
     finally { setSaving(false) }
@@ -146,6 +147,11 @@ export function ClientDetailClient({ accountId }: { accountId: string }) {
           <label style={S.bonusRow}>
             <input type="checkbox" checked={applyBonus} onChange={(e) => setApplyBonus(e.target.checked)} style={S.checkbox} />
             Bonus +{euro(suggestedBonus)} à appliquer ?
+          </label>
+        )}
+        {mode === "cb_sumup" && (
+          <label style={S.label}>N° reçu SumUp (optionnel)
+            <input value={sumup} onChange={(e) => setSumup(e.target.value)} placeholder="ex: 1234" style={S.input} />
           </label>
         )}
         <label style={S.label}>Note (optionnel)

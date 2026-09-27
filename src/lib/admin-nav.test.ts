@@ -8,10 +8,11 @@ describe("ADMIN_TILES (PS-06e)", () => {
     ])
   })
 
-  it("Boutique et Labo sont grisées avec un badge « Bientôt »", () => {
+  it("Labo reste grisée avec un badge « Bientôt » ; Boutique est active (PS-08a)", () => {
     const disabled = ADMIN_TILES.filter((t) => t.disabled)
-    expect(disabled.map((t) => t.key)).toEqual(["boutique", "labo"])
+    expect(disabled.map((t) => t.key)).toEqual(["labo"])
     for (const t of disabled) expect(t.badge).toBe("Bientôt")
+    expect(ADMIN_TILES.find((t) => t.key === "boutique")!.disabled).toBeFalsy()
   })
 
   it("les tuiles actives ont un href réel", () => {
@@ -40,6 +41,6 @@ describe("tileHref", () => {
     expect(tileHref(ADMIN_TILES.find((t) => t.key === "service")!, date)).toBe("/admin/dashboard")
   })
   it("une tuile grisée renvoie #", () => {
-    expect(tileHref(ADMIN_TILES.find((t) => t.key === "boutique")!, date)).toBe("#")
+    expect(tileHref(ADMIN_TILES.find((t) => t.key === "labo")!, date)).toBe("#")
   })
 })

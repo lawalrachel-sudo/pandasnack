@@ -1,0 +1,303 @@
+"use client"
+
+import { useCallback, useEffect, useMemo, useState } from "react"
+import Link from "next/link"
+import { AdminBackButton } from "../AdminBackButton"
+import { JETON_OPTIONS, cartTotalCents, type PaymentMode } from "@/lib/comptoir"
+
+interface Article { id: string; sku: string; name: string; price_alone_cents: number; stock_qty: number | null; is_special: boolean; allergens: string[] }
+interface Enfant { id: string; prenom: string; classe: string | null; account_id: string; plafond_gouter_cents: number | null }
+interface Sale { id: string; sale_number: string; prenom: string | null; items: { name: string; qty: number }[]; total_cents: number; payment_mode: string; jeton_qty: number | null; reverses_sale_id: string | null }
+interface ChildCtx { profil_id: string; prenom: string; classe: string | null; account_id: string; balance_cents: number; plafond_gouter_cents: number | null; consumed_cents: number }
+
+function euro(c: number) { return `${(c / 100).toFixed(2).replace(".", ",")} €` }
+function uuid() { try { return crypto.randomUUID() } catch { return `k${Date.now()}${Math.random()}` } }
+
+export function BoutiqueClient() {
+  const today = useMemo(() => new Date().toISOString().split("T")[0], [])
+  const [articles, setArticles] = useState<Article[]>([])
+  const [enfantsJour, setEnfantsJour] = useState<Enfant[]>([])
+  const [sales, setSales] = useState<Sale[]>([])
+  const [error, setError] = useState<string | null>(null)
+
+  const [child, setChild] = useState<ChildCtx | null>(null)
+  const [q, setQ] = useState("")
+  const [results, setResults] = useState<Enfant[]>([])
+
+  const [cart, setCart] = useState<Record<string, number>>({})   // article id → qty
+  const [mode, setMode] = useState<PaymentMode>("wallet")
+  const [jetonValue, setJetonValue] = useState(5)
+  const [sumup, setSumup] = useState("")
+  const [idemKey, setIdemKey] = useState(uuid())
+  const [busy, setBusy] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+  const [reverseFor, setReverseFor] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    setError(null)
+    try {
+      const res = await fetch(`/api/admin/boutique?date=${today}`)
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || "Erreur")
+      setArticles(json.articles || [])
+      setEnfantsJour(json.enfants_du_jour || [])
+      setSales(json.sales || [])
+    } catch (e) { setError((e as Error).message) }
+  }, [today])
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { load() }, [load])
+
+  // Recherche profils (debounce léger).
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (q.trim().length < 1) { setResults([]); return }
+    let annule = false
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/admin/boutique/search?q=${encodeURIComponent(q.trim())}`)
+        const json = await res.json()
+        if (!annule && res.ok) setResults(json.profils || [])
+      } catch { /* ignore */ }
+    }, 250)
+    return () => { annule = true; clearTimeout(t) }
+  }, [q])
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  async function selectChild(profilId: string) {
+    const res = await fetch(`/api/admin/boutique/child?profilId=${profilId}&date=${today}`)
+    const json = await res.json()
+    if (res.ok) { setChild(json); setMode("wallet"); setQ(""); setResults([]) }
+  }
+
+  const lines = useMemo(() =>
+    Object.entries(cart).map(([id, qty]) => {
+      const a = articles.find((x) => x.id === id)!
+      return { catalog_item_id: id, qty, unit_price_cents: a?.price_alone_cents ?? 0, name: a?.name ?? "" }
+    }).filter((l) => l.qty > 0), [cart, articles])
+  const total = cartTotalCents(lines, mode)
+
+  function addToCart(a: Article) {
+    if (a.stock_qty !== null && (cart[a.id] || 0) >= a.stock_qty) return
+    setCart((c) => ({ ...c, [a.id]: (c[a.id] || 0) + 1 }))
+  }
+  function setQty(id: string, qty: number) {
+    setCart((c) => { const n = { ...c }; if (qty <= 0) delete n[id]; else n[id] = qty; return n })
+  }
+  function resetCart() { setCart({}); setSumup(""); setIdemKey(uuid()) }
+
+  async function sell() {
+    if (lines.length === 0) return
+    setBusy(true); setError(null)
+    try {
+      const payload = {
+        idempotency_key: idemKey,
+        service_date: today,
+        payment_mode: mode,
+        account_id: mode === "wallet" ? child?.account_id : null,
+        profil_id: child?.profil_id ?? null,
+        prenom: child?.prenom ?? null,
+        jeton_qty: mode === "jeton" ? jetonValue : null,
+        sumup_receipt: mode === "cb_sumup" ? sumup.trim() || null : null,
+        items: lines.map((l) => ({ catalog_item_id: l.catalog_item_id, qty: l.qty })),
+      }
+      const res = await fetch("/api/admin/boutique/sell", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setError(json.error || "Vente impossible")
+        if (json.code === "SOLDE_INSUFFISANT") setMode("cb_sumup")
+        return
+      }
+      setToast(`✅ Vente ${json.sale?.sale_number}`)
+      setTimeout(() => setToast(null), 2500)
+      resetCart()
+      if (child) await selectChild(child.profil_id)
+      await load()
+    } catch { setError("Erreur réseau") }
+    finally { setBusy(false) }
+  }
+
+  async function reverse(saleId: string) {
+    setBusy(true)
+    try {
+      const res = await fetch("/api/admin/boutique/reverse", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ saleId }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error || "Annulation impossible"); return }
+      setReverseFor(null)
+      if (child) await selectChild(child.profil_id)
+      await load()
+    } finally { setBusy(false) }
+  }
+
+  const reversedIds = new Set(sales.filter((s) => s.reverses_sale_id).map((s) => s.reverses_sale_id!))
+  const walletDisabled = !child || (mode === "wallet" && child.balance_cents < total)
+  const plafondLabel = child
+    ? (child.plafond_gouter_cents == null ? "plafond illimité"
+       : `reste ${euro(Math.max(0, child.plafond_gouter_cents - child.consumed_cents))} sur ${euro(child.plafond_gouter_cents)}`)
+    : ""
+
+  return (
+    <div style={S.page}>
+      <AdminBackButton />
+      <div style={S.headRow}>
+        <h1 style={S.h1}>🛒 Boutique</h1>
+        <Link href="/admin/boutique/catalogue" style={S.catLink}>Catalogue →</Link>
+      </div>
+
+      {/* Enfant */}
+      <h2 style={S.h2}>Enfant</h2>
+      <div style={S.chips}>
+        {enfantsJour.map((e) => (
+          <button key={e.id} onClick={() => selectChild(e.id)} style={{ ...S.chip, ...(child?.profil_id === e.id ? S.chipOn : {}) }}>{e.prenom}</button>
+        ))}
+        {enfantsJour.length === 0 && <span style={S.muted}>Aucun enfant du jour</span>}
+      </div>
+      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Chercher un enfant…" style={S.search} />
+      {results.length > 0 && (
+        <div style={S.results}>
+          {results.map((r) => <button key={r.id} onClick={() => selectChild(r.id)} style={S.resultRow}>{r.prenom}{r.classe ? ` · ${r.classe}` : ""}</button>)}
+        </div>
+      )}
+
+      {child && (
+        <div style={S.childBanner}>
+          <strong>{child.prenom}</strong> · solde {euro(child.balance_cents)} · {plafondLabel}
+          <button onClick={() => { setChild(null); setMode("especes") }} style={S.clearChild}>×</button>
+        </div>
+      )}
+      {!child && <p style={S.muted}>Client de passage : espèces ou CB SumUp uniquement.</p>}
+
+      {/* Articles */}
+      <h2 style={S.h2}>Articles</h2>
+      <div style={S.grid}>
+        {articles.map((a) => {
+          const out = a.stock_qty !== null && a.stock_qty <= 0
+          return (
+            <button key={a.id} onClick={() => !out && addToCart(a)} disabled={out} style={{ ...S.article, ...(out ? S.articleOut : {}) }}>
+              <span style={S.artName}>{a.is_special ? "⭐ " : ""}{a.name}</span>
+              <span style={S.artPrice}>{euro(a.price_alone_cents)}</span>
+              {a.stock_qty !== null && <span style={{ ...S.artStock, color: out ? "#DC2626" : "var(--ink-soft)" }}>stock {a.stock_qty}</span>}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Panier */}
+      {lines.length > 0 && (
+        <div style={S.cart}>
+          {lines.map((l) => (
+            <div key={l.catalog_item_id} style={S.cartLine}>
+              <span style={{ flex: 1 }}>{l.name}</span>
+              <button onClick={() => setQty(l.catalog_item_id, l.qty - 1)} style={S.qtyBtn}>−</button>
+              <span style={S.qty}>{l.qty}</span>
+              <button onClick={() => setQty(l.catalog_item_id, l.qty + 1)} style={S.qtyBtn}>+</button>
+              <span style={S.lineTotal}>{mode === "jeton" ? "🎋" : euro(l.unit_price_cents * l.qty)}</span>
+            </div>
+          ))}
+          <div style={S.cartTotal}><span>Total</span><strong>{mode === "jeton" ? "0,00 € (jeton)" : euro(total)}</strong></div>
+
+          {/* Modes */}
+          <div style={S.modeRow}>
+            {(["wallet", "especes", "cb_sumup", "jeton"] as PaymentMode[]).map((m) => {
+              const disabled = m === "wallet" && !child
+              return (
+                <button key={m} disabled={disabled} onClick={() => setMode(m)}
+                  style={{ ...S.modeBtn, ...(mode === m ? S.modeOn : {}), ...(disabled ? { opacity: 0.4 } : {}) }}>
+                  {m === "wallet" ? "💳 Wallet" : m === "especes" ? "💶 Espèces" : m === "cb_sumup" ? "💳 SumUp" : "🎋 Jeton"}
+                </button>
+              )
+            })}
+          </div>
+          {mode === "cb_sumup" && (
+            <input value={sumup} onChange={(e) => setSumup(e.target.value)} placeholder="N° reçu SumUp (optionnel)" style={S.search} />
+          )}
+          {mode === "jeton" && (
+            <div style={S.modeRow}>
+              {JETON_OPTIONS.map((j) => (
+                <button key={j.value} onClick={() => setJetonValue(j.value)} style={{ ...S.modeBtn, ...(jetonValue === j.value ? S.modeOn : {}) }}>{j.value} · {j.label}</button>
+              ))}
+            </div>
+          )}
+
+          {error && <p style={S.err}>{error}</p>}
+          <button onClick={sell} disabled={busy || walletDisabled} style={S.sellBtn}>
+            {busy ? "…" : mode === "wallet" ? `💳 Débiter le wallet ${euro(total)}`
+              : mode === "especes" ? `💶 Encaisser espèces ${euro(total)}`
+              : mode === "cb_sumup" ? `💳 CB SumUp ${euro(total)}`
+              : `🎋 Jeton (0 €)`}
+          </button>
+        </div>
+      )}
+
+      {toast && <div style={S.toast}>{toast}</div>}
+
+      {/* Ventes du jour */}
+      <h2 style={S.h2}>Ventes du jour</h2>
+      {sales.length === 0 && <p style={S.muted}>Aucune vente.</p>}
+      {sales.filter((s) => !s.reverses_sale_id).map((s) => {
+        const annulee = reversedIds.has(s.id)
+        return (
+          <div key={s.id} style={{ ...S.saleRow, ...(annulee ? S.saleReversed : {}) }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ textDecoration: annulee ? "line-through" : "none" }}>
+                {s.prenom || "—"} · {s.items.map((i) => `${i.qty > 1 ? i.qty + "× " : ""}${i.name}`).join(", ")}
+              </div>
+              <div style={S.saleMeta}>{s.sale_number} · {s.payment_mode === "jeton" ? `🎋 ${s.jeton_qty}` : euro(s.total_cents)}{annulee ? " · annulée" : ""}</div>
+            </div>
+            {!annulee && (reverseFor === s.id
+              ? <span style={{ display: "flex", gap: 6 }}>
+                  <button onClick={() => reverse(s.id)} disabled={busy} style={S.revYes}>Oui</button>
+                  <button onClick={() => setReverseFor(null)} style={S.revNo}>Non</button>
+                </span>
+              : <button onClick={() => setReverseFor(s.id)} style={S.annuler}>Annuler</button>)}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+const S: Record<string, React.CSSProperties> = {
+  page: { maxWidth: 460, margin: "0 auto", padding: "12px 14px 60px", fontFamily: "var(--font-display, Fredoka), system-ui, sans-serif", color: "var(--ink)" },
+  headRow: { display: "flex", justifyContent: "space-between", alignItems: "baseline" },
+  h1: { fontSize: 22, fontWeight: 800, margin: "8px 0 12px" },
+  catLink: { color: "var(--accent)", textDecoration: "none", fontSize: 14 },
+  h2: { fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--ink-soft)", margin: "18px 0 8px" },
+  muted: { color: "var(--ink-soft)", fontSize: 14 },
+  err: { color: "#DC2626", fontSize: 14, margin: "8px 0" },
+  chips: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 },
+  chip: { minHeight: 44, padding: "8px 14px", borderRadius: 999, border: "1px solid var(--border)", background: "var(--bg-alt)", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", color: "var(--ink)" },
+  chipOn: { background: "var(--accent)", color: "#fff", borderColor: "transparent" },
+  search: { width: "100%", height: 44, padding: "0 12px", borderRadius: 12, border: "1px solid var(--border)", fontSize: 15, background: "var(--bg)", color: "var(--ink)", marginTop: 6 },
+  results: { border: "1px solid var(--border)", borderRadius: 12, marginTop: 6, overflow: "hidden" },
+  resultRow: { display: "block", width: "100%", textAlign: "left", padding: "12px", background: "var(--bg)", border: "none", borderBottom: "1px solid var(--border)", cursor: "pointer", fontFamily: "inherit", color: "var(--ink)", minHeight: 44 },
+  childBanner: { display: "flex", alignItems: "center", gap: 8, background: "#E8F5E9", border: "1px solid #A5D6A7", borderRadius: 12, padding: "10px 12px", marginTop: 10, fontSize: 14, color: "#166534" },
+  clearChild: { marginLeft: "auto", background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#166534" },
+  grid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 },
+  article: { display: "flex", flexDirection: "column", gap: 2, minHeight: 64, padding: "10px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--card, #fff)", cursor: "pointer", fontFamily: "inherit", color: "var(--ink)", textAlign: "left" },
+  articleOut: { opacity: 0.5, cursor: "not-allowed" },
+  artName: { fontWeight: 700, fontSize: 14 },
+  artPrice: { fontWeight: 700, color: "var(--accent-2, #5A7F42)" },
+  artStock: { fontSize: 11 },
+  cart: { marginTop: 14, border: "1px solid var(--accent)", borderRadius: 14, padding: 12, background: "#FEF9F2" },
+  cartLine: { display: "flex", alignItems: "center", gap: 8, padding: "6px 0", fontSize: 15 },
+  qtyBtn: { width: 36, height: 36, borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg)", fontSize: 18, cursor: "pointer", color: "var(--ink)" },
+  qty: { minWidth: 24, textAlign: "center", fontWeight: 700 },
+  lineTotal: { minWidth: 60, textAlign: "right", fontWeight: 600 },
+  cartTotal: { display: "flex", justifyContent: "space-between", padding: "8px 0", fontSize: 17, borderTop: "1px solid var(--border)", marginTop: 4 },
+  modeRow: { display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 },
+  modeBtn: { flex: 1, minWidth: 72, minHeight: 44, borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg)", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", color: "var(--ink)" },
+  modeOn: { background: "var(--accent)", color: "#fff", borderColor: "transparent" },
+  sellBtn: { width: "100%", minHeight: 50, marginTop: 10, background: "var(--accent)", color: "#fff", fontWeight: 800, fontSize: 16, border: "none", borderRadius: 12, cursor: "pointer", fontFamily: "inherit" },
+  toast: { position: "fixed", left: "50%", bottom: 20, transform: "translateX(-50%)", background: "#166534", color: "#fff", padding: "10px 18px", borderRadius: 999, fontWeight: 700, zIndex: 50 },
+  saleRow: { display: "flex", alignItems: "center", gap: 8, padding: "10px 0", borderBottom: "1px solid var(--border)", fontSize: 14 },
+  saleReversed: { opacity: 0.6 },
+  saleMeta: { fontSize: 11, color: "var(--ink-soft)", marginTop: 2 },
+  annuler: { background: "none", border: "1px solid var(--border)", borderRadius: 8, padding: "6px 10px", fontSize: 12, color: "var(--ink-soft)", cursor: "pointer", fontFamily: "inherit", minHeight: 40 },
+  revYes: { background: "#92400E", color: "#fff", border: "none", borderRadius: 8, padding: "6px 12px", minHeight: 40, cursor: "pointer", fontFamily: "inherit" },
+  revNo: { background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 8, padding: "6px 12px", minHeight: 40, cursor: "pointer", fontFamily: "inherit", color: "var(--ink)" },
+}

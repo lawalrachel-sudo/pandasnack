@@ -16,12 +16,18 @@ export function isSourceGroupEnabled(sg: string | null | undefined): sg is Sourc
 export interface VisibleItem {
   sku: string | null
   active?: boolean
+  // PS-08a — un article vendu uniquement au comptoir ne s'affiche jamais en précommande.
+  sellable_comptoir?: boolean | null
+  sellable_alone?: boolean | null
+  sellable_in_menu?: boolean | null
 }
 
 // Un article est-il visible pour ce public ? (coming_soon n'entre PAS ici : un article
 // « Bientôt disponible » reste visible, il est simplement non sélectionnable côté UI.)
 export function visForSource(item: VisibleItem, sg: string | null | undefined, sd?: string | null): boolean {
   if (item.active === false) return false
+  // PS-08a — comptoir only (sellable_comptoir sans sellable_alone/in_menu) → jamais en précommande.
+  if (item.sellable_comptoir && !item.sellable_alone && !item.sellable_in_menu) return false
   const sku = item.sku || ""
   if (!sku) return false
   // Toupiti à la carte dédupliqué : la formula BENTO_TOUPITI assure le rendu École
