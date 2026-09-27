@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabase as createClient } from "@/lib/supabase/server"
+import { getSupabaseAdmin } from "@/lib/supabase/admin"
 import { CLASSES_PAR_METIER, classeValidePourMetier, type Metier } from "@/lib/profil-gate"
+import { shouldReactivateOnProfil } from "@/lib/account-archive"
+
+// PS-06f — point de réactivation : dès qu'un profil enfant actif est créé/réactivé sur un
+// compte, ce compte redevient actif (archived_at = null). Écriture en service_role (l'update
+// de accounts.archived_at n'est pas ouvert au client utilisateur par la RLS).
+async function reactivateIfChild(accountId: string, profil: { type_profil?: string | null; active?: boolean | null; archived_at?: string | null }) {
+  if (!shouldReactivateOnProfil(profil)) return
+  const admin = getSupabaseAdmin()
+  if (!admin) return
+  await admin.from("accounts").update({ archived_at: null }).eq("id", accountId)
+}
 
 // POST — Ajouter un profil
 export async function POST(req: NextRequest) {
@@ -64,6 +76,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
   if (!profil) return NextResponse.json({ error: "Profil non créé" }, { status: 500 })
+  await reactivateIfChild(account.id, { type_profil: profil.type_profil, active: profil.active })
   return NextResponse.json({ success: true, profil })
 }
 
@@ -131,6 +144,8 @@ export async function PATCH(req: NextRequest) {
   if (!patched || patched.length === 0) {
     return NextResponse.json({ error: "Profil non modifié" }, { status: 409 })
   }
+  // Réactivation d'un profil enfant → le compte redevient actif.
+  await reactivateIfChild(account.id, { type_profil: existing.type_profil, active: patched[0].active })
   return NextResponse.json({ success: true, profil: patched[0] })
 }
 
