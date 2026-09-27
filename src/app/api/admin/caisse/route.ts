@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { createServerSupabase } from "@/lib/supabase/server"
 import { requireAdmin } from "@/lib/auth/admin"
 import { getSupabaseAdmin } from "@/lib/supabase/admin"
-import { parisToday, addDays } from "@/lib/caisse-date"
+import { martiniqueToday, addDays } from "@/lib/caisse-date"
 
 export const dynamic = "force-dynamic"
 
@@ -20,7 +20,7 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url)
   const typeFilter = url.searchParams.get("type") // jour|mois|annee|null
-  const today = parisToday()
+  const today = martiniqueToday()
 
   const [zToday, z7, z30] = await Promise.all([
     admin.rpc("caisse_z", { p_start: today, p_end: today }),

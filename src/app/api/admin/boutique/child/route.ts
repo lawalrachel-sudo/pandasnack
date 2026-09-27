@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabase } from "@/lib/supabase/server"
 import { requireAdmin } from "@/lib/auth/admin"
 import { getSupabaseAdmin } from "@/lib/supabase/admin"
+import { martiniqueToday } from "@/lib/caisse-date"
 
 export const dynamic = "force-dynamic"
 
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: "Service indisponible" }, { status: 500 })
 
   const profilId = req.nextUrl.searchParams.get("profilId")
-  const date = req.nextUrl.searchParams.get("date") || new Date().toISOString().split("T")[0]
+  const date = req.nextUrl.searchParams.get("date") || martiniqueToday()
   if (!profilId) return NextResponse.json({ error: "profilId requis" }, { status: 400 })
 
   const { data: profil } = await admin
