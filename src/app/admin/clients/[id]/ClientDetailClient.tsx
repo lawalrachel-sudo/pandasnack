@@ -8,7 +8,7 @@ interface Profil { id: string; prenom: string; classe: string | null; active: bo
 interface Tx { id: string; type: string; amount_cents: number; balance_after_cents: number; description: string | null; stripe_payment_intent_id: string | null; created_at: string }
 interface OrderRow { id: string; order_number: string; status: string; payment_method: string | null; total_cents: number; service_date: string | null; created_at: string }
 interface Payload {
-  account: { id: string; nom_compte: string; email: string; telephone: string | null; is_test: boolean; panda_id: string | null }
+  account: { id: string; nom_compte: string; email: string; telephone: string | null; is_test: boolean; panda_id: string | null; archived_at: string | null }
   profils: Profil[]
   wallet: { balance_cents: number; total_credited_cents: number; total_debited_cents: number } | null
   transactions: Tx[]
@@ -37,6 +37,10 @@ export function ClientDetailClient({ accountId }: { accountId: string }) {
   const [applyBonus, setApplyBonus] = useState(true)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+
+  // PS-06f — archivage
+  const [confirmArchive, setConfirmArchive] = useState(false)
+  const [archiving, setArchiving] = useState(false)
 
   const load = useCallback(async () => {
     setError(null)
@@ -79,10 +83,21 @@ export function ClientDetailClient({ accountId }: { accountId: string }) {
     finally { setSaving(false) }
   }
 
+  async function setArchived(archive: boolean) {
+    setArchiving(true)
+    try {
+      const res = await fetch(`/api/admin/clients/${accountId}/${archive ? "archive" : "unarchive"}`, { method: "POST" })
+      if (!res.ok) { const j = await res.json().catch(() => ({})); setMsg({ ok: false, text: j.error || "Erreur" }); return }
+      setConfirmArchive(false)
+      await load()
+    } finally { setArchiving(false) }
+  }
+
   if (error) return <div style={S.page}><AdminBackButton /><p style={{ color: "#DC2626" }}>⚠ {error}</p></div>
   if (!data) return <div style={S.page}><AdminBackButton /><p style={S.muted}>Chargement…</p></div>
 
   const { account, profils, wallet, transactions, orders } = data
+  const isArchived = !!account.archived_at
   const enfantsActifs = profils.filter((p) => p.active && !p.archived_at && p.type_profil === "eleve")
   const autres = profils.filter((p) => !(p.active && !p.archived_at && p.type_profil === "eleve"))
 
@@ -91,6 +106,24 @@ export function ClientDetailClient({ accountId }: { accountId: string }) {
       <AdminBackButton />
       <h1 style={S.h1}>{account.nom_compte}{account.is_test && <span style={S.testTag}> TEST</span>}</h1>
       <p style={S.sub}>{account.email}{account.telephone ? <> · <a href={`tel:${account.telephone}`} style={S.tel}>{account.telephone}</a></> : null}</p>
+
+      {/* PS-06f — bandeau archivé + réactivation / archivage */}
+      {isArchived ? (
+        <div style={S.archBanner}>
+          <span>📦 Compte archivé le {dt(account.archived_at!)}</span>
+          <button onClick={() => setArchived(false)} disabled={archiving} style={S.reactivate}>Réactiver</button>
+        </div>
+      ) : confirmArchive ? (
+        <div style={S.confirmBox}>
+          <span>Archiver ce compte ? (historique conservé)</span>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setArchived(true)} disabled={archiving} style={S.archiveYes}>Oui, archiver</button>
+            <button onClick={() => setConfirmArchive(false)} style={S.archiveNo}>Annuler</button>
+          </div>
+        </div>
+      ) : (
+        <button onClick={() => setConfirmArchive(true)} style={S.archiveBtn}>📦 Archiver ce compte</button>
+      )}
 
       {/* Solde */}
       <div style={S.soldeBox}>
@@ -164,6 +197,12 @@ export function ClientDetailClient({ accountId }: { accountId: string }) {
 }
 
 const S: Record<string, React.CSSProperties> = {
+  archBanner: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 12, padding: "10px 12px", marginTop: 10, fontSize: 13, color: "var(--ink-soft)" },
+  reactivate: { background: "var(--accent-2, #5A7F42)", color: "#fff", border: "none", borderRadius: 10, padding: "8px 14px", minHeight: 40, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" },
+  archiveBtn: { marginTop: 10, background: "none", border: "1px solid var(--border)", borderRadius: 10, padding: "8px 14px", minHeight: 40, fontSize: 13, color: "var(--ink-soft)", cursor: "pointer", fontFamily: "inherit" },
+  confirmBox: { display: "flex", flexDirection: "column", gap: 8, background: "#FEF3E2", border: "1px solid #F5D5A0", borderRadius: 12, padding: 12, marginTop: 10, fontSize: 13, color: "#92400E" },
+  archiveYes: { background: "#92400E", color: "#fff", border: "none", borderRadius: 10, padding: "8px 14px", minHeight: 40, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" },
+  archiveNo: { background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 10, padding: "8px 14px", minHeight: 40, cursor: "pointer", fontFamily: "inherit", color: "var(--ink)" },
   page: { maxWidth: 460, margin: "0 auto", padding: "16px 14px 40px", fontFamily: "var(--font-display, Fredoka), system-ui, sans-serif", color: "var(--ink)" },
   back: { color: "var(--accent)", textDecoration: "none", fontSize: 14 },
   h1: { fontSize: 22, fontWeight: 800, margin: "12px 0 2px" },

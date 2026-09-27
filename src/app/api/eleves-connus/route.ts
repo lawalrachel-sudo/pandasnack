@@ -199,5 +199,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Aucun profil n'a été créé." }, { status: 500 })
   }
 
+  // PS-06f — des profils enfants actifs viennent d'être créés → le compte redevient actif.
+  await admin.from("accounts").update({ archived_at: null }).eq("id", account.id)
+
   return NextResponse.json({ created: created.length, profils: created })
 }

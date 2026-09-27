@@ -21,7 +21,7 @@ export async function GET() {
   const { data, error } = await admin
     .from("accounts")
     .select(`
-      id, nom_compte, email, telephone, source_group, is_test,
+      id, nom_compte, email, telephone, source_group, is_test, archived_at,
       profils(prenom, classe, active, archived_at, type_profil),
       wallets(balance_cents, total_credited_cents),
       orders(id, status, created_at, service_slots(service_date))
@@ -52,6 +52,7 @@ export async function GET() {
       email: a.email,
       telephone: a.telephone,
       is_test: !!a.is_test,
+      archived_at: a.archived_at || null,
       enfants,
       balance_cents: wallet?.balance_cents || 0,
       total_credited_cents: wallet?.total_credited_cents || 0,

@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { makeSupabaseStub, queriesOn, type QueryContext, type StubClient } from "@/test/supabase-stub"
 
-const mocks = vi.hoisted(() => ({ user: null as StubClient | null }))
+const mocks = vi.hoisted(() => ({ user: null as StubClient | null, admin: null as StubClient | null }))
 vi.mock("@/lib/supabase/server", () => ({ createServerSupabase: async () => mocks.user }))
+vi.mock("@/lib/supabase/admin", () => ({ getSupabaseAdmin: () => mocks.admin }))
 
 import { PATCH, POST } from "./route"
 
@@ -38,6 +39,7 @@ function setup(opts: {
       return { data: null }
     },
   })
+  mocks.admin = makeSupabaseStub({ user: null, resolve: () => ({ data: null }) })
 }
 
 const post = async (body: unknown) => {
@@ -49,7 +51,7 @@ const patch = async (body: unknown) => {
   return { status: res.status, body: await res.json() }
 }
 
-beforeEach(() => { mocks.user = null })
+beforeEach(() => { mocks.user = null; mocks.admin = null })
 
 describe("POST /api/profils", () => {
   it("crée un profil enfant actif avec type_profil=eleve", async () => {
@@ -97,6 +99,20 @@ describe("POST /api/profils", () => {
     await post({ prenom: "Rachel" })
     const ins = queriesOn(mocks.user!, "profils").find((q) => q.op === "insert")!
     expect((ins.payload as { type_profil: string }).type_profil).toBe("adulte")
+  })
+
+  it("PS-06f — créer un profil enfant actif réactive le compte (archived_at=null)", async () => {
+    setup()
+    await post({ prenom: "Samuel", classe: "mercredi" })
+    const upd = queriesOn(mocks.admin!, "accounts").find((q) => q.op === "update")
+    expect(upd).toBeDefined()
+    expect((upd!.payload as { archived_at: null }).archived_at).toBeNull()
+  })
+
+  it("PS-06f — Panda Guest (profil adulte) ne réactive PAS via ce chemin", async () => {
+    setup({ sourceGroup: "panda_guest" })
+    await post({ prenom: "Rachel" })
+    expect(queriesOn(mocks.admin!, "accounts").some((q) => q.op === "update")).toBe(false)
   })
 })
 

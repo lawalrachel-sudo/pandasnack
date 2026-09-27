@@ -150,6 +150,15 @@ describe("POST /api/eleves-connus", () => {
     expect(rows.map((r) => r.classe)).toEqual(["mercredi", "samedi"])
   })
 
+  it("PS-06f — réactive le compte (archived_at=null) après création d'enfants actifs", async () => {
+    setup()
+    await call({ eleves: [{ id: "e1" }] })
+    const upd = queriesOn(mocks.admin!, "accounts").find((q) => q.op === "update")
+    expect(upd).toBeDefined()
+    expect((upd!.payload as { archived_at: null }).archived_at).toBeNull()
+    expect(upd!.eq.id).toBe(ACCOUNT)
+  })
+
   it("le créneau choisi par le parent prime sur celui de la liste", async () => {
     setup()
     await call({ eleves: [{ id: "e1", classe: "Samedi" }] })
