@@ -29,6 +29,13 @@ export default function Home() {
           Commander
         </Link>
         <Link
+          href="/boutique"
+          className="flex h-12 items-center justify-center rounded-xl font-semibold border transition-colors"
+          style={{ borderColor: 'var(--border)', color: 'var(--ink)' }}
+        >
+          🛍️ La Boutique
+        </Link>
+        <Link
           href="/auth"
           className="flex h-12 items-center justify-center rounded-xl font-semibold border transition-colors"
           style={{ borderColor: 'var(--border)', color: 'var(--ink)' }}

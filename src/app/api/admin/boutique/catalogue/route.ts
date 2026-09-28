@@ -25,7 +25,7 @@ export async function GET() {
   if ("error" in g) return g.error
   const { data, error } = await g.admin
     .from("catalog_items")
-    .select("id, sku, name, price_alone_cents, stock_qty, is_special, active, allergens, category_id, parent_id")
+    .select("id, sku, name, price_alone_cents, stock_qty, is_special, active, allergens, category_id, parent_id, image_url, is_hero, hero_text")
     .eq("sellable_comptoir", true).order("sort_order")
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ articles: data || [] })
@@ -102,10 +102,24 @@ export async function PATCH(req: NextRequest) {
   if ("active" in body) updates.active = !!body.active
   if ("is_special" in body) updates.is_special = !!body.is_special
   if ("allergens" in body && Array.isArray(body.allergens)) updates.allergens = body.allergens
+  // PS-08b — vitrine : image, produit maison à l'honneur (unique), texte hero (≤ 120 car.).
+  if ("image_url" in body) updates.image_url = body.image_url?.trim() ? body.image_url.trim() : null
+  if ("hero_text" in body) {
+    const t = typeof body.hero_text === "string" ? body.hero_text.trim() : ""
+    if (t.length > 120) return NextResponse.json({ error: "Texte hero trop long (120 max)" }, { status: 400 })
+    updates.hero_text = t || null
+  }
+  const settingHero = "is_hero" in body ? !!body.is_hero : null
+  if (settingHero !== null) updates.is_hero = settingHero
   if (Object.keys(updates).length === 0) return NextResponse.json({ error: "Rien à modifier" }, { status: 400 })
 
+  // Un seul produit à l'honneur : désactiver les autres avant d'en activer un (index unique partiel).
+  if (settingHero === true) {
+    await g.admin.from("catalog_items").update({ is_hero: false }).eq("is_hero", true).neq("id", id)
+  }
+
   const { data, error } = await g.admin.from("catalog_items").update(updates).eq("id", id)
-    .eq("sellable_comptoir", true).select("id, name, price_alone_cents, stock_qty, is_special, active, allergens, parent_id").single()
+    .eq("sellable_comptoir", true).select("id, name, price_alone_cents, stock_qty, is_special, active, allergens, parent_id, image_url, is_hero, hero_text").single()
   if (error) { console.error("[boutique/catalogue PATCH]", error); return NextResponse.json({ error: error.message }, { status: 500 }) }
 
   // Le prix vit sur le parent : toute modif de prix est recopiée sur les variantes (v1, pas de prix propre).
