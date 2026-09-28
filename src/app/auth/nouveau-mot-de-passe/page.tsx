@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import Link from "next/link"
+import { PasswordInput } from "@/components/PasswordInput"
 import { Logo } from "@/components/Logo"
 
 // PS-09a — Réinitialisation du mot de passe (sans l'ancien). Ouvre la session de récupération
@@ -87,13 +88,13 @@ function NouveauMotDePasseContent() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="text-sm font-medium" style={{ color: "var(--ink)" }}>Nouveau mot de passe</label>
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+              <PasswordInput value={password} onChange={e => setPassword(e.target.value)}
                 className="w-full h-11 px-3 mt-1 rounded-xl border text-sm" style={{ borderColor: "var(--border)" }}
                 placeholder="8 caractères minimum" autoFocus autoComplete="new-password" />
             </div>
             <div>
               <label className="text-sm font-medium" style={{ color: "var(--ink)" }}>Confirmer</label>
-              <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
+              <PasswordInput value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
                 className="w-full h-11 px-3 mt-1 rounded-xl border text-sm" style={{ borderColor: "var(--border)" }}
                 placeholder="Retaper le mot de passe" autoComplete="new-password" />
             </div>
