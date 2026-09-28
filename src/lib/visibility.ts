@@ -22,6 +22,19 @@ export interface VisibleItem {
   sellable_in_menu?: boolean | null
   // PS-08a-d — une variante (parent_id renseigné) ne s'affiche jamais en précommande.
   parent_id?: string | null
+  // PS-10a — article commandable sur un créneau Panda Devoirs (soir).
+  sellable_devoirs?: boolean | null
+}
+
+// PS-10a — Visibilité sur un créneau Panda Devoirs : uniquement les articles flaggés
+// sellable_devoirs et actifs ; jamais une variante ni un article comptoir-only ; les
+// formules/Menu Panda ne passent pas par ici (non rendues côté Devoirs). coming_soon reste
+// visible (grisé, non commandable) comme ailleurs.
+export function visForDevoirs(item: VisibleItem): boolean {
+  if (item.active === false) return false
+  if (item.parent_id) return false
+  if (item.sellable_comptoir && !item.sellable_alone && !item.sellable_in_menu) return false
+  return item.sellable_devoirs === true
 }
 
 // Un article est-il visible pour ce public ? (coming_soon n'entre PAS ici : un article

@@ -30,7 +30,7 @@ function fmtDateShort(d: string): string {
   return new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" })
 }
 
-interface Profil { id: string; prenom: string; classe: string | null; metier: string; is_default: boolean; active: boolean; notes_allergies: string | null; type_profil?: string | null; plafond_gouter_cents?: number | null }
+interface Profil { id: string; prenom: string; nom?: string | null; classe: string | null; metier: string; is_default: boolean; active: boolean; notes_allergies: string | null; type_profil?: string | null; plafond_gouter_cents?: number | null; devoirs?: boolean | null }
 interface ComptoirSale { id: string; sale_number: string; service_date: string; created_at: string; prenom: string | null; items: { name: string; qty: number }[]; payment_mode: string; jeton_qty: number | null; total_cents: number; annulee: boolean }
 interface WalletTx { id: string; type: string; amount_cents: number; balance_after_cents: number; description: string | null; created_at: string }
 
@@ -50,6 +50,7 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
   const [tab, setTab] = useState<"profils" | "wallet" | "compte">(initialTab)
   const [showAddProfil, setShowAddProfil] = useState(false)
   const [newPrenom, setNewPrenom] = useState("")
+  const [newNom, setNewNom] = useState("")
   const [newClasse, setNewClasse] = useState("")
   const [newAllergies, setNewAllergies] = useState("")
   const [saving, setSaving] = useState(false)
@@ -121,6 +122,19 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
   )
   const [plafondSaved, setPlafondSaved] = useState<Record<string, boolean>>({})
   const [showPlafondInfo, setShowPlafondInfo] = useState(false)
+
+  // PS-10a — complétion du nom manquant (bandeau non bloquant).
+  const [nomEdits, setNomEdits] = useState<Record<string, string>>({})
+  async function saveNom(profilId: string) {
+    const v = (nomEdits[profilId] || "").trim()
+    if (!v) return
+    const res = await fetch("/api/profils", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profilId, nom: v }),
+    })
+    if (res.ok) window.location.reload()
+    else alert("Erreur lors de l'enregistrement du nom")
+  }
 
   async function savePlafond(profilId: string, cents: number | null) {
     setPlafonds((s) => ({ ...s, [profilId]: cents }))
@@ -224,12 +238,12 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
   }
 
   async function addProfil() {
-    if (!newPrenom.trim()) return
+    if (!newPrenom.trim() || !newNom.trim()) return
     setSaving(true)
     try {
       const res = await fetch("/api/profils", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prenom: newPrenom.trim(), classe: newClasse || null, notes_allergies: newAllergies.trim() || null }),
+        body: JSON.stringify({ prenom: newPrenom.trim(), nom: newNom.trim(), classe: newClasse || null, notes_allergies: newAllergies.trim() || null }),
       })
       if (res.ok) window.location.reload()
       else alert("Erreur lors de l'ajout")
@@ -391,6 +405,19 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
                 </div>
               </div>
 
+              {p.type_profil === "eleve" && !p.nom && (
+                <div className="mt-3 pt-3 border-t rounded-lg p-2" style={{ borderColor: "var(--border)", background: "#FEF3E2" }}>
+                  <p className="text-xs font-semibold mb-1" style={{ color: "#92400E" }}>Complète le nom de {p.prenom}</p>
+                  <div className="flex gap-2">
+                    <input type="text" placeholder="Nom" value={nomEdits[p.id] ?? ""}
+                      onChange={e => setNomEdits(s => ({ ...s, [p.id]: e.target.value }))}
+                      className="flex-1 h-9 px-2 rounded-lg border text-sm" style={{ borderColor: "var(--border)" }} />
+                    <button onClick={() => saveNom(p.id)} disabled={!(nomEdits[p.id] || "").trim()}
+                      className="h-9 px-3 rounded-lg text-white text-sm font-semibold disabled:opacity-50" style={{ background: "var(--accent)" }}>OK</button>
+                  </div>
+                </div>
+              )}
+
               {/* PS-08b — Plafond goûter par jour (curseur, pas de 0,50 €, « Illimité » = null) */}
               <div className="mt-3 pt-3 border-t" style={{ borderColor: "var(--border)" }}>
                 <div className="flex items-center justify-between">
@@ -496,6 +523,11 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
                 <input type="text" value={newPrenom} onChange={e => setNewPrenom(e.target.value)} placeholder="Prénom de l'enfant"
                   className="w-full mt-1 h-10 px-3 rounded-lg border text-sm" style={{ borderColor: "var(--border)" }} />
               </div>
+              <div>
+                <label className="text-xs font-medium" style={{ color: "var(--ink-soft)" }}>Nom</label>
+                <input type="text" value={newNom} onChange={e => setNewNom(e.target.value)} placeholder="Nom de l'enfant"
+                  className="w-full mt-1 h-10 px-3 rounded-lg border text-sm" style={{ borderColor: "var(--border)" }} />
+              </div>
               {/* BUG B — dropdown contextualisé selon metier du compte */}
               {(() => {
                 const sg = account.source_group
@@ -535,7 +567,7 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
                   className="w-full mt-1 h-10 px-3 rounded-lg border text-sm" style={{ borderColor: "var(--border)" }} />
               </div>
               <div className="flex gap-2">
-                <button onClick={addProfil} disabled={saving || !newPrenom.trim()}
+                <button onClick={addProfil} disabled={saving || !newPrenom.trim() || !newNom.trim()}
                   className="flex-1 h-10 rounded-lg font-semibold text-white text-sm disabled:opacity-50" style={{ background: "var(--accent)" }}>
                   {saving ? "..." : "Ajouter"}
                 </button>

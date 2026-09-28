@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { bonusForAmount, type RechargeTier } from "@/lib/wallet-bonus"
 import { AdminBackButton } from "../../AdminBackButton"
 
-interface Profil { id: string; prenom: string; classe: string | null; active: boolean; archived_at: string | null; type_profil: string | null; notes_allergies: string | null }
+interface Profil { id: string; prenom: string; nom: string | null; classe: string | null; active: boolean; archived_at: string | null; type_profil: string | null; notes_allergies: string | null; devoirs: boolean | null }
 interface Tx { id: string; type: string; amount_cents: number; balance_after_cents: number; description: string | null; stripe_payment_intent_id: string | null; created_at: string }
 interface OrderRow { id: string; order_number: string; status: string; payment_method: string | null; total_cents: number; service_date: string | null; created_at: string }
 interface Payload {
@@ -29,6 +29,15 @@ const STATUS_LABEL: Record<string, string> = { paid: "payé", pending_payment: "
 export function ClientDetailClient({ accountId }: { accountId: string }) {
   const [data, setData] = useState<Payload | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // PS-10a — inscription Panda Devoirs par profil (coche admin), état optimiste.
+  const [devoirsMap, setDevoirsMap] = useState<Record<string, boolean>>({})
+  async function toggleDevoirs(profilId: string, val: boolean) {
+    setDevoirsMap((m) => ({ ...m, [profilId]: val }))
+    const res = await fetch(`/api/admin/profils/${profilId}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ devoirs: val }),
+    })
+    if (!res.ok) { setDevoirsMap((m) => ({ ...m, [profilId]: !val })); alert("Erreur Panda Devoirs") }
+  }
 
   // Formulaire crédit manuel
   const [montant, setMontant] = useState("")        // en euros, saisie libre
@@ -175,7 +184,14 @@ export function ClientDetailClient({ accountId }: { accountId: string }) {
       {/* Enfants */}
       <h2 style={S.h2}>Enfants</h2>
       {enfantsActifs.map((p) => (
-        <div key={p.id} style={S.row}><span><strong>{p.prenom}</strong>{p.classe ? ` · ${p.classe}` : ""}</span>{p.notes_allergies && <span style={S.allerg}>⚠️ {p.notes_allergies}</span>}</div>
+        <div key={p.id} style={S.row}>
+          <span><strong>{p.prenom}{p.nom ? ` ${p.nom}` : ""}</strong>{p.classe ? ` · ${p.classe}` : ""}</span>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer" }}>
+            <input type="checkbox" checked={devoirsMap[p.id] ?? !!p.devoirs} onChange={(e) => toggleDevoirs(p.id, e.target.checked)} />
+            Panda Devoirs
+          </label>
+          {p.notes_allergies && <span style={S.allerg}>⚠️ {p.notes_allergies}</span>}
+        </div>
       ))}
       {enfantsActifs.length === 0 && <p style={S.muted}>Aucun enfant actif.</p>}
       {autres.map((p) => (

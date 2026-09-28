@@ -25,8 +25,10 @@ export async function POST(req: NextRequest) {
     .from("accounts").select("id, source_group").eq("auth_user_id", user.id).single()
   if (!account) return NextResponse.json({ error: "Compte introuvable" }, { status: 404 })
 
-  const { prenom, classe, notes_allergies, metier } = await req.json()
+  const { prenom, nom, classe, notes_allergies, metier } = await req.json()
   if (!prenom?.trim()) return NextResponse.json({ error: "Prénom requis" }, { status: 400 })
+  // PS-10a — nom obligatoire (anti-homonymes).
+  if (!nom?.trim()) return NextResponse.json({ error: "Nom requis" }, { status: 400 })
 
   // BUG B — metier dérivé du source_group du compte si non fourni
   // Mapping : ecole_la_patience -> ecole, autres conservés
@@ -61,6 +63,7 @@ export async function POST(req: NextRequest) {
     .insert({
       account_id: account.id,
       prenom: prenom.trim(),
+      nom: nom.trim(),
       classe: classeNettoyee || null,
       notes_allergies: notes_allergies || null,
       metier: derivedMetier,
@@ -117,6 +120,10 @@ export async function PATCH(req: NextRequest) {
     allowedFields.active = updates.active
   }
   if ("prenom" in updates) allowedFields.prenom = updates.prenom
+  if ("nom" in updates) {
+    if (!updates.nom?.trim()) return NextResponse.json({ error: "Nom requis" }, { status: 400 })
+    allowedFields.nom = updates.nom.trim()
+  }
   if ("classe" in updates) {
     const v = updates.classe
     const classe = typeof v === "string" ? v.trim() : v
