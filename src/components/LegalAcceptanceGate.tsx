@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
-import { CURRENT_CGU_VERSION } from "@/lib/legal"
+import { CURRENT_CGU_VERSION, needsLegalAcceptance } from "@/lib/legal"
 
 // Modal bloquante affichée si user connecté + cgu_version DB ≠ CURRENT_CGU_VERSION.
 // Garantit la traçabilité juridique (preuve d'acceptation horodatée + versionnée
@@ -33,7 +33,7 @@ export default function LegalAcceptanceGate() {
         if (cancel) return
         // Pas encore d'account = onboarding va le créer avec la version courante.
         // Si la version DB ≠ courante (null, ancienne) → modal.
-        if (account && account.cgu_version !== CURRENT_CGU_VERSION) {
+        if (account && needsLegalAcceptance(account.cgu_version)) {
           setUserId(user.id)
           setNeedsAcceptance(true)
         }

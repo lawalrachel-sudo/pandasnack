@@ -34,6 +34,7 @@ export function RechargerClient({ accountId, familyName, walletBalance, configs,
   const [customAmount, setCustomAmount] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [ibanRequired, setIbanRequired] = useState(false)
   const [showRib, setShowRib] = useState(false)
   const [ribCopied, setRibCopied] = useState(false)
 
@@ -66,7 +67,7 @@ export function RechargerClient({ accountId, familyName, walletBalance, configs,
       const res = await fetch("/api/recharger", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ amountCents, bonusCents }) })
       const data = await res.json()
       if (data.url) window.location.href = data.url
-      else setError(data.error || "Erreur lors de la création du paiement")
+      else { setIbanRequired(data.code === "IBAN_REQUIS"); setError(data.error || "Erreur lors de la création du paiement") }
     } catch { setError("Erreur réseau") }
     setLoading(false)
   }
@@ -178,6 +179,7 @@ export function RechargerClient({ accountId, familyName, walletBalance, configs,
         {error && (
           <div role="alert" aria-live="polite" className="rounded-lg p-3 mb-4 text-sm" style={{ background: "var(--status-cancelled-bg)", color: "var(--status-cancelled)" }}>
             {error}
+            {ibanRequired && <> <a href="/mon-espace?tab=compte" className="underline font-semibold">Renseigner mon compte bancaire →</a></>}
           </div>
         )}
 

@@ -10,11 +10,13 @@ import { POST } from "./route"
 
 const ACCOUNT = "acc-1"
 
-function setup(opts: { dup?: unknown; wallet?: Record<string, unknown> | null; txError?: unknown } = {}) {
+function setup(opts: { dup?: unknown; wallet?: Record<string, unknown> | null; txError?: unknown; iban?: string | null } = {}) {
   mocks.user = makeSupabaseStub({ user: { id: "admin" }, resolve: () => ({ data: null }) })
   mocks.admin = makeSupabaseStub({
     user: null,
     resolve: (ctx: QueryContext) => {
+      // PS-09b — la route exige un IBAN sur le compte avant toute recharge.
+      if (ctx.table === "accounts") return { data: { iban: opts.iban === undefined ? "FR7630006000011234567890189" : opts.iban } }
       if (ctx.table === "wallet_transactions") {
         if (ctx.op === "insert") return { error: opts.txError ?? null, data: [{ id: "tx1" }] }
         // lookup idempotence
@@ -97,5 +99,19 @@ describe("POST /api/admin/wallet/credit", () => {
     expect(r.body.total_credit_cents).toBe(5000)
     const tx = queriesOn(mocks.admin!, "wallet_transactions").find((q) => q.op === "insert")!
     expect((tx.payload as { description: string }).description).not.toContain("bonus")
+  })
+})
+
+describe("POST /api/admin/wallet/credit — garde IBAN (PS-09b)", () => {
+  it("refuse la recharge si le compte n'a pas d'IBAN", async () => {
+    setup({ iban: null })
+    const r = await call({ accountId: ACCOUNT, amountCents: 5000, bonusCents: 500, mode: "cb_sumup" })
+    expect(r.status).toBe(400)
+    expect(r.body.code).toBe("IBAN_REQUIS")
+  })
+  it("passe si le compte a un IBAN", async () => {
+    setup()
+    const r = await call({ accountId: ACCOUNT, amountCents: 5000, bonusCents: 500, mode: "cb_sumup" })
+    expect(r.status).toBe(200)
   })
 })

@@ -23,11 +23,19 @@ export async function POST(req: NextRequest) {
 
     const { data: account } = await supabase
       .from("accounts")
-      .select("id")
+      .select("id, iban")
       .eq("auth_user_id", user.id)
       .single()
     if (!account) {
       return NextResponse.json({ error: "Compte introuvable" }, { status: 404 })
+    }
+
+    // PS-09b §0 — un IBAN de remboursement est requis avant toute première recharge.
+    if (!account.iban) {
+      return NextResponse.json({
+        error: "Renseigne d'abord ton compte bancaire pour remboursement (Mon espace).",
+        code: "IBAN_REQUIS",
+      }, { status: 400 })
     }
 
     const body = await req.json()
