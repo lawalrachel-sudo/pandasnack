@@ -33,6 +33,11 @@ describe("ADMIN_TILES (PS-06e)", () => {
 
 describe("tileHref", () => {
   const date = "2026-09-26"
+  it("la tuile veille est libellée « Feuille de route » (PS-08a-e)", () => {
+    const t = ADMIN_TILES.find((x) => x.key === "veille")!
+    expect(t.label).toBe("Feuille de route")
+    expect(t.emoji).toBe("📋")
+  })
   it("injecte la date pour Veille et Étiquettes", () => {
     expect(tileHref(ADMIN_TILES.find((t) => t.key === "veille")!, date)).toBe("/admin/veille/2026-09-26")
     expect(tileHref(ADMIN_TILES.find((t) => t.key === "etiquettes")!, date)).toBe("/admin/etiquettes/2026-09-26")

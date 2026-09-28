@@ -11,11 +11,16 @@ interface Article { id: string; sku: string; name: string; price_alone_cents: nu
 // Unité vendable : un article sans variante, ou une variante précise. C'est l'id envoyé à comptoir_sell.
 interface Unit { id: string; name: string; unit_price_cents: number; stock_qty: number | null }
 interface Enfant { id: string; prenom: string; classe: string | null; account_id: string; plafond_gouter_cents: number | null }
-interface Sale { id: string; sale_number: string; prenom: string | null; items: { name: string; qty: number }[]; total_cents: number; payment_mode: string; jeton_qty: number | null; reverses_sale_id: string | null }
+interface Sale { id: string; sale_number: string; prenom: string | null; items: { name: string; qty: number }[]; total_cents: number; payment_mode: string; jeton_qty: number | null; reverses_sale_id: string | null; service_date?: string }
 interface ChildCtx { profil_id: string; prenom: string; classe: string | null; account_id: string; balance_cents: number; plafond_gouter_cents: number | null; consumed_cents: number }
 
 function euro(c: number) { return `${(c / 100).toFixed(2).replace(".", ",")} €` }
 function uuid() { try { return crypto.randomUUID() } catch { return `k${Date.now()}${Math.random()}` } }
+// « sam. 03/10 » à partir d'un AAAA-MM-JJ.
+function jourCourt(iso: string): string {
+  const d = new Date(iso + "T12:00:00")
+  return d.toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "2-digit" }).replace(".", "")
+}
 
 export function BoutiqueClient() {
   // PS-08a-c — jour de service = jour civil Martinique (pas UTC), cohérent avec le comptoir SQL.
@@ -38,6 +43,10 @@ export function BoutiqueClient() {
   const [toast, setToast] = useState<string | null>(null)
   const [reverseFor, setReverseFor] = useState<string | null>(null)
   const [variantsFor, setVariantsFor] = useState<Article | null>(null)   // sélecteur de variantes ouvert
+  // PS-08a-e — date de service (« pour quand »), défaut = aujourd'hui Martinique.
+  const [serviceDate, setServiceDate] = useState<string>(today)
+  const [serviceDays, setServiceDays] = useState<string[]>([])
+  const [dateOpen, setDateOpen] = useState(false)
 
   const load = useCallback(async () => {
     setError(null)
@@ -48,6 +57,7 @@ export function BoutiqueClient() {
       setArticles(json.articles || [])
       setEnfantsJour(json.enfants_du_jour || [])
       setSales(json.sales || [])
+      setServiceDays(json.service_days || [])
     } catch (e) { setError((e as Error).message) }
   }, [today])
 
@@ -103,7 +113,7 @@ export function BoutiqueClient() {
   function setQty(id: string, qty: number) {
     setCart((c) => { const n = { ...c }; if (qty <= 0) delete n[id]; else n[id] = qty; return n })
   }
-  function resetCart() { setCart({}); setSumup(""); setIdemKey(uuid()) }
+  function resetCart() { setCart({}); setSumup(""); setIdemKey(uuid()); setServiceDate(today); setDateOpen(false) }
 
   async function sell() {
     if (lines.length === 0) return
@@ -111,8 +121,8 @@ export function BoutiqueClient() {
     try {
       const payload = {
         idempotency_key: idemKey,
-        service_date: today,
         payment_mode: mode,
+        service_date: serviceDate,
         // PS-08a-d : toujours transmettre le compte du profil (is_test hérité), quel que soit le mode.
         account_id: child?.account_id ?? null,
         profil_id: child?.profil_id ?? null,
@@ -130,7 +140,7 @@ export function BoutiqueClient() {
         if (json.code === "SOLDE_INSUFFISANT") setMode("cb_sumup")
         return
       }
-      setToast(`✅ Vente ${json.sale?.sale_number}`)
+      setToast(`✅ Vente ${json.sale?.sale_number}${serviceDate !== today ? ` pour ${jourCourt(serviceDate)}` : ""}`)
       setTimeout(() => setToast(null), 2500)
       resetCart()
       if (child) await selectChild(child.profil_id)
@@ -191,6 +201,29 @@ export function BoutiqueClient() {
       )}
       {!child && <p style={S.muted}>Client de passage : espèces ou CB SumUp uniquement.</p>}
 
+      {/* PS-08a-e — Pilule « Pour : … » (jour de consommation) */}
+      <div style={S.dateWrap}>
+        <button onClick={() => setDateOpen((o) => !o)} style={{ ...S.datePill, ...(serviceDate !== today ? S.datePillOn : {}) }}>
+          Pour : {serviceDate === today ? "aujourd'hui" : jourCourt(serviceDate)} ▾
+        </button>
+        {dateOpen && (
+          <div style={S.chips}>
+            {[today, ...serviceDays.filter((d) => d !== today)].slice(0, 5).map((d) => (
+              <button key={d} onClick={() => { setServiceDate(d); setDateOpen(false) }}
+                style={{ ...S.chip, ...(serviceDate === d ? S.chipOn : {}) }}>
+                {d === today ? "Aujourd'hui" : jourCourt(d)}
+              </button>
+            ))}
+            <label style={{ ...S.chip, display: "inline-flex", alignItems: "center", gap: 6 }}>
+              Autre date
+              <input type="date" min={today} value={serviceDate}
+                onChange={(e) => { if (e.target.value && e.target.value >= today) { setServiceDate(e.target.value); setDateOpen(false) } }}
+                style={{ border: "none", background: "transparent", font: "inherit", color: "inherit" }} />
+            </label>
+          </div>
+        )}
+      </div>
+
       {/* Articles */}
       <h2 style={S.h2}>Articles</h2>
       <div style={S.grid}>
@@ -241,6 +274,7 @@ export function BoutiqueClient() {
       {/* Panier */}
       {lines.length > 0 && (
         <div style={S.cart}>
+          {serviceDate !== today && <div style={S.cartFor}>Pour {jourCourt(serviceDate)}</div>}
           {lines.map((l) => (
             <div key={l.catalog_item_id} style={S.cartLine}>
               <span style={{ flex: 1 }}>{l.name}</span>
@@ -298,7 +332,7 @@ export function BoutiqueClient() {
               <div style={{ textDecoration: annulee ? "line-through" : "none" }}>
                 {s.prenom || "—"} · {s.items.map((i) => `${i.qty > 1 ? i.qty + "× " : ""}${i.name}`).join(", ")}
               </div>
-              <div style={S.saleMeta}>{s.sale_number} · {s.payment_mode === "jeton" ? `🎋 ${s.jeton_qty}` : euro(s.total_cents)}{annulee ? " · annulée" : ""}</div>
+              <div style={S.saleMeta}>{s.sale_number} · {s.payment_mode === "jeton" ? `🎋 ${s.jeton_qty}` : euro(s.total_cents)}{s.service_date && s.service_date !== today ? ` · pour ${jourCourt(s.service_date)}` : ""}{annulee ? " · annulée" : ""}</div>
             </div>
             {!annulee && (reverseFor === s.id
               ? <span style={{ display: "flex", gap: 6 }}>
@@ -335,6 +369,10 @@ const S: Record<string, React.CSSProperties> = {
   artName: { fontWeight: 700, fontSize: 14 },
   artPrice: { fontWeight: 700, color: "var(--accent-2, #5A7F42)" },
   artStock: { fontSize: 11 },
+  dateWrap: { margin: "12px 0 4px" },
+  datePill: { minHeight: 44, padding: "8px 16px", borderRadius: 999, border: "1px solid var(--border)", background: "var(--bg-alt)", fontWeight: 700, cursor: "pointer", fontFamily: "inherit", color: "var(--ink)", fontSize: 14 },
+  datePillOn: { background: "#FEF3C7", borderColor: "#FCD34D", color: "#92400E" },
+  cartFor: { fontWeight: 800, color: "#92400E", fontSize: 14, marginBottom: 6 },
   variantSheet: { marginTop: 10, border: "1px solid var(--accent)", borderRadius: 14, padding: 12, background: "#FEF9F2" },
   variantHead: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, fontSize: 15 },
   cart: { marginTop: 14, border: "1px solid var(--accent)", borderRadius: 14, padding: 12, background: "#FEF9F2" },
