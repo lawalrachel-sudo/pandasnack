@@ -46,7 +46,7 @@ export default async function NosPrixShopPage() {
         </div>
 
         <p className="mt-4 text-xs p-3 rounded-xl" style={{ background: 'var(--bg-alt)', color: 'var(--ink-soft)' }}>
-          Tu peux charger ton Pass Panda et le montant sera déduit au fur et à mesure.
+          Tu peux charger ton Panda Wallet et le montant sera déduit au fur et à mesure.
           Achat direct possible sur place.
         </p>
       </div>

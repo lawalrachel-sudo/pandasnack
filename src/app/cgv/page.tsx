@@ -17,13 +17,13 @@ export default async function CGVPage() {
 
           <h2 className="text-base font-bold mt-6 mb-2">2. Objet</h2>
           <p className="text-sm mb-3">
-            Les présentes CGV régissent les ventes de repas et la recharge du Pass Panda (porte-monnaie prépayé)
+            Les présentes CGV régissent les ventes de repas et la recharge du Panda Wallet (porte-monnaie prépayé)
             effectuées via le site pandasnack.online.
           </p>
 
-          <h2 className="text-base font-bold mt-6 mb-2">3. Pass Panda (Wallet)</h2>
+          <h2 className="text-base font-bold mt-6 mb-2">3. Panda Wallet</h2>
           <p className="text-sm mb-3">
-            Le Pass Panda est un porte-monnaie prépayé rechargeable par carte bancaire.
+            Le Panda Wallet est un porte-monnaie prépayé rechargeable par carte bancaire.
             Montant libre, minimum 10 €.
             Le solde est utilisable pour les commandes de repas et les achats au comptoir Panda Snack.
             Validité : jusqu&apos;à la fin de l&apos;année scolaire en cours (30 juin).
@@ -40,7 +40,7 @@ export default async function CGVPage() {
           <h2 className="text-base font-bold mt-6 mb-2">5. Prix et paiement</h2>
           <p className="text-sm mb-3">
             Les prix sont indiqués en euros, toutes taxes comprises (TTC). Le prix affiché est le prix final.
-            Le paiement s&apos;effectue par carte bancaire via Stripe ou par débit du Pass Panda.
+            Le paiement s&apos;effectue par carte bancaire via Stripe ou par débit du Panda Wallet.
           </p>
 
           <h2 className="text-base font-bold mt-6 mb-2">6. Allergènes</h2>

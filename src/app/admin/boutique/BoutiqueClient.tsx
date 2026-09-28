@@ -3,13 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { AdminBackButton } from "../AdminBackButton"
-import { JETON_OPTIONS, cartTotalCents, type PaymentMode } from "@/lib/comptoir"
+import { cartTotalCents, type PaymentMode } from "@/lib/comptoir"
 import { martiniqueToday } from "@/lib/caisse-date"
 
-interface Variant { id: string; sku: string; name: string; stock_qty: number | null }
-interface Article { id: string; sku: string; name: string; price_alone_cents: number; stock_qty: number | null; is_special: boolean; allergens: string[]; parent_id?: string | null; variants?: Variant[] }
+interface Variant { id: string; sku: string; name: string; stock_qty: number | null; jeton_price?: number | null }
+interface Article { id: string; sku: string; name: string; price_alone_cents: number; stock_qty: number | null; is_special: boolean; allergens: string[]; parent_id?: string | null; variants?: Variant[]; jeton_price?: number | null }
 // Unité vendable : un article sans variante, ou une variante précise. C'est l'id envoyé à comptoir_sell.
-interface Unit { id: string; name: string; unit_price_cents: number; stock_qty: number | null }
+interface Unit { id: string; name: string; unit_price_cents: number; stock_qty: number | null; jeton_price: number | null }
 interface Enfant { id: string; prenom: string; classe: string | null; account_id: string; plafond_gouter_cents: number | null }
 interface Sale { id: string; sale_number: string; prenom: string | null; items: { name: string; qty: number }[]; total_cents: number; payment_mode: string; jeton_qty: number | null; reverses_sale_id: string | null; service_date?: string }
 interface ChildCtx { profil_id: string; prenom: string; classe: string | null; account_id: string; balance_cents: number; plafond_gouter_cents: number | null; consumed_cents: number }
@@ -36,7 +36,6 @@ export function BoutiqueClient() {
 
   const [cart, setCart] = useState<Record<string, number>>({})   // article id → qty
   const [mode, setMode] = useState<PaymentMode>("wallet")
-  const [jetonValue, setJetonValue] = useState(5)
   const [sumup, setSumup] = useState("")
   const [idemKey, setIdemKey] = useState(uuid())
   const [busy, setBusy] = useState(false)
@@ -91,9 +90,9 @@ export function BoutiqueClient() {
     const m = new Map<string, Unit>()
     for (const a of articles) {
       if (a.variants && a.variants.length > 0) {
-        for (const v of a.variants) m.set(v.id, { id: v.id, name: `${a.name} · ${v.name}`, unit_price_cents: a.price_alone_cents, stock_qty: v.stock_qty })
+        for (const v of a.variants) m.set(v.id, { id: v.id, name: `${a.name} · ${v.name}`, unit_price_cents: a.price_alone_cents, stock_qty: v.stock_qty, jeton_price: v.jeton_price ?? a.jeton_price ?? null })
       } else {
-        m.set(a.id, { id: a.id, name: a.name, unit_price_cents: a.price_alone_cents, stock_qty: a.stock_qty })
+        m.set(a.id, { id: a.id, name: a.name, unit_price_cents: a.price_alone_cents, stock_qty: a.stock_qty, jeton_price: a.jeton_price ?? null })
       }
     }
     return m
@@ -105,6 +104,9 @@ export function BoutiqueClient() {
       return { catalog_item_id: id, qty, unit_price_cents: u?.unit_price_cents ?? 0, name: u?.name ?? "" }
     }).filter((l) => l.qty > 0), [cart, unitsById])
   const total = cartTotalCents(lines, mode)
+  // PS-09a — jetons paramétrables : coût jeton = Σ(jeton_price × qté) ; blocage si un article non payable en jetons.
+  const jetonTotal = useMemo(() => lines.reduce((s, l) => s + (unitsById.get(l.catalog_item_id)?.jeton_price ?? 0) * l.qty, 0), [lines, unitsById])
+  const jetonBlocked = useMemo(() => mode === "jeton" && lines.some((l) => (unitsById.get(l.catalog_item_id)?.jeton_price ?? null) === null), [mode, lines, unitsById])
 
   function addUnit(u: Unit) {
     if (u.stock_qty !== null && (cart[u.id] || 0) >= u.stock_qty) return
@@ -127,7 +129,7 @@ export function BoutiqueClient() {
         account_id: child?.account_id ?? null,
         profil_id: child?.profil_id ?? null,
         prenom: child?.prenom ?? null,
-        jeton_qty: mode === "jeton" ? jetonValue : null,
+        jeton_qty: null,   // PS-09a : calculé serveur (jeton_price × qté)
         sumup_receipt: mode === "cb_sumup" ? sumup.trim() || null : null,
         items: lines.map((l) => ({ catalog_item_id: l.catalog_item_id, qty: l.qty })),
       }
@@ -240,7 +242,7 @@ export function BoutiqueClient() {
             )
           }
           return (
-            <button key={a.id} onClick={() => !out && addUnit({ id: a.id, name: a.name, unit_price_cents: a.price_alone_cents, stock_qty: a.stock_qty })} disabled={out} style={{ ...S.article, ...(out ? S.articleOut : {}) }}>
+            <button key={a.id} onClick={() => !out && addUnit({ id: a.id, name: a.name, unit_price_cents: a.price_alone_cents, stock_qty: a.stock_qty, jeton_price: a.jeton_price ?? null })} disabled={out} style={{ ...S.article, ...(out ? S.articleOut : {}) }}>
               <span style={S.artName}>{a.is_special ? "⭐ " : ""}{a.name}</span>
               <span style={S.artPrice}>{euro(a.price_alone_cents)}</span>
               {a.stock_qty !== null && <span style={{ ...S.artStock, color: out ? "#DC2626" : "var(--ink-soft)" }}>stock {a.stock_qty}</span>}
@@ -261,7 +263,7 @@ export function BoutiqueClient() {
               const vout = v.stock_qty !== null && v.stock_qty <= 0
               return (
                 <button key={v.id} disabled={vout}
-                  onClick={() => { addUnit({ id: v.id, name: `${variantsFor.name} · ${v.name}`, unit_price_cents: variantsFor.price_alone_cents, stock_qty: v.stock_qty }) }}
+                  onClick={() => { addUnit({ id: v.id, name: `${variantsFor.name} · ${v.name}`, unit_price_cents: variantsFor.price_alone_cents, stock_qty: v.stock_qty, jeton_price: v.jeton_price ?? variantsFor.jeton_price ?? null }) }}
                   style={{ ...S.chip, ...(vout ? { opacity: 0.4 } : {}) }}>
                   {v.name}{v.stock_qty !== null ? ` · ${v.stock_qty}` : ""}
                 </button>
@@ -284,7 +286,7 @@ export function BoutiqueClient() {
               <span style={S.lineTotal}>{mode === "jeton" ? "🎋" : euro(l.unit_price_cents * l.qty)}</span>
             </div>
           ))}
-          <div style={S.cartTotal}><span>Total</span><strong>{mode === "jeton" ? "0,00 € (jeton)" : euro(total)}</strong></div>
+          <div style={S.cartTotal}><span>Total</span><strong>{mode === "jeton" ? `🎋 ${jetonTotal} jeton${jetonTotal > 1 ? "s" : ""}` : euro(total)}</strong></div>
 
           {/* Modes */}
           <div style={S.modeRow}>
@@ -301,20 +303,16 @@ export function BoutiqueClient() {
           {mode === "cb_sumup" && (
             <input value={sumup} onChange={(e) => setSumup(e.target.value)} placeholder="N° reçu SumUp (optionnel)" style={S.search} />
           )}
-          {mode === "jeton" && (
-            <div style={S.modeRow}>
-              {JETON_OPTIONS.map((j) => (
-                <button key={j.value} onClick={() => setJetonValue(j.value)} style={{ ...S.modeBtn, ...(jetonValue === j.value ? S.modeOn : {}) }}>{j.value} · {j.label}</button>
-              ))}
-            </div>
+          {mode === "jeton" && jetonBlocked && (
+            <p style={S.err}>Un article du panier n&apos;est pas payable en jetons.</p>
           )}
 
           {error && <p style={S.err}>{error}</p>}
-          <button onClick={sell} disabled={busy || walletDisabled} style={S.sellBtn}>
+          <button onClick={sell} disabled={busy || walletDisabled || jetonBlocked} style={S.sellBtn}>
             {busy ? "…" : mode === "wallet" ? `💳 Débiter le wallet ${euro(total)}`
               : mode === "especes" ? `💶 Encaisser espèces ${euro(total)}`
               : mode === "cb_sumup" ? `💳 CB SumUp ${euro(total)}`
-              : `🎋 Jeton (0 €)`}
+              : `🎋 Payer en jetons (${jetonTotal})`}
           </button>
         </div>
       )}

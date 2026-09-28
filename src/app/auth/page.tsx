@@ -118,19 +118,18 @@ function AuthContent() {
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(
       email.trim().toLowerCase(),
       {
-        redirectTo: `${window.location.origin}/auth/reset`,
+        redirectTo: `${window.location.origin}/auth/nouveau-mot-de-passe`,
       }
     );
 
     setLoading(false);
 
+    // Message neutre : ne révèle pas si un compte existe pour cette adresse.
     if (resetError) {
-      setError(resetError.message);
-      return;
+      console.error('[auth] resetPasswordForEmail:', resetError.message);
     }
-
     setInfo(
-      '✉️ Si un compte existe pour cet email, un lien de réinitialisation vient de partir.'
+      '✉️ Si un compte existe pour cette adresse, un e-mail vient de partir.'
     );
   }
 

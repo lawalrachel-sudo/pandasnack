@@ -79,7 +79,7 @@ export default async function BoutiqueVitrinePage() {
       </div>
 
       <div className="mt-6 rounded-xl p-4 text-center text-sm" style={{ background: "var(--bg-alt)", color: "var(--ink-soft)" }}>
-        Se règle <strong style={{ color: "var(--ink)" }}>au comptoir</strong> avec le Pass Panda, en espèces ou par carte.
+        Se règle <strong style={{ color: "var(--ink)" }}>au comptoir</strong> avec le Panda Wallet, en espèces ou par carte.
       </div>
     </div>
   )

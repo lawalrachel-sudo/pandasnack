@@ -37,6 +37,8 @@ export function saleErrorMessage(code: string, detail?: Record<string, unknown> 
       return "Le panier est vide."
     case "ARTICLE_INDISPONIBLE":
       return "Un article n'est plus disponible au comptoir."
+    case "JETON_NON_DISPO":
+      return "Un article du panier n'est pas payable en jetons."
     default:
       return "Vente impossible. Réessaie."
   }

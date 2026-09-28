@@ -7,7 +7,7 @@ import { AdminBackButton } from "../../AdminBackButton"
 interface Article {
   id: string; sku: string; name: string; price_alone_cents: number; stock_qty: number | null
   is_special: boolean; active: boolean; allergens: string[]; parent_id?: string | null
-  image_url?: string | null; is_hero?: boolean; hero_text?: string | null
+  image_url?: string | null; is_hero?: boolean; hero_text?: string | null; jeton_price?: number | null
 }
 
 function euro(c: number) { return `${(c / 100).toFixed(2).replace(".", ",")} €` }
@@ -109,12 +109,13 @@ export function CatalogueClient() {
             {!hasVariants && <input defaultValue={a.stock_qty ?? ""} onChange={(e) => setEditing({ ...editing!, stock_qty: e.target.value === "" ? null : Math.round(Number(e.target.value)) })} placeholder="Stock (vide = non suivi)" inputMode="numeric" style={S.input} />}
             {hasVariants && <p style={S.meta}>Stock géré par variante. Le prix s’applique à toutes les variantes.</p>}
             <input defaultValue={a.image_url ?? ""} onChange={(e) => setEditing({ ...editing!, image_url: e.target.value })} placeholder="URL image (Cloudinary)" style={S.input} />
+            <input defaultValue={a.jeton_price ?? ""} inputMode="numeric" onChange={(e) => setEditing({ ...editing!, jeton_price: e.target.value === "" ? null : Math.round(Number(e.target.value)) })} placeholder="Jetons (vide = pas payable en jetons)" style={S.input} />
             <label style={S.check}><input type="checkbox" defaultChecked={a.is_special} onChange={(e) => setEditing({ ...editing!, is_special: e.target.checked })} /> ⭐ Spécial</label>
             <label style={S.check}><input type="checkbox" defaultChecked={!!a.is_hero} onChange={(e) => setEditing({ ...editing!, is_hero: e.target.checked })} /> ⭐ Produit maison à l’honneur</label>
             {(editing!.is_hero ?? a.is_hero) && <input defaultValue={a.hero_text ?? ""} maxLength={120} onChange={(e) => setEditing({ ...editing!, hero_text: e.target.value })} placeholder="Texte hero (120 car. max)" style={S.input} />}
             <label style={S.check}><input type="checkbox" defaultChecked={a.active} onChange={(e) => setEditing({ ...editing!, active: e.target.checked })} /> Actif</label>
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => patch(a.id, { name: editing!.name, price_alone_cents: editing!.price_alone_cents, ...(hasVariants ? {} : { stock_qty: editing!.stock_qty }), is_special: editing!.is_special, active: editing!.active, image_url: editing!.image_url ?? null, is_hero: !!editing!.is_hero, hero_text: editing!.hero_text ?? null })} disabled={busy} style={S.saveBtn}>Enregistrer</button>
+              <button onClick={() => patch(a.id, { name: editing!.name, price_alone_cents: editing!.price_alone_cents, ...(hasVariants ? {} : { stock_qty: editing!.stock_qty }), is_special: editing!.is_special, active: editing!.active, image_url: editing!.image_url ?? null, is_hero: !!editing!.is_hero, hero_text: editing!.hero_text ?? null, jeton_price: editing!.jeton_price ?? null })} disabled={busy} style={S.saveBtn}>Enregistrer</button>
               <button onClick={() => setEditing(null)} style={S.cancelBtn}>Annuler</button>
             </div>
           </div>
@@ -128,6 +129,7 @@ export function CatalogueClient() {
                   {hasVariants
                     ? ` · ${vs.length} variante${vs.length > 1 ? "s" : ""}${sumStock !== null ? ` · stock ${sumStock} (Σ)` : ""}`
                     : (a.stock_qty !== null ? ` · stock ${a.stock_qty}` : " · stock non suivi")}
+                  {a.jeton_price != null ? ` · 🎋 ${a.jeton_price}` : ""}
                 </div>
               </div>
               {!hasVariants && a.stock_qty !== null && <button onClick={() => patch(a.id, { reassort: 10 })} disabled={busy} style={S.reassort}>+10</button>}
