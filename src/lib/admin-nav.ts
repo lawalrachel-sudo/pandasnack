@@ -18,7 +18,7 @@ export interface AdminTile {
 
 export const ADMIN_TILES: AdminTile[] = [
   { key: "service", label: "Service du jour", emoji: "🍽", href: "/admin/dashboard" },
-  { key: "veille", label: "Veille", emoji: "🧊", href: "/admin/veille/{date}", needsDate: true },
+  { key: "veille", label: "Feuille de route", emoji: "📋", href: "/admin/veille/{date}", needsDate: true },
   { key: "etiquettes", label: "Étiquettes", emoji: "🏷", href: "/admin/etiquettes/{date}", needsDate: true },
   { key: "clients", label: "Clients", emoji: "👥", href: "/admin/clients" },
   { key: "historique", label: "Historique", emoji: "📜", href: "/admin/historique" },

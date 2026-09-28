@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabase } from "@/lib/supabase/server"
 import { requireAdmin } from "@/lib/auth/admin"
 import { getSupabaseAdmin } from "@/lib/supabase/admin"
-import { martiniqueToday } from "@/lib/caisse-date"
+import { martiniqueToday, addDays } from "@/lib/caisse-date"
 import { isProduction } from "@/lib/service-du-jour"
 
 export const dynamic = "force-dynamic"
@@ -65,16 +65,29 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Ventes du jour (plus récentes en haut).
+  // PS-08a-e — « Ventes du jour » = ventes ENCAISSÉES aujourd'hui (created_at Martinique),
+  // quelle que soit la date de service. Jour Martinique = [date 04:00 UTC, date+1 04:00 UTC).
+  const startUtc = `${date}T04:00:00.000Z`
+  const endUtc = `${addDays(date, 1)}T04:00:00.000Z`
   const { data: salesRaw } = await admin
     .from("comptoir_sales")
-    .select("id, sale_number, prenom, items, total_cents, payment_mode, jeton_qty, reverses_sale_id, created_at")
-    .eq("service_date", date).order("created_at", { ascending: false })
+    .select("id, sale_number, prenom, items, total_cents, payment_mode, jeton_qty, reverses_sale_id, created_at, service_date")
+    .gte("created_at", startUtc).lt("created_at", endUtc).order("created_at", { ascending: false })
+
+  // PS-08a-e — prochains jours de service ouverts (pandattitude actifs, à venir) pour la pilule date.
+  const { data: slotsRaw } = await admin
+    .from("service_slots")
+    .select("service_date")
+    .eq("active", true).eq("target_source_group", "pandattitude")
+    .gte("service_date", date).order("service_date", { ascending: true }).limit(5)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const serviceDays = [...new Set((slotsRaw || []).map((s: any) => s.service_date))]
 
   return NextResponse.json({
     date,
     articles,
     enfants_du_jour: [...enfantsDuJour.values()],
     sales: salesRaw || [],
+    service_days: serviceDays,
   })
 }
