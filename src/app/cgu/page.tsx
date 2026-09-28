@@ -21,9 +21,9 @@ export default async function CGUPage() {
             Un compte peut gérer plusieurs bénéficiaires (enfants).
           </p>
 
-          <h2 className="text-base font-bold mt-6 mb-2">3. Utilisation du Pass Panda</h2>
+          <h2 className="text-base font-bold mt-6 mb-2">3. Utilisation du Panda Wallet</h2>
           <p className="text-sm mb-3">
-            Le Pass Panda est personnel et non cessible.
+            Le Panda Wallet est personnel et non cessible.
             Il est utilisable uniquement dans le cadre de Panda Snack.
             Toute tentative de fraude entraînera la suspension du compte.
           </p>

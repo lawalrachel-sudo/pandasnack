@@ -55,3 +55,14 @@ describe("planCredit", () => {
     expect(p.description).not.toContain("bonus")
   })
 })
+
+describe("recharge comptoir = même bonus qu'en ligne (PS-09a §3)", () => {
+  it("50 € au comptoir → crédit 55 € (50 + bonus palier 50), identique au parcours en ligne", () => {
+    const bonus = bonusForAmount(5000, TIERS)          // même source que la recharge en ligne
+    const plan = planCredit({ amountCents: 5000, bonusCents: bonus, mode: "cb_sumup", currentBalanceCents: 0, currentTotalCreditedCents: 0 })
+    expect(bonus).toBe(500)
+    expect(plan.totalCreditCents).toBe(5500)
+    expect(plan.newBalanceCents).toBe(5500)
+    expect(plan.description).toMatch(/bonus 5,00 €/)
+  })
+})

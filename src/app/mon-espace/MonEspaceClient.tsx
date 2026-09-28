@@ -7,6 +7,7 @@ import { Navbar } from "@/components/Navbar"
 import { HeaderMetier } from "@/components/HeaderMetier"
 import type { EleveProposable } from "@/lib/eleves-connus"
 import { plafondLabel, PLAFOND_MAX_CENTS, PLAFOND_STEP_CENTS } from "@/lib/plafond"
+import { isValidIban, maskIban } from "@/lib/iban"
 
 const WALLET_IMG = "https://res.cloudinary.com/dbkpvp9ts/image/upload/v1776714727/PANDA_WALLET.jpg"
 // BUG B — labels classe scolaires + créneaux pandattitude
@@ -18,7 +19,7 @@ const TX_LABELS: Record<string, { label: string; color: string }> = {
   debit_order: { label: "Commande", color: "#DC2626" },
   refund: { label: "Remboursement", color: "#0E7490" },
   adjustment: { label: "Ajustement", color: "#6B7280" },
-  // PS-08b — débits/remboursements comptoir (Pass Panda au comptoir).
+  // PS-08b — débits/remboursements comptoir (Panda Wallet au comptoir).
   debit_boutique: { label: "Comptoir", color: "#DC2626" },
   refund_boutique: { label: "Remb. comptoir", color: "#0E7490" },
 }
@@ -47,7 +48,7 @@ interface ComptoirSale { id: string; sale_number: string; service_date: string; 
 interface WalletTx { id: string; type: string; amount_cents: number; balance_after_cents: number; description: string | null; created_at: string }
 
 interface Props {
-  account: { id: string; nom_compte: string; email: string; telephone: string | null; source_group: string | null; source_detail: string | null; panda_id: string | null }
+  account: { id: string; nom_compte: string; email: string; telephone: string | null; source_group: string | null; source_detail: string | null; panda_id: string | null; iban: string | null; iban_titulaire: string | null }
   profils: Profil[]
   wallet: { id: string; balance_cents: number; total_credited_cents: number; total_debited_cents: number } | null
   walletTransactions: WalletTx[]
@@ -104,6 +105,31 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
 
   // G3 — Panda ID copy state
   const [pandaIdCopied, setPandaIdCopied] = useState(false)
+
+  // PS-09a — IBAN de remboursement (Panda Wallet). Masqué après enregistrement.
+  const [ibanVal, setIbanVal] = useState(account.iban || "")
+  const [ibanTit, setIbanTit] = useState(account.iban_titulaire || "")
+  const [ibanSaved, setIbanSaved] = useState<string | null>(account.iban || null)
+  const [ibanEditing, setIbanEditing] = useState(!account.iban)
+  const [ibanMsg, setIbanMsg] = useState<string | null>(null)
+  const [ibanSaving, setIbanSaving] = useState(false)
+
+  async function saveIban() {
+    setIbanMsg(null)
+    if (!ibanTit.trim()) { setIbanMsg("Indique le titulaire du compte."); return }
+    if (!isValidIban(ibanVal)) { setIbanMsg("IBAN invalide."); return }
+    setIbanSaving(true)
+    try {
+      const res = await fetch("/api/account", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ iban: ibanVal.trim(), iban_titulaire: ibanTit.trim() }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) { setIbanMsg(j.error || "Erreur"); return }
+      setIbanSaved(ibanVal.replace(/\s+/g, "").toUpperCase())
+      setIbanEditing(false)
+    } finally { setIbanSaving(false) }
+  }
 
   // PS-08b — plafond goûter par enfant (édition locale + enregistrement au relâchement).
   const [plafonds, setPlafonds] = useState<Record<string, number | null>>(
@@ -350,7 +376,7 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
             <div className="rounded-xl border p-4 text-sm" style={{ borderColor: "var(--accent)", background: "#FEF3E2", color: "var(--ink)" }}>
               <p className="font-bold mb-1">🍪 Plafond goûter</p>
               <p style={{ color: "var(--ink-soft)" }}>
-                Le plafond limite ce que votre enfant peut dépenser au comptoir (goûters, Bubble Tea…) avec le Pass Panda,
+                Le plafond limite ce que votre enfant peut dépenser au comptoir (goûters, Bubble Tea…) avec le Panda Wallet,
                 par jour. Sans plafond, il peut utiliser tout le solde. Les repas précommandés ne comptent pas.
               </p>
               <button onClick={() => setShowPlafondInfo(false)} className="mt-2 text-xs font-semibold" style={{ color: "var(--accent)" }}>J’ai compris</button>
@@ -589,7 +615,7 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
             </div>
           )}
 
-          {/* PS-08b — Achats au comptoir (Pass Panda / espèces / carte / jeton) */}
+          {/* PS-08b — Achats au comptoir (Panda Wallet / espèces / carte / jeton) */}
           <h2 className="font-bold text-sm mt-6 mb-2" style={{ color: "var(--ink)" }}>Achats au comptoir</h2>
           {comptoirSales === null ? (
             <p className="text-sm py-2 text-center" style={{ color: "var(--ink-soft)" }}>Chargement…</p>
@@ -598,7 +624,7 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
           ) : (
             <div className="space-y-1">
               {comptoirSales.map(s => {
-                const mode = s.payment_mode === "wallet" ? "Pass Panda" : s.payment_mode === "especes" ? "Espèces" : s.payment_mode === "cb_sumup" ? "Carte" : "Jeton"
+                const mode = s.payment_mode === "wallet" ? "Panda Wallet" : s.payment_mode === "especes" ? "Espèces" : s.payment_mode === "cb_sumup" ? "Carte" : "Jeton"
                 const svcDiff = s.service_date && s.service_date.slice(0, 10) !== s.created_at.slice(0, 10)
                 const items = (s.items || []).map(i => `${i.name}${i.qty > 1 ? ` ×${i.qty}` : ""}`).join(", ")
                 return (
@@ -661,6 +687,45 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
                 </button>
               </div>
             </div>
+          </div>
+
+          {/* PS-09a — Compte bancaire pour remboursement */}
+          <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: "var(--border)", background: "var(--card)" }}>
+            <h3 className="font-bold text-sm" style={{ color: "var(--ink)" }}>Compte bancaire pour remboursement</h3>
+            {ibanSaved && !ibanEditing ? (
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm font-medium" style={{ letterSpacing: 1 }}>{maskIban(ibanSaved)}</p>
+                  {ibanTit && <p className="text-xs" style={{ color: "var(--ink-soft)" }}>{ibanTit}</p>}
+                </div>
+                <button onClick={() => setIbanEditing(true)} className="text-xs font-semibold" style={{ color: "var(--accent)" }}>Modifier</button>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <label className="text-xs font-medium" style={{ color: "var(--ink-soft)" }}>Titulaire du compte</label>
+                  <input type="text" value={ibanTit} onChange={e => setIbanTit(e.target.value)} placeholder="Prénom Nom"
+                    className="w-full mt-1 h-10 px-3 rounded-lg border text-sm" style={{ borderColor: "var(--border)" }} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium" style={{ color: "var(--ink-soft)" }}>IBAN</label>
+                  <input type="text" value={ibanVal} onChange={e => setIbanVal(e.target.value)} placeholder="FR76 XXXX XXXX XXXX" autoComplete="off"
+                    className="w-full mt-1 h-10 px-3 rounded-lg border text-sm" style={{ borderColor: "var(--border)" }} />
+                </div>
+                {ibanMsg && <p className="text-xs" style={{ color: "#DC2626" }}>{ibanMsg}</p>}
+                <div className="flex gap-2">
+                  <button onClick={saveIban} disabled={ibanSaving}
+                    className="flex-1 h-10 rounded-lg font-semibold text-white text-sm disabled:opacity-50" style={{ background: "var(--accent-2)" }}>
+                    {ibanSaving ? "..." : "Enregistrer"}
+                  </button>
+                  {ibanSaved && <button onClick={() => { setIbanEditing(false); setIbanVal(ibanSaved); setIbanMsg(null) }} className="h-10 px-4 rounded-lg text-sm border" style={{ borderColor: "var(--border)" }}>Annuler</button>}
+                </div>
+              </>
+            )}
+            <p className="text-[11px]" style={{ color: "var(--ink-soft)", lineHeight: 1.5 }}>
+              Cet IBAN sert uniquement à te rembourser un solde Panda Wallet (fin d&apos;année scolaire ou départ).
+              Aucun prélèvement n&apos;est jamais effectué sur ce compte.
+            </p>
           </div>
 
           {/* Mot de passe */}

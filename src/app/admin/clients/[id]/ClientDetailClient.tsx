@@ -8,7 +8,7 @@ interface Profil { id: string; prenom: string; classe: string | null; active: bo
 interface Tx { id: string; type: string; amount_cents: number; balance_after_cents: number; description: string | null; stripe_payment_intent_id: string | null; created_at: string }
 interface OrderRow { id: string; order_number: string; status: string; payment_method: string | null; total_cents: number; service_date: string | null; created_at: string }
 interface Payload {
-  account: { id: string; nom_compte: string; email: string; telephone: string | null; is_test: boolean; panda_id: string | null; archived_at: string | null }
+  account: { id: string; nom_compte: string; email: string; telephone: string | null; is_test: boolean; panda_id: string | null; archived_at: string | null; iban: string | null; iban_titulaire: string | null }
   profils: Profil[]
   wallet: { balance_cents: number; total_credited_cents: number; total_debited_cents: number } | null
   transactions: Tx[]
@@ -107,6 +107,12 @@ export function ClientDetailClient({ accountId }: { accountId: string }) {
       <AdminBackButton />
       <h1 style={S.h1}>{account.nom_compte}{account.is_test && <span style={S.testTag}> TEST</span>}</h1>
       <p style={S.sub}>{account.email}{account.telephone ? <> · <a href={`tel:${account.telephone}`} style={S.tel}>{account.telephone}</a></> : null}</p>
+      {account.iban && (
+        <p style={S.sub}>
+          🏦 {account.iban_titulaire ? `${account.iban_titulaire} · ` : ""}<code style={{ fontFamily: "monospace" }}>{account.iban}</code>{" "}
+          <button onClick={() => navigator.clipboard?.writeText(account.iban || "")} style={{ ...S.tel, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", padding: 0 }}>Copier</button>
+        </p>
+      )}
 
       {/* PS-06f — bandeau archivé + réactivation / archivage */}
       {isArchived ? (

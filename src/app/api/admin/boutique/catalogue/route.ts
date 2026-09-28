@@ -25,7 +25,7 @@ export async function GET() {
   if ("error" in g) return g.error
   const { data, error } = await g.admin
     .from("catalog_items")
-    .select("id, sku, name, price_alone_cents, stock_qty, is_special, active, allergens, category_id, parent_id, image_url, is_hero, hero_text")
+    .select("id, sku, name, price_alone_cents, stock_qty, is_special, active, allergens, category_id, parent_id, image_url, is_hero, hero_text, jeton_price")
     .eq("sellable_comptoir", true).order("sort_order")
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ articles: data || [] })
@@ -99,6 +99,15 @@ export async function PATCH(req: NextRequest) {
     updates.price_alone_cents = p
   }
   if ("stock_qty" in body) updates.stock_qty = body.stock_qty === null || body.stock_qty === "" ? null : Math.round(Number(body.stock_qty))
+  // PS-09a — prix en jetons (vide = pas payable en jetons) ; entier >= 0.
+  if ("jeton_price" in body) {
+    if (body.jeton_price === null || body.jeton_price === "") updates.jeton_price = null
+    else {
+      const j = Math.round(Number(body.jeton_price))
+      if (!Number.isFinite(j) || j < 0) return NextResponse.json({ error: "Jetons invalide" }, { status: 400 })
+      updates.jeton_price = j
+    }
+  }
   if ("active" in body) updates.active = !!body.active
   if ("is_special" in body) updates.is_special = !!body.is_special
   if ("allergens" in body && Array.isArray(body.allergens)) updates.allergens = body.allergens
@@ -119,7 +128,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   const { data, error } = await g.admin.from("catalog_items").update(updates).eq("id", id)
-    .eq("sellable_comptoir", true).select("id, name, price_alone_cents, stock_qty, is_special, active, allergens, parent_id, image_url, is_hero, hero_text").single()
+    .eq("sellable_comptoir", true).select("id, name, price_alone_cents, stock_qty, is_special, active, allergens, parent_id, image_url, is_hero, hero_text, jeton_price").single()
   if (error) { console.error("[boutique/catalogue PATCH]", error); return NextResponse.json({ error: error.message }, { status: 500 }) }
 
   // Le prix vit sur le parent : toute modif de prix est recopiée sur les variantes (v1, pas de prix propre).

@@ -23,7 +23,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data: account, error: accErr } = await admin
     .from("accounts")
-    .select("id, nom_compte, email, telephone, source_group, is_test, panda_id, archived_at")
+    .select("id, nom_compte, email, telephone, source_group, is_test, panda_id, archived_at, iban, iban_titulaire")
     .eq("id", id).maybeSingle()
   if (accErr) { console.error("[admin/clients/id]", accErr); return NextResponse.json({ error: accErr.message }, { status: 500 }) }
   if (!account) return NextResponse.json({ error: "Compte introuvable" }, { status: 404 })

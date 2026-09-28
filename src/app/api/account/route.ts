@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabase as createClient } from "@/lib/supabase/server"
+import { isValidIban, normalizeIban } from "@/lib/iban"
 
 export async function PATCH(req: NextRequest) {
   try {
@@ -20,6 +21,20 @@ export async function PATCH(req: NextRequest) {
     if (body.nom_compte !== undefined) {
       const { error } = await supabase.from("accounts").update({ nom_compte: body.nom_compte }).eq("auth_user_id", user.id)
       if (error) return NextResponse.json({ error: "Erreur mise à jour nom" }, { status: 500 })
+      return NextResponse.json({ success: true })
+    }
+
+    // PS-09a — IBAN de remboursement (propriétaire du compte uniquement, via auth_user_id).
+    if (body.iban !== undefined || body.iban_titulaire !== undefined) {
+      const iban = normalizeIban(String(body.iban || ""))
+      if (iban && !isValidIban(iban)) {
+        return NextResponse.json({ error: "IBAN invalide" }, { status: 400 })
+      }
+      const titulaire = typeof body.iban_titulaire === "string" ? body.iban_titulaire.trim() : null
+      const { error } = await supabase.from("accounts")
+        .update({ iban: iban || null, iban_titulaire: titulaire || null })
+        .eq("auth_user_id", user.id)
+      if (error) return NextResponse.json({ error: "Erreur mise à jour IBAN" }, { status: 500 })
       return NextResponse.json({ success: true })
     }
 

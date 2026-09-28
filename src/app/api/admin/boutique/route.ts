@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
   // masque son propre stock : on expose Σ stock des variantes et la liste des variantes.
   const { data: articlesRaw } = await admin
     .from("catalog_items")
-    .select("id, sku, name, price_alone_cents, stock_qty, is_special, allergens, active, parent_id")
+    .select("id, sku, name, price_alone_cents, stock_qty, is_special, allergens, active, parent_id, jeton_price")
     .eq("sellable_comptoir", true).eq("active", true).order("sort_order")
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rows = (articlesRaw || []) as any[]
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
   for (const r of rows) {
     if (!r.parent_id) continue
     const list = variantsByParent.get(r.parent_id) || []
-    list.push({ id: r.id, sku: r.sku, name: r.name, stock_qty: r.stock_qty })
+    list.push({ id: r.id, sku: r.sku, name: r.name, stock_qty: r.stock_qty, jeton_price: r.jeton_price })
     variantsByParent.set(r.parent_id, list)
   }
   const articles = rows.filter((r) => !r.parent_id).map((p) => {
