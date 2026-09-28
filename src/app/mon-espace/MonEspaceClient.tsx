@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation"
 import { Navbar } from "@/components/Navbar"
 import { HeaderMetier } from "@/components/HeaderMetier"
 import type { EleveProposable } from "@/lib/eleves-connus"
+import { plafondLabel, PLAFOND_MAX_CENTS, PLAFOND_STEP_CENTS } from "@/lib/plafond"
 
 const WALLET_IMG = "https://res.cloudinary.com/dbkpvp9ts/image/upload/v1776714727/PANDA_WALLET.jpg"
 // BUG B — labels classe scolaires + créneaux pandattitude
@@ -17,6 +18,9 @@ const TX_LABELS: Record<string, { label: string; color: string }> = {
   debit_order: { label: "Commande", color: "#DC2626" },
   refund: { label: "Remboursement", color: "#0E7490" },
   adjustment: { label: "Ajustement", color: "#6B7280" },
+  // PS-08b — débits/remboursements comptoir (Pass Panda au comptoir).
+  debit_boutique: { label: "Comptoir", color: "#DC2626" },
+  refund_boutique: { label: "Remb. comptoir", color: "#0E7490" },
 }
 
 function fmtPrice(c: number): string { return `${(Math.abs(c) / 100).toFixed(2).replace(".", ",")} €` }
@@ -38,7 +42,8 @@ function EyeIcon({ open }: { open: boolean }) {
   )
 }
 
-interface Profil { id: string; prenom: string; classe: string | null; metier: string; is_default: boolean; active: boolean; notes_allergies: string | null; type_profil?: string | null }
+interface Profil { id: string; prenom: string; classe: string | null; metier: string; is_default: boolean; active: boolean; notes_allergies: string | null; type_profil?: string | null; plafond_gouter_cents?: number | null }
+interface ComptoirSale { id: string; sale_number: string; service_date: string; created_at: string; prenom: string | null; items: { name: string; qty: number }[]; payment_mode: string; jeton_qty: number | null; total_cents: number; annulee: boolean }
 interface WalletTx { id: string; type: string; amount_cents: number; balance_after_cents: number; description: string | null; created_at: string }
 
 interface Props {
@@ -99,6 +104,56 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
 
   // G3 — Panda ID copy state
   const [pandaIdCopied, setPandaIdCopied] = useState(false)
+
+  // PS-08b — plafond goûter par enfant (édition locale + enregistrement au relâchement).
+  const [plafonds, setPlafonds] = useState<Record<string, number | null>>(
+    () => Object.fromEntries(profils.map((p) => [p.id, p.plafond_gouter_cents ?? null])),
+  )
+  const [plafondSaved, setPlafondSaved] = useState<Record<string, boolean>>({})
+  const [showPlafondInfo, setShowPlafondInfo] = useState(false)
+
+  async function savePlafond(profilId: string, cents: number | null) {
+    setPlafonds((s) => ({ ...s, [profilId]: cents }))
+    try {
+      const res = await fetch("/api/profils", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profilId, plafond_gouter_cents: cents }),
+      })
+      if (res.ok) {
+        setPlafondSaved((s) => ({ ...s, [profilId]: true }))
+        setTimeout(() => setPlafondSaved((s) => ({ ...s, [profilId]: false })), 1500)
+      }
+    } catch { /* silencieux : le curseur reflète l'intention */ }
+  }
+
+  // PS-08b — historique des achats au comptoir (ventes des enfants du compte).
+  const [comptoirSales, setComptoirSales] = useState<ComptoirSale[] | null>(null)
+  useEffect(() => {
+    if (tab !== "wallet" || comptoirSales !== null) return
+    let annule = false
+    ;(async () => {
+      try {
+        const res = await fetch("/api/mon-espace/comptoir")
+        const json = await res.json()
+        if (!annule && res.ok) setComptoirSales(json.sales || [])
+        else if (!annule) setComptoirSales([])
+      } catch { if (!annule) setComptoirSales([]) }
+    })()
+    return () => { annule = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab])
+
+  // Toast pédagogique la première fois qu'on ouvre l'onglet Profils.
+  useEffect(() => {
+    if (tab !== "profils") return
+    try {
+      if (!localStorage.getItem("ps_plafond_seen")) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setShowPlafondInfo(true)
+        localStorage.setItem("ps_plafond_seen", "1")
+      }
+    } catch { /* localStorage indisponible : pas de toast, pas d'erreur */ }
+  }, [tab])
   async function copyPandaId() {
     if (!account.panda_id) return
     try {
@@ -291,6 +346,16 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
       {/* ═══════ Tab: Profils ═══════ */}
       {tab === "profils" && (
         <div className="px-4 py-4 space-y-3">
+          {showPlafondInfo && (
+            <div className="rounded-xl border p-4 text-sm" style={{ borderColor: "var(--accent)", background: "#FEF3E2", color: "var(--ink)" }}>
+              <p className="font-bold mb-1">🍪 Plafond goûter</p>
+              <p style={{ color: "var(--ink-soft)" }}>
+                Le plafond limite ce que votre enfant peut dépenser au comptoir (goûters, Bubble Tea…) avec le Pass Panda,
+                par jour. Sans plafond, il peut utiliser tout le solde. Les repas précommandés ne comptent pas.
+              </p>
+              <button onClick={() => setShowPlafondInfo(false)} className="mt-2 text-xs font-semibold" style={{ color: "var(--accent)" }}>J’ai compris</button>
+            </div>
+          )}
           {activeProfils.map(p => (
             <div key={p.id} className="rounded-xl border p-4" style={{ borderColor: "var(--border)", background: "var(--card)" }}>
               <div className="flex items-center justify-between">
@@ -304,6 +369,7 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <button onClick={() => toggleProfil(p.id, false)} className="text-xs underline" style={{ color: "var(--ink-soft)" }}>Désactiver</button>
+
                   <button
                     onClick={() => setPendingDelete(p)}
                     title="Supprimer ce profil"
@@ -312,6 +378,33 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
                   >
                     🗑️ Supprimer
                   </button>
+                </div>
+              </div>
+
+              {/* PS-08b — Plafond goûter par jour (curseur, pas de 0,50 €, « Illimité » = null) */}
+              <div className="mt-3 pt-3 border-t" style={{ borderColor: "var(--border)" }}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold" style={{ color: "var(--ink-soft)" }}>Plafond goûter par jour</span>
+                  <span className="text-xs font-bold" style={{ color: (plafonds[p.id] ?? null) === null ? "var(--ink-soft)" : "var(--accent-2)" }}>
+                    {plafondLabel(plafonds[p.id] ?? null)}{plafondSaved[p.id] ? " ✓" : ""}
+                  </span>
+                </div>
+                <input
+                  type="range" min={0} max={PLAFOND_MAX_CENTS + PLAFOND_STEP_CENTS} step={PLAFOND_STEP_CENTS}
+                  value={(plafonds[p.id] ?? null) === null ? PLAFOND_MAX_CENTS + PLAFOND_STEP_CENTS : (plafonds[p.id] as number)}
+                  onChange={(e) => {
+                    const raw = Number(e.target.value)
+                    setPlafonds((s) => ({ ...s, [p.id]: raw > PLAFOND_MAX_CENTS ? null : raw }))
+                  }}
+                  onPointerUp={() => savePlafond(p.id, plafonds[p.id] ?? null)}
+                  onTouchEnd={() => savePlafond(p.id, plafonds[p.id] ?? null)}
+                  onKeyUp={() => savePlafond(p.id, plafonds[p.id] ?? null)}
+                  className="w-full mt-2"
+                  style={{ accentColor: "var(--accent)" }}
+                  aria-label={`Plafond goûter de ${p.prenom}`}
+                />
+                <div className="flex justify-between text-[10px]" style={{ color: "var(--ink-soft)" }}>
+                  <span>0 €</span><span>Illimité</span>
                 </div>
               </div>
             </div>
@@ -489,6 +582,37 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
                     </div>
                     <span className="font-bold text-sm" style={{ color: info.color }}>
                       {isPositive ? "+" : "-"}{fmtPrice(tx.amount_cents)}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* PS-08b — Achats au comptoir (Pass Panda / espèces / carte / jeton) */}
+          <h2 className="font-bold text-sm mt-6 mb-2" style={{ color: "var(--ink)" }}>Achats au comptoir</h2>
+          {comptoirSales === null ? (
+            <p className="text-sm py-2 text-center" style={{ color: "var(--ink-soft)" }}>Chargement…</p>
+          ) : comptoirSales.length === 0 ? (
+            <p className="text-sm py-4 text-center" style={{ color: "var(--ink-soft)" }}>Aucun achat au comptoir.</p>
+          ) : (
+            <div className="space-y-1">
+              {comptoirSales.map(s => {
+                const mode = s.payment_mode === "wallet" ? "Pass Panda" : s.payment_mode === "especes" ? "Espèces" : s.payment_mode === "cb_sumup" ? "Carte" : "Jeton"
+                const svcDiff = s.service_date && s.service_date.slice(0, 10) !== s.created_at.slice(0, 10)
+                const items = (s.items || []).map(i => `${i.name}${i.qty > 1 ? ` ×${i.qty}` : ""}`).join(", ")
+                return (
+                  <div key={s.id} className="flex items-center justify-between py-2.5 px-3 rounded-lg" style={{ background: "var(--card)" }}>
+                    <div style={{ minWidth: 0 }}>
+                      <p className="text-sm font-medium" style={{ textDecoration: s.annulee ? "line-through" : "none" }}>
+                        {s.prenom || "—"} · {items || "—"}
+                      </p>
+                      <p className="text-[10px]" style={{ color: "var(--ink-soft)" }}>
+                        {fmtDateShort(s.created_at)}{svcDiff ? ` · pour ${new Date(s.service_date + "T12:00:00").toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })}` : ""} · {mode}{s.annulee ? " · annulée" : ""}
+                      </p>
+                    </div>
+                    <span className="font-bold text-sm flex-none" style={{ color: s.annulee ? "var(--ink-soft)" : "var(--ink)" }}>
+                      {s.payment_mode === "jeton" ? `🎋${s.jeton_qty ?? ""}` : fmtPrice(s.total_cents)}
                     </span>
                   </div>
                 )

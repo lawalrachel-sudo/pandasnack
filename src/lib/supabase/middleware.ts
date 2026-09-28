@@ -35,7 +35,7 @@ export async function updateSession(request: NextRequest) {
   // /admin + /api/admin : accès admin par mot de passe (cookie signé, sans session Supabase).
   // On ne redirige donc PAS vers /auth ici — la garde réelle se fait dans requireAdminPage()
   // (server components) et requireAdmin() (API routes), qui acceptent le cookie OU le compte admin.
-  const publicPaths = ['/auth', '/allergenes', '/nos-prix-shop', '/cgv', '/cgu', '/api/stripe/webhook', '/admin', '/api/admin']
+  const publicPaths = ['/auth', '/allergenes', '/nos-prix-shop', '/cgv', '/cgu', '/api/stripe/webhook', '/admin', '/api/admin', '/boutique']
   const isPublic = publicPaths.some(p => request.nextUrl.pathname.startsWith(p))
 
   if (!user && !isPublic && request.nextUrl.pathname !== '/') {

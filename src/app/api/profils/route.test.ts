@@ -183,3 +183,35 @@ describe("PATCH /api/profils", () => {
     expect((await patch({ profilId: PROFIL, metier: "ecole" })).status).toBe(400)
   })
 })
+
+describe("PATCH /api/profils — plafond goûter (PS-08b)", () => {
+  it("accepte null (illimité)", async () => {
+    setup({ existing: { id: PROFIL, metier: "pandattitude", type_profil: "eleve" } })
+    expect((await patch({ profilId: PROFIL, plafond_gouter_cents: null })).status).toBe(200)
+  })
+  it("accepte 350 (multiple de 50)", async () => {
+    setup({ existing: { id: PROFIL, metier: "pandattitude", type_profil: "eleve" } })
+    const r = await patch({ profilId: PROFIL, plafond_gouter_cents: 350 })
+    expect(r.status).toBe(200)
+    const upd = queriesOn(mocks.user!, "profils").find((q) => q.op === "update")!
+    expect((upd.payload as { plafond_gouter_cents: number }).plafond_gouter_cents).toBe(350)
+  })
+  it("refuse 375 (pas multiple de 50)", async () => {
+    setup({ existing: { id: PROFIL, metier: "pandattitude", type_profil: "eleve" } })
+    const r = await patch({ profilId: PROFIL, plafond_gouter_cents: 375 })
+    expect(r.status).toBe(400)
+    expect(r.body.error).toMatch(/Plafond invalide/)
+  })
+  it("refuse un plafond négatif", async () => {
+    setup({ existing: { id: PROFIL, metier: "pandattitude", type_profil: "eleve" } })
+    expect((await patch({ profilId: PROFIL, plafond_gouter_cents: -50 })).status).toBe(400)
+  })
+  it("refuse un plafond > 2000", async () => {
+    setup({ existing: { id: PROFIL, metier: "pandattitude", type_profil: "eleve" } })
+    expect((await patch({ profilId: PROFIL, plafond_gouter_cents: 2050 })).status).toBe(400)
+  })
+  it("refuse le profil d'un autre compte", async () => {
+    setup({ existing: null })
+    expect((await patch({ profilId: PROFIL, plafond_gouter_cents: 350 })).status).toBe(404)
+  })
+})

@@ -6,6 +6,7 @@ import { useCart } from "@/lib/cart-context"
 
 const NAV_ITEMS = [
   { href: "/commander", label: "Le Menu", img: "https://res.cloudinary.com/dbkpvp9ts/image/upload/w_64,q_auto,f_auto/v1777331138/Panda_Chef.jpg", emoji: "👨‍🍳" },
+  { href: "/boutique", label: "Boutique", img: null, emoji: "🛍️" },
   { href: "/planning", label: "Planning", img: null, emoji: "📅" },
   { href: "/panier", label: "Mon panier", img: null, emoji: "🛒" }, // Brief 3-E — point d'entrée unique panier (SVG canonique render override ci-dessous)
   { href: "/mon-espace", label: "Mon espace", img: "https://res.cloudinary.com/dbkpvp9ts/image/upload/w_64,q_auto,f_auto/v1777024021/MON_ESPACE.jpg", emoji: "🐼" },
@@ -39,7 +40,7 @@ export function BottomNav() {
         className="fixed bottom-0 left-0 right-0 z-30 border-t shadow-lg"
         style={{ background: '#FFFFFF', borderColor: 'var(--border)' }}
       >
-        <div className="ps-col mx-auto grid grid-cols-5 items-end py-2 px-1">
+        <div className="ps-col mx-auto grid grid-cols-6 items-end py-2 px-1">
           {NAV_ITEMS.map(({ href, label, img, emoji }) => {
             const active = pathname === href || (href !== "/" && pathname?.startsWith(href))
             const size = active ? 32 : 26
@@ -84,7 +85,7 @@ export function BottomNav() {
                     fontSize: active ? 11 : 10,
                     fontWeight: active ? 800 : 600,
                     color: active ? "var(--accent)" : "var(--ink-soft)",
-                    maxWidth: 76,
+                    maxWidth: 60,
                     transition: "all 0.25s ease",
                   }}
                 >

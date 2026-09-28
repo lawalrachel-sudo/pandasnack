@@ -3,6 +3,7 @@ import { createServerSupabase as createClient } from "@/lib/supabase/server"
 import { getSupabaseAdmin } from "@/lib/supabase/admin"
 import { CLASSES_PAR_METIER, classeValidePourMetier, type Metier } from "@/lib/profil-gate"
 import { shouldReactivateOnProfil } from "@/lib/account-archive"
+import { isValidPlafond } from "@/lib/plafond"
 
 // PS-06f — point de réactivation : dès qu'un profil enfant actif est créé/réactivé sur un
 // compte, ce compte redevient actif (archived_at = null). Écriture en service_role (l'update
@@ -128,6 +129,13 @@ export async function PATCH(req: NextRequest) {
     allowedFields.classe = classe === "" ? null : classe
   }
   if ("notes_allergies" in updates) allowedFields.notes_allergies = updates.notes_allergies
+  // PS-08b — plafond goûter comptoir : null (illimité) ou entier ≥ 0, multiple de 50, ≤ 2000.
+  if ("plafond_gouter_cents" in updates) {
+    if (!isValidPlafond(updates.plafond_gouter_cents)) {
+      return NextResponse.json({ error: "Plafond invalide (0 à 20 €, par pas de 0,50 €, ou illimité)." }, { status: 400 })
+    }
+    allowedFields.plafond_gouter_cents = updates.plafond_gouter_cents
+  }
 
   if (Object.keys(allowedFields).length === 0) {
     return NextResponse.json({ error: "Aucun champ à modifier" }, { status: 400 })
