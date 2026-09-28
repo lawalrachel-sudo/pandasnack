@@ -3,32 +3,50 @@ import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 import { CURRENT_CGU_VERSION } from "@/lib/legal"
 
-// PS-05d-a — correction minimale de texte CGV/CGU, sans nouvelle acceptation.
+// PS-09b — CGV/CGU révisées + nouvelle version.
 const cgv = readFileSync(join(process.cwd(), "src/app/cgv/page.tsx"), "utf8")
 const cgu = readFileSync(join(process.cwd(), "src/app/cgu/page.tsx"), "utf8")
 
-describe("CGV/CGU (PS-05d-a)", () => {
-  it("ne mentionnent plus « 30 juin 2026 »", () => {
-    expect(cgv).not.toContain("30 juin 2026")
-    expect(cgu).not.toContain("30 juin 2026")
+describe("CGV/CGU (PS-09b)", () => {
+  it("terminologie : jamais « Pass Panda », toujours « Panda Wallet »", () => {
+    expect(cgv).not.toMatch(/pass panda/i)
+    expect(cgu).not.toMatch(/pass panda/i)
+    expect(cgv).toContain("Panda Wallet")
+    expect(cgu).toContain("Panda Wallet")
   })
 
-  it("ne mentionnent plus « vercel.app »", () => {
+  it("connexion : plus de « lien magique »", () => {
+    expect(cgv).not.toMatch(/lien magique/i)
+    expect(cgu).not.toMatch(/lien magique/i)
+    expect(cgv).toMatch(/Mot de passe\s+oubli/)
+    expect(cgu).toMatch(/Mot de passe\s+oubli/)
+  })
+
+  it("domaine pandasnack.online, jamais vercel.app", () => {
+    expect(cgv).toContain("pandasnack.online")
     expect(cgv).not.toMatch(/vercel\.app/)
     expect(cgu).not.toMatch(/vercel\.app/)
-    expect(cgv).toContain("pandasnack.online")
   })
 
-  it("validité du wallet = fin de l'année scolaire en cours", () => {
-    expect(cgv).toContain("à la fin de l&apos;année scolaire en cours (30 juin)")
+  it("couvre les nouveaux articles : IBAN, bonus paliers, plafond, clôture 30 juin, départ, jetons", () => {
+    expect(cgv).toContain("IBAN")
+    expect(cgv).toContain("30 € rechargés = 1,50 € offerts")
+    expect(cgv).toContain("50 € = 5 € offerts")
+    expect(cgv).toContain("100 € = 15 € offerts")
+    expect(cgv).toContain("consommé en premier")
+    expect(cgv).toMatch(/plafond journalier/i)
+    expect(cgv).toMatch(/30 juin/)
+    expect(cgv).toMatch(/Jetons Bambou/i)
   })
 
-  it("date de mise à jour = jour du merge (26 septembre 2026)", () => {
-    expect(cgv).toContain("Dernière mise à jour : 26 septembre 2026")
-    expect(cgu).toContain("Dernière mise à jour : 26 septembre 2026")
+  it("nouvelle version + date de mise en ligne", () => {
+    expect(CURRENT_CGU_VERSION).toBe("2026-09-28")
+    expect(cgv).toContain("Dernière mise à jour : 28 septembre 2026")
+    expect(cgu).toContain("Dernière mise à jour : 28 septembre 2026")
   })
 
-  it("la version CGU n'est PAS modifiée (pas de nouvelle acceptation)", () => {
-    expect(CURRENT_CGU_VERSION).toBe("2026-04-27")
+  it("sommaire cliquable en tête", () => {
+    expect(cgv).toContain('href={`#${s.id}`}')
+    expect(cgu).toContain('href={`#${s.id}`}')
   })
 })

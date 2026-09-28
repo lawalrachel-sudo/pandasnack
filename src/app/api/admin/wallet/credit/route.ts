@@ -41,6 +41,12 @@ export async function POST(req: NextRequest) {
   const admin: any = getSupabaseAdmin()
   if (!admin) return NextResponse.json({ error: "Service indisponible" }, { status: 503 })
 
+  // PS-09b §0 — pas de recharge (même au comptoir) tant que l'IBAN de remboursement manque.
+  const { data: acc } = await admin.from("accounts").select("iban").eq("id", accountId).maybeSingle()
+  if (!acc?.iban) {
+    return NextResponse.json({ error: "IBAN manquant sur ce compte", code: "IBAN_REQUIS" }, { status: 400 })
+  }
+
   // Court-circuit idempotence : si la clé existe déjà, on ne refait rien.
   const { data: dup } = await admin
     .from("wallet_transactions").select("id, balance_after_cents").eq("idempotency_key", idemKey).maybeSingle()
