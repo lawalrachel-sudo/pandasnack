@@ -8,6 +8,7 @@ import { HeaderMetier } from "@/components/HeaderMetier"
 import type { EleveProposable } from "@/lib/eleves-connus"
 import { plafondLabel, PLAFOND_MAX_CENTS, PLAFOND_STEP_CENTS } from "@/lib/plafond"
 import { isValidIban, maskIban } from "@/lib/iban"
+import { PasswordInput } from "@/components/PasswordInput"
 
 const WALLET_IMG = "https://res.cloudinary.com/dbkpvp9ts/image/upload/v1776714727/PANDA_WALLET.jpg"
 // BUG B — labels classe scolaires + créneaux pandattitude
@@ -27,20 +28,6 @@ const TX_LABELS: Record<string, { label: string; color: string }> = {
 function fmtPrice(c: number): string { return `${(Math.abs(c) / 100).toFixed(2).replace(".", ",")} €` }
 function fmtDateShort(d: string): string {
   return new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" })
-}
-
-function EyeIcon({ open }: { open: boolean }) {
-  if (open) return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-    </svg>
-  )
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/>
-      <line x1="1" y1="1" x2="23" y2="23"/>
-    </svg>
-  )
 }
 
 interface Profil { id: string; prenom: string; classe: string | null; metier: string; is_default: boolean; active: boolean; notes_allergies: string | null; type_profil?: string | null; plafond_gouter_cents?: number | null }
@@ -75,9 +62,6 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
   const [oldPwd, setOldPwd] = useState("")
   const [newPwd, setNewPwd] = useState("")
   const [confirmPwd, setConfirmPwd] = useState("")
-  const [showOldPwd, setShowOldPwd] = useState(false)
-  const [showNewPwd, setShowNewPwd] = useState(false)
-  const [showConfirmPwd, setShowConfirmPwd] = useState(false)
   const [pwdMsg, setPwdMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null)
   const [pwdSaving, setPwdSaving] = useState(false)
 
@@ -734,38 +718,26 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
 
             <div>
               <label className="text-xs font-medium" style={{ color: "var(--ink-soft)" }}>Ancien mot de passe</label>
-              <div className="relative mt-1">
-                <input type={showOldPwd ? "text" : "password"} value={oldPwd} onChange={e => setOldPwd(e.target.value)}
-                  className="w-full h-10 px-3 pr-10 rounded-lg border text-sm" style={{ borderColor: "var(--border)" }} />
-                <button type="button" onClick={() => setShowOldPwd(!showOldPwd)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded" style={{ color: "var(--ink-soft)" }}>
-                  <EyeIcon open={showOldPwd} />
-                </button>
-              </div>
+              <PasswordInput value={oldPwd} onChange={e => setOldPwd(e.target.value)}
+                wrapperClassName="relative mt-1"
+                className="w-full h-10 px-3 rounded-lg border text-sm" style={{ borderColor: "var(--border)" }}
+                autoComplete="current-password" />
             </div>
 
             <div>
               <label className="text-xs font-medium" style={{ color: "var(--ink-soft)" }}>Nouveau mot de passe</label>
-              <div className="relative mt-1">
-                <input type={showNewPwd ? "text" : "password"} value={newPwd} onChange={e => setNewPwd(e.target.value)}
-                  className="w-full h-10 px-3 pr-10 rounded-lg border text-sm" style={{ borderColor: "var(--border)" }} />
-                <button type="button" onClick={() => setShowNewPwd(!showNewPwd)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded" style={{ color: "var(--ink-soft)" }}>
-                  <EyeIcon open={showNewPwd} />
-                </button>
-              </div>
+              <PasswordInput value={newPwd} onChange={e => setNewPwd(e.target.value)}
+                wrapperClassName="relative mt-1"
+                className="w-full h-10 px-3 rounded-lg border text-sm" style={{ borderColor: "var(--border)" }}
+                autoComplete="new-password" />
             </div>
 
             <div>
               <label className="text-xs font-medium" style={{ color: "var(--ink-soft)" }}>Confirmer</label>
-              <div className="relative mt-1">
-                <input type={showConfirmPwd ? "text" : "password"} value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)}
-                  className="w-full h-10 px-3 pr-10 rounded-lg border text-sm" style={{ borderColor: "var(--border)" }} />
-                <button type="button" onClick={() => setShowConfirmPwd(!showConfirmPwd)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded" style={{ color: "var(--ink-soft)" }}>
-                  <EyeIcon open={showConfirmPwd} />
-                </button>
-              </div>
+              <PasswordInput value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)}
+                wrapperClassName="relative mt-1"
+                className="w-full h-10 px-3 rounded-lg border text-sm" style={{ borderColor: "var(--border)" }}
+                autoComplete="new-password" />
             </div>
 
             {pwdMsg && (
