@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
 
   const metier = metierFromSourceGroup(account.source_group)
   const manquants: string[] = []
-  const aInserer: Array<{ prenom: string; classe: string | null; notes_allergies: string | null }> = []
+  const aInserer: Array<{ prenom: string; nom: string | null; classe: string | null; notes_allergies: string | null }> = []
 
   for (const s of selection) {
     const eleve = parId.get(s.id)
@@ -144,6 +144,7 @@ export async function POST(req: NextRequest) {
     }
     aInserer.push({
       prenom: eleve.prenom,
+      nom: eleve.nom ?? null,
       classe,
       notes_allergies: s.notes_allergies?.trim() || null,
     })
@@ -176,6 +177,7 @@ export async function POST(req: NextRequest) {
     return {
       account_id: account.id,
       prenom: p.prenom,
+      nom: p.nom,
       classe: p.classe,
       notes_allergies: p.notes_allergies,
       metier,

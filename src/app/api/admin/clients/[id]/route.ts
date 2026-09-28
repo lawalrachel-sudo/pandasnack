@@ -29,7 +29,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (!account) return NextResponse.json({ error: "Compte introuvable" }, { status: 404 })
 
   const { data: profils } = await admin
-    .from("profils").select("id, prenom, classe, active, archived_at, type_profil, notes_allergies")
+    .from("profils").select("id, prenom, nom, classe, active, archived_at, type_profil, notes_allergies, devoirs")
     .eq("account_id", id).order("is_default", { ascending: false }).order("created_at")
 
   const { data: wallet } = await admin

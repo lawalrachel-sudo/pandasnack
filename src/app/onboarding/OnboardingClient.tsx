@@ -26,6 +26,7 @@ function sgToMetier(sg: SourceGroup): Metier {
 
 interface Profil {
   prenom: string
+  nom: string
   classe: Classe | null
   notes_allergies: string
 }
@@ -46,7 +47,7 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
   const [sourceGroup, setSourceGroup] = useState<SourceGroup | null>(SINGLE_SOURCE_GROUP)
   const [telephone, setTelephone] = useState('')
   const [profils, setProfils] = useState<Profil[]>([
-    { prenom: '', classe: null, notes_allergies: '' },
+    { prenom: '', nom: '', classe: null, notes_allergies: '' },
   ])
   const [acceptCgu, setAcceptCgu] = useState(false)
   const [acceptMailing, setAcceptMailing] = useState(false)
@@ -101,13 +102,13 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
     setSourceGroup(type)
     if (type === 'panda_guest') {
       // Guest = 1 profil adulte, pas de classe
-      setProfils([{ prenom: prenom || '', classe: null, notes_allergies: '' }])
+      setProfils([{ prenom: prenom || '', nom: nom || '', classe: null, notes_allergies: '' }])
     } else if (type === 'pandattitude') {
       // Pandattitude = profils enfants mais pas de classe requise
-      setProfils([{ prenom: '', classe: null, notes_allergies: '' }])
+      setProfils([{ prenom: '', nom: '', classe: null, notes_allergies: '' }])
     } else {
       // École = profils enfants avec classe
-      setProfils([{ prenom: '', classe: null, notes_allergies: '' }])
+      setProfils([{ prenom: '', nom: '', classe: null, notes_allergies: '' }])
     }
     setStep(2)
   }
@@ -124,7 +125,7 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
   }
 
   function addProfil() {
-    setProfils([...profils, { prenom: '', classe: null, notes_allergies: '' }])
+    setProfils([...profils, { prenom: '', nom: '', classe: null, notes_allergies: '' }])
   }
 
   function removeProfil(index: number) {
@@ -160,6 +161,10 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
     // Les profils saisis à la main sont validés comme avant. Un profil totalement vide
     // est simplement ignoré (le parent a pu ouvrir le bloc sans s'en servir).
     for (const p of profilsManuelsRemplis) {
+      if (!p.nom.trim()) {
+        setError(`Merci d'indiquer le nom de ${p.prenom}.`)
+        return false
+      }
       if (sourceGroup === 'ecole_la_patience' && !p.classe) {
         setError(`Merci de choisir la classe pour ${p.prenom}.`)
         return false
@@ -241,6 +246,7 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             prenom: p.prenom.trim(),
+            nom: p.nom.trim(),
             classe: p.classe,
             notes_allergies: p.notes_allergies.trim() || null,
           }),
@@ -482,6 +488,16 @@ export function OnboardingClient({ userId, prenom, nom, email }: Props) {
                     value={p.prenom}
                     onChange={(e) => updateProfil(i, 'prenom', e.target.value)}
                     placeholder={sourceGroup === 'panda_guest' ? prenom || 'Ton prénom' : 'Prénom de l\'enfant'}
+                    style={S.input}
+                  />
+                </label>
+                <label style={S.label}>
+                  Nom
+                  <input
+                    type="text"
+                    value={p.nom}
+                    onChange={(e) => updateProfil(i, 'nom', e.target.value)}
+                    placeholder={sourceGroup === 'panda_guest' ? nom || 'Ton nom' : 'Nom de l\'enfant'}
                     style={S.input}
                   />
                 </label>

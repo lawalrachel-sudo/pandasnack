@@ -53,6 +53,14 @@ export async function PATCH(
     }
     updates.prenom = body.prenom.trim().slice(0, 64)
   }
+  if ("nom" in body) {
+    if (typeof body.nom !== "string" || !body.nom.trim()) {
+      return NextResponse.json({ error: "nom invalide" }, { status: 400 })
+    }
+    updates.nom = body.nom.trim().slice(0, 64)
+  }
+  // PS-10a — inscription Panda Devoirs (coché à la main par l'admin).
+  if ("devoirs" in body) updates.devoirs = !!body.devoirs
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "Aucun champ à modifier" }, { status: 400 })
   }
@@ -61,7 +69,7 @@ export async function PATCH(
     .from("profils")
     .update(updates)
     .eq("id", id)
-    .select("id, prenom, classe, metier, account_id, is_default, active")
+    .select("id, prenom, nom, classe, metier, account_id, is_default, active, devoirs")
     .single()
 
   if (error) {
