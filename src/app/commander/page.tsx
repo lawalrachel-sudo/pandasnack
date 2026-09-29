@@ -2,6 +2,7 @@ import { createServerSupabase } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { CommanderClient } from "./CommanderClient"
 import { destinationApresAuth } from "@/lib/profil-gate"
+import { filterSlotsForAccount } from "@/lib/devoirs"
 
 export const dynamic = "force-dynamic"
 
@@ -112,11 +113,12 @@ export default async function CommanderPage() {
     .order("service_date")
     .limit(30)
 
+  // PS-10b — accès aux créneaux (lib testée) : devoirs selon le lien Devoirs du compte ;
+  // un compte panda_devoirs ne voit jamais les créneaux midi (pandattitude).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const slots = (slotsAll || []).filter((s: any) => {
-    if (!s.target_source_group) return true
-    return s.target_source_group === account.source_group
-  })
+  const activeProfils = (account.profils || []).filter((p: any) => p.active)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const slots = filterSlotsForAccount<any>(slotsAll || [], account, activeProfils)
 
   return (
     <CommanderClient

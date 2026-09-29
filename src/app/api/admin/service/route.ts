@@ -33,15 +33,15 @@ export async function GET(req: NextRequest) {
   // Tous les services pandattitude actifs, pour la navigation et la résolution par défaut.
   const { data: slotsRaw, error: slotsErr } = await admin
     .from("service_slots")
-    .select("id, service_date, orders_cutoff_at, delivery_points(name)")
+    .select("id, service_date, day_type, orders_cutoff_at, delivery_points(name)")
     .eq("active", true)
-    .eq("target_source_group", TARGET)
+    .or(`target_source_group.eq.${TARGET},day_type.eq.devoirs`)
     .order("service_date", { ascending: true })
   if (slotsErr) {
     console.error("[admin/service] slots:", slotsErr)
     return NextResponse.json({ error: slotsErr.message }, { status: 500 })
   }
-  const slots = (slotsRaw || []) as Array<{ id: string; service_date: string; orders_cutoff_at: string | null; delivery_points: { name: string } | null }>
+  const slots = (slotsRaw || []) as Array<{ id: string; service_date: string; day_type: string; orders_cutoff_at: string | null; delivery_points: { name: string } | null }>
   if (slots.length === 0) {
     return NextResponse.json({ slot: null, nav: { prev: null, next: null }, orders: [] })
   }
@@ -136,6 +136,7 @@ export async function GET(req: NextRequest) {
       service_date: slot.service_date,
       orders_cutoff_at: slot.orders_cutoff_at,
       cutoff_passed: cutoffPassed,
+      day_type: slot.day_type,
       delivery_point: slot.delivery_points?.name || null,
     },
     nav,

@@ -13,6 +13,7 @@ interface Client {
   is_test: boolean
   archived_at: string | null
   enfants: Enfant[]
+  has_devoirs?: boolean
   balance_cents: number
   total_credited_cents: number
   orders_count: number
@@ -32,6 +33,7 @@ export function ClientsClient() {
   const [error, setError] = useState<string | null>(null)
   const [q, setQ] = useState("")
   const [includeArchives, setIncludeArchives] = useState(false)
+  const [onlyDevoirs, setOnlyDevoirs] = useState(false)
   const [showArchives, setShowArchives] = useState(false)
 
   useEffect(() => {
@@ -56,12 +58,12 @@ export function ClientsClient() {
   const bySolde = (a: Client, b: Client) => b.balance_cents - a.balance_cents
 
   const actifs = useMemo(
-    () => (clients || []).filter((c) => !c.archived_at && matches(c)).sort(bySolde),
-    [clients, needle] // eslint-disable-line react-hooks/exhaustive-deps
+    () => (clients || []).filter((c) => !c.archived_at && matches(c) && (!onlyDevoirs || c.has_devoirs)).sort(bySolde),
+    [clients, needle, onlyDevoirs] // eslint-disable-line react-hooks/exhaustive-deps
   )
   const archives = useMemo(
-    () => (clients || []).filter((c) => c.archived_at && matches(c)).sort(bySolde),
-    [clients, needle] // eslint-disable-line react-hooks/exhaustive-deps
+    () => (clients || []).filter((c) => c.archived_at && matches(c) && (!onlyDevoirs || c.has_devoirs)).sort(bySolde),
+    [clients, needle, onlyDevoirs] // eslint-disable-line react-hooks/exhaustive-deps
   )
 
   function Card({ c, archived }: { c: Client; archived?: boolean }) {
@@ -98,6 +100,10 @@ export function ClientsClient() {
       <label style={S.incArch}>
         <input type="checkbox" checked={includeArchives} onChange={(e) => setIncludeArchives(e.target.checked)} style={{ width: 18, height: 18 }} />
         Inclure les archives dans la recherche
+      </label>
+      <label style={S.incArch}>
+        <input type="checkbox" checked={onlyDevoirs} onChange={(e) => setOnlyDevoirs(e.target.checked)} style={{ width: 18, height: 18 }} />
+        Panda Devoirs uniquement
       </label>
 
       {error && <p style={{ color: "#DC2626" }}>⚠ {error}</p>}

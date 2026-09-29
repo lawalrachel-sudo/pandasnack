@@ -15,3 +15,21 @@ export function canSeeDevoirsSlots(account: DevoirsAccount, profils: DevoirsProf
 export function canSeePandattitudeSlots(account: DevoirsAccount): boolean {
   return account?.source_group !== "panda_devoirs"
 }
+
+export interface AccessSlot { day_type?: string | null; target_source_group?: string | null }
+
+/**
+ * Filtre les créneaux visibles par un compte (source unique côté /commander) :
+ * - day_type='devoirs' → selon canSeeDevoirsSlots ;
+ * - autres créneaux → interdits à un compte panda_devoirs, sinon logique target_source_group.
+ */
+export function filterSlotsForAccount<T extends AccessSlot>(slots: T[], account: DevoirsAccount, activeProfils: DevoirsProfil[]): T[] {
+  const seeDevoirs = canSeeDevoirsSlots(account, activeProfils)
+  const seePanda = canSeePandattitudeSlots(account)
+  return (slots || []).filter((s) => {
+    if (s.day_type === "devoirs") return seeDevoirs
+    if (!seePanda) return false
+    if (!s.target_source_group) return true
+    return s.target_source_group === account.source_group
+  })
+}

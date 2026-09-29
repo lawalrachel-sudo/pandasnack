@@ -8,7 +8,7 @@ import { ProductCard } from "@/components/ProductCard"
 import { useCart } from "@/lib/cart-context"
 import { HeaderMetier } from "@/components/HeaderMetier"
 import { sauceCheckboxApplies, setSauceInNotes } from "@/lib/menu-options"
-import { visForSource as visForSourceShared, isMenuPlatSku } from "@/lib/visibility"
+import { visForSource as visForSourceShared, isMenuPlatSku, visForDevoirs } from "@/lib/visibility"
 import { RENTREE_BANNER, SECTION_LABELS, SNACK_SECTION, HOWTO_STEPS, HOWTO_TITLE, HOWTO_PILL } from "@/lib/banner"
 import { InfoParentsBanner } from "@/components/InfoParentsBanner"
 import { profilCommandable } from "@/lib/profil-gate"
@@ -17,7 +17,7 @@ import { profilCommandable } from "@/lib/profil-gate"
 // TYPES
 // ============================================================================
 
-type SourceGroup = "ecole_la_patience" | "pandattitude" | "panda_guest"
+type SourceGroup = "ecole_la_patience" | "pandattitude" | "panda_guest" | "panda_devoirs"
 type Metier = "ecole" | "pandattitude" | "panda_guest"
 // BUG B — classe = scolaire OU créneau pandattitude (mer/ven/sam) OU null pour panda_guest
 type Classe = "maternelle" | "primaire" | "college" | "lycee" | "prof" | "mercredi" | "vendredi" | "samedi"
@@ -29,11 +29,12 @@ interface CatalogItem {
   allergens: string[] | null; morning_available: boolean | null
   image_url: string | null; ui_group: string | null; category_id: string
   coming_soon?: boolean | null  // PS-01 — visible mais non sélectionnable (badge « Bientôt disponible ! »)
+  sellable_devoirs?: boolean | null; sellable_comptoir?: boolean | null; parent_id?: string | null  // PS-10b
 }
 interface Category { id: string; name: string; emoji: string | null; sort_order: number; morning_available: boolean | null; catalog_items: CatalogItem[] }
 interface MenuFormula { id: string; code: string; name: string; description: string | null; price_cents: number; image_url: string | null; emoji: string | null; active: boolean; sort_order: number }
 interface Topping { id: string; name: string; emoji: string | null; active: boolean; sort_order: number; applies_to_category_ids: string[] | null }
-interface Profil { id: string; account_id: string; prenom: string; classe: Classe | null; metier: Metier; is_default: boolean; active: boolean; notes_allergies: string | null; type_profil?: string | null; archived_at?: string | null }
+interface Profil { id: string; account_id: string; prenom: string; classe: Classe | null; metier: Metier; is_default: boolean; active: boolean; notes_allergies: string | null; type_profil?: string | null; archived_at?: string | null; devoirs?: boolean | null }
 interface Account { id: string; nom_compte: string; email: string; source_group: SourceGroup | null; source_detail: string | null }
 interface Wallet { balance_cents: number }
 interface DeliveryPoint { id: string; name: string; address: string | null; delivery_time_local: string | null }
@@ -227,10 +228,23 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
     () => profils.filter((p) => profilCommandable(p, pageMetier)),
     [profils, pageMetier]
   )
+  // PS-10b — Panda Devoirs : créneau du soir. Carte filtrée, enfants inscrits Devoirs.
+  const isDevoirs = selectedSlot?.day_type === "devoirs"
+  const devoirsProfils = useMemo(() => {
+    const act = profils.filter((p) => p.active && !p.archived_at && p.type_profil === "eleve")
+    return account.source_group === "panda_devoirs" ? act : act.filter((p) => p.devoirs === true)
+  }, [profils, account.source_group])
+  const devoirsItems = useMemo(
+    () => categories.flatMap((c) => c.catalog_items).filter((i) => visForDevoirs(i)).sort((a, b) => a.sort_order - b.sort_order),
+    [categories]
+  )
+
+  const commandeProfils = isDevoirs ? devoirsProfils : activeProfils
   const selectedProfil = useMemo(() => {
-    if (selectedProfilId) return activeProfils.find((p) => p.id === selectedProfilId) || activeProfils[0] || null
-    return activeProfils.find((p) => p.is_default) || activeProfils[0] || null
-  }, [activeProfils, selectedProfilId])
+    const pool = isDevoirs ? devoirsProfils : activeProfils
+    if (selectedProfilId) return pool.find((p) => p.id === selectedProfilId) || pool[0] || null
+    return pool.find((p) => p.is_default) || pool[0] || null
+  }, [activeProfils, devoirsProfils, isDevoirs, selectedProfilId])
   // FIX 5 — restaure le profil actif depuis localStorage au montage (sync one-shot SSR-safe
   // via le garde window ; pas de cascade de rendus).
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -535,11 +549,11 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       )}
 
       {/* Profil */}
-      {activeProfils.length > 1 && (
+      {commandeProfils.length > 1 && (
         <div className="px-4 pt-2 pb-4">
           <h2 className="font-bold text-sm mb-2" style={{ color: "var(--ink-soft)" }}>Commande pour</h2>
           <div className="flex gap-2 overflow-x-auto pb-1">
-            {activeProfils.map((p, idx) => {
+            {commandeProfils.map((p, idx) => {
               const sel = selectedProfil?.id === p.id
               const PASTEL_COLORS = ['#FEF3C7', '#99F6E4', '#FBCFE8', '#BBF7D0']
               const pastelBg = PASTEL_COLORS[idx % PASTEL_COLORS.length]
@@ -552,7 +566,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
           </div>
         </div>
       )}
-      {activeProfils.length === 1 && selectedProfil && (
+      {commandeProfils.length === 1 && selectedProfil && (
         <div className="px-4 pt-2 pb-4">
           <p className="text-sm" style={{ color: "var(--ink-soft)" }}>
             Commande pour <strong style={{ color: "var(--ink)" }}>{selectedProfil.prenom}</strong>
@@ -577,10 +591,14 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
           <div className="flex gap-2 overflow-x-auto pb-2">
             {slots.map((sl) => {
               const sel = selectedSlotId === sl.id
+              const dev = sl.day_type === "devoirs"   // PS-10b — pilule bleue Devoirs
+              const style: React.CSSProperties = dev
+                ? (sel ? { background: "var(--devoirs)", color: "#fff", borderColor: "transparent" } : { color: "var(--devoirs)", borderColor: "var(--devoirs)" })
+                : (sel ? { background: "var(--accent)" } : {})
               return (<button key={sl.id} onClick={() => setSelectedSlotId(sl.id)}
-                className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap border transition-colors ${sel ? "text-white border-transparent" : "border-[var(--border)]"}`}
-                style={sel ? { background: "var(--accent)" } : {}}>
-                {fmtShort(sl.service_date)}
+                className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap border transition-colors ${sel && !dev ? "text-white border-transparent" : "border-[var(--border)]"}`}
+                style={style}>
+                {fmtShort(sl.service_date)}{dev ? " · Devoirs" : ""}
               </button>)
             })}
           </div>
@@ -598,6 +616,8 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
         </div>
       )}
 
+      {/* PS-10b — sur un créneau Panda Devoirs, la carte pandattitude/école est masquée. */}
+      {!isDevoirs && (<>
       {isMaternelle && sg === "ecole_la_patience" && (
         <div className="mx-4 mb-4 rounded-xl p-4 text-sm" style={{ background: "#FEF3E2", border: "1px solid #F5D5A0" }}>
           <strong>{selectedProfil?.prenom}</strong> est en maternelle — le repas est un <strong>Bento du jour</strong> (pas de changement de plat possible).
@@ -816,6 +836,28 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
             ))}
           </div>
         </section>
+      )}
+      </>)}
+
+      {/* PS-10b — Carte Panda Devoirs : extras uniquement (MINI, sandwichs, clubs). */}
+      {isDevoirs && selectedSlot && (
+        <div className="px-4 mb-6">
+          <div className="rounded-xl p-3 mb-4 text-sm" style={{ background: "#DBEAFE", color: "#1E3A8A" }}>
+            <strong>Panda Devoirs</strong> — goûter compris, extras sur commande (prêts à 17h en salle).
+          </div>
+          {devoirsItems.length === 0 ? (
+            <p className="text-sm" style={{ color: "var(--ink-soft)" }}>Aucun extra disponible pour ce soir.</p>
+          ) : (
+            <div className="pgrid">
+              {devoirsItems.map((item) => (
+                <ProductCard key={item.id} id={item.id} name={item.name} description={item.description}
+                  priceCents={item.price_alone_cents} imageUrl={item.image_url} emoji={item.emoji}
+                  isMenuOnly={false} allergens={item.allergens}
+                  comingSoon={!!item.coming_soon} onSelect={addItem} />
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       {/* T1 (3-E) — Mini cabas sticky supprimé. Point d'entrée unique = icône caddie BottomNav. */}
