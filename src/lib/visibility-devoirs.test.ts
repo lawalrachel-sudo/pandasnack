@@ -13,3 +13,13 @@ describe("visForDevoirs (PS-10a)", () => {
     expect(visForDevoirs({ sku: "C", active: true, sellable_devoirs: true, sellable_comptoir: true, sellable_alone: false, sellable_in_menu: false })).toBe(false)
   })
 })
+
+import { visForSource } from "./visibility"
+describe("non-régression pandattitude (PS-10b) — sellable_devoirs n'affecte pas la carte midi", () => {
+  it("un article reste visible/invisible en pandattitude quel que soit sellable_devoirs", () => {
+    const base = { sku: "SAND-A", active: true }
+    expect(visForSource({ ...base }, "pandattitude")).toBe(visForSource({ ...base, sellable_devoirs: true }, "pandattitude"))
+    const bbl = { sku: "DRINK-BBL", active: true, sellable_comptoir: true, sellable_alone: true, sellable_in_menu: true }
+    expect(visForSource({ ...bbl }, "pandattitude")).toBe(visForSource({ ...bbl, sellable_devoirs: true }, "pandattitude"))
+  })
+})

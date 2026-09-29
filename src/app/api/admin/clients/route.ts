@@ -22,7 +22,7 @@ export async function GET() {
     .from("accounts")
     .select(`
       id, nom_compte, email, telephone, source_group, is_test, archived_at,
-      profils(prenom, classe, active, archived_at, type_profil),
+      profils(prenom, classe, active, archived_at, type_profil, devoirs),
       wallets(balance_cents, total_credited_cents),
       orders(id, status, created_at, service_slots(service_date))
     `)
@@ -35,8 +35,10 @@ export async function GET() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const clients = (data || []).map((a: any) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const enfants = (a.profils || []).filter((p: any) => p.active && !p.archived_at && p.type_profil === "eleve")
-      .map((p: { prenom: string; classe: string | null }) => ({ prenom: p.prenom, classe: p.classe }))
+    const enfantsActifs = (a.profils || []).filter((p: any) => p.active && !p.archived_at && p.type_profil === "eleve")
+    const enfants = enfantsActifs.map((p: { prenom: string; classe: string | null }) => ({ prenom: p.prenom, classe: p.classe }))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const has_devoirs = enfantsActifs.some((p: any) => p.devoirs === true)
     const wallet = Array.isArray(a.wallets) ? a.wallets[0] : a.wallets
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const orders = (a.orders || []) as any[]
@@ -53,6 +55,7 @@ export async function GET() {
       telephone: a.telephone,
       is_test: !!a.is_test,
       archived_at: a.archived_at || null,
+      has_devoirs,
       enfants,
       balance_cents: wallet?.balance_cents || 0,
       total_credited_cents: wallet?.total_credited_cents || 0,

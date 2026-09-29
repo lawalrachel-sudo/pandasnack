@@ -22,6 +22,7 @@ interface Slot {
   orders_cutoff_at: string | null
   cutoff_passed: boolean
   delivery_point: string | null
+  day_type?: string | null
 }
 interface Nav { prev: string | null; next: string | null }
 interface ServicePayload { slot: Slot | null; nav: Nav; orders: SvcOrder[] }
@@ -121,7 +122,7 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
           onClick={() => data?.nav.prev && setDate(data.nav.prev)}
           style={{ ...S.arrow, opacity: data?.nav.prev ? 1 : 0.3 }}
         >‹</button>
-        <span style={S.dayLabel}>{slot ? jourLong(slot.service_date) : "—"}</span>
+        <span style={S.dayLabel}>{slot ? jourLong(slot.service_date) : "—"}{slot?.day_type === "devoirs" && <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 800, color: "#fff", background: "var(--devoirs, #2563EB)", borderRadius: 999, padding: "2px 8px" }}>Devoirs</span>}</span>
         <button
           aria-label="Service suivant"
           disabled={!data?.nav.next}
