@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { AdminBackButton } from "../../AdminBackButton"
+import { planLabels, usedAfterPrint, usedForStartCell, CELLS_PER_SHEET, SHEET_COLS } from "@/lib/etiquettes-planche"
 
 const METIER_OPTIONS: { value: string; label: string }[] = [
   { value: "", label: "TOUS" },
@@ -43,6 +44,48 @@ export function EtiquettesClient({ serviceDate }: { serviceDate: string }) {
   const [labels, setLabels] = useState<Label[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // PS-12 — planche entamée : cases déjà utilisées (mémoire serveur), départ à une case, prompt post-impression.
+  const [usedCells, setUsedCells] = useState<number[]>([])
+  const [startCell, setStartCell] = useState("")
+  const [afterPrint, setAfterPrint] = useState(false)
+
+  useEffect(() => {
+    let cancel = false
+    ;(async () => {
+      try {
+        const res = await fetch("/api/admin/etiquettes/planche")
+        const json = await res.json()
+        if (!cancel && res.ok) setUsedCells(json.used_cells || [])
+      } catch { /* non bloquant */ }
+    })()
+    return () => { cancel = true }
+  }, [])
+
+  async function saveUsed(cells: number[]) {
+    setUsedCells(cells)
+    try {
+      await fetch("/api/admin/etiquettes/planche", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ used_cells: cells }),
+      })
+    } catch { /* non bloquant */ }
+  }
+  function toggleCell(cell: number) {
+    saveUsed(usedCells.includes(cell) ? usedCells.filter((c) => c !== cell) : [...usedCells, cell].sort((a, b) => a - b))
+  }
+  function applyStartCell() {
+    const n = parseInt(startCell, 10)
+    if (Number.isFinite(n) && n >= 1 && n <= CELLS_PER_SHEET) { saveUsed(usedForStartCell(n)); setStartCell("") }
+  }
+
+  const sheets = useMemo(() => planLabels(labels.length, usedCells), [labels.length, usedCells])
+
+  function handlePrint() {
+    window.print()
+    setAfterPrint(true)
+  }
+  function resumePlanche() { saveUsed(usedAfterPrint(labels.length, usedCells)); setAfterPrint(false) }
+  function newPlanche() { saveUsed([]); setAfterPrint(false) }
 
   function setMetier(value: string) {
     const qs = new URLSearchParams(searchParams.toString())
@@ -118,7 +161,7 @@ export function EtiquettesClient({ serviceDate }: { serviceDate: string }) {
   return (
     <div>
       <style jsx global>{`
-        @page { size: A4; margin: 13.5mm 0; }
+        @page { size: A4; margin: 6mm 0; }
         body { background: #f3f4f6; }
         /* PS-06c-d — à l'écran, la grille A4 (210mm) déborde sur mobile (~390px). On la rend
            défilable horizontalement, scrollbar TOUJOURS visible pour repérer la colonne de
@@ -141,14 +184,12 @@ export function EtiquettesClient({ serviceDate }: { serviceDate: string }) {
           margin: 0 auto;
           padding: 0;
         }
-        /* T7 — étiquette densifiée 105×57mm.
-           Padding top resserré à 2mm (Rachel : récupérer ~2 lignes en haut),
-           bottom 3mm pour zone d'impression sécurisée, sides 5mm.
-           overflow:hidden = filet de sécurité si commande exceptionnelle dépasse. */
+        /* Étiquette 105×57mm. PS-12 — marge intérieure 5mm sur les 4 côtés (imprimantes sans
+           impression bord à bord). overflow:hidden = filet si une commande dépasse. */
         .label {
           width: 105mm;
           height: 57mm;
-          padding: 2mm 5mm 3mm 5mm;
+          padding: 5mm;
           box-sizing: border-box;
           page-break-inside: avoid;
           overflow: hidden;
@@ -159,6 +200,9 @@ export function EtiquettesClient({ serviceDate }: { serviceDate: string }) {
           display: flex;
           flex-direction: column;
         }
+        /* Case utilisée / vide : strictement vide. À l'écran, léger fond pour visualiser la grille. */
+        .label-empty { background: #fafafa; }
+        @media print { .label-empty { background: white !important; } }
         .label-header {
           display: flex;
           justify-content: space-between;
@@ -254,7 +298,7 @@ export function EtiquettesClient({ serviceDate }: { serviceDate: string }) {
             <p className="text-xs text-gray-500 mt-1">{labels.length} étiquette(s) · format Office Star OS43425 (105 × 57 mm, 10/A4)</p>
           </div>
           <button
-            onClick={() => window.print()}
+            onClick={handlePrint}
             className="px-4 py-2 bg-orange-600 text-white text-sm font-semibold rounded-lg hover:bg-orange-700"
           >
             🖨️ Imprimer
@@ -295,6 +339,51 @@ export function EtiquettesClient({ serviceDate }: { serviceDate: string }) {
         </div>
       </div>
 
+      {/* PS-12 — Mini-plan de la planche (2×5). Toucher une case = déjà utilisée (grise, barrée). */}
+      <div className="no-print px-6 pt-3 pb-2">
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-xs font-semibold text-gray-700 uppercase">Planche</span>
+          <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${SHEET_COLS}, minmax(40px, 44px))` }}>
+            {Array.from({ length: CELLS_PER_SHEET }, (_, c) => {
+              const used = usedCells.includes(c)
+              return (
+                <button key={c} onClick={() => toggleCell(c)}
+                  aria-pressed={used}
+                  className="h-10 rounded-md border text-sm font-semibold transition-colors"
+                  style={used
+                    ? { background: "#e5e7eb", color: "#9ca3af", borderColor: "#d1d5db", textDecoration: "line-through" }
+                    : { background: "#fff", color: "#374151", borderColor: "#9ca3af" }}>
+                  {c + 1}
+                </button>
+              )
+            })}
+          </div>
+          <label className="text-xs text-gray-600 flex items-center gap-1">
+            Commencer à la case n°
+            <input type="number" min={1} max={CELLS_PER_SHEET} value={startCell}
+              onChange={(e) => setStartCell(e.target.value)}
+              className="w-14 h-9 px-2 border border-gray-300 rounded-md text-sm" />
+            <button onClick={applyStartCell} className="h-9 px-3 bg-gray-800 text-white rounded-md text-xs font-semibold">OK</button>
+          </label>
+          {usedCells.length > 0 && (
+            <button onClick={() => saveUsed([])} className="text-xs text-blue-600 underline">Planche neuve</button>
+          )}
+        </div>
+        <p className="text-[11px] text-gray-400 mt-1">
+          {usedCells.length} case(s) utilisée(s) · les étiquettes se placent dans les cases libres, dans l&apos;ordre.
+        </p>
+      </div>
+
+      {afterPrint && (
+        <div className="no-print mx-6 mb-3 rounded-lg border p-3 flex items-center gap-3 flex-wrap" style={{ borderColor: "#F5D5A0", background: "#FEF3E2" }}>
+          <span className="text-sm">Impression envoyée. Cette planche est maintenant partiellement utilisée.</span>
+          <button onClick={resumePlanche} className="h-9 px-3 bg-orange-600 text-white rounded-md text-xs font-semibold">
+            Reprendre la planche ({usedAfterPrint(labels.length, usedCells).length} cases utilisées)
+          </button>
+          <button onClick={newPlanche} className="h-9 px-3 bg-white border border-gray-300 rounded-md text-xs font-semibold">Planche neuve</button>
+        </div>
+      )}
+
       {loading && <p className="text-center py-8 text-gray-500">Chargement…</p>}
       {error && <p className="text-center py-8 text-red-600">⚠ {error}</p>}
       {!loading && !error && labels.length === 0 && (
@@ -307,41 +396,45 @@ export function EtiquettesClient({ serviceDate }: { serviceDate: string }) {
         </p>
       )}
 
-      <div className="labels-scroll">
-      <div className="labels-sheet" style={{ marginTop: "13.5mm" }}>
-        {labels.map(l => {
-          // T7 — densification auto si > 5 items (cas rare, filet de sécurité)
-          const dense = l.items.length > 5
-          return (
-            <div key={l.order_number} className="label">
-              <div className="label-header">
-                <span>{l.metier} · {l.service_date_short}</span>
-                <span className="num">{l.order_number}</span>
-              </div>
-              <div className="label-prenom">
-                {l.profil_prenom}
-                {l.profil_classe && <span className="classe">({l.profil_classe})</span>}
-              </div>
-              <ul className={`label-items${dense ? " dense" : ""}`}>
-                {l.items.map((it, idx) => (
-                  <li key={idx}>• {it.name}</li>
-                ))}
-              </ul>
-              <div className="label-bottom">
-                {l.allergens.length > 0 && (
-                  <div className="label-allergens">
-                    ⚠️ Allergènes : {l.allergens.join(" · ")}
+      {/* PS-12 — une grille par planche ; cases utilisées/vides strictement vides ; débordement → planche suivante. */}
+      {!loading && !error && labels.length > 0 && sheets.map((sheet, si) => (
+        <div key={si} className="labels-scroll">
+        <div className="labels-sheet" style={{ marginTop: "6mm", pageBreakBefore: si > 0 ? "always" : undefined }}>
+          {sheet.cells.map((c) => {
+            const l = c.labelIndex != null ? labels[c.labelIndex] : null
+            if (!l) return <div key={c.cell} className="label label-empty" aria-hidden="true" />
+            const dense = l.items.length > 5
+            return (
+              <div key={c.cell} className="label">
+                <div className="label-header">
+                  <span>{l.metier} · {l.service_date_short}</span>
+                  <span className="num">{l.order_number}</span>
+                </div>
+                <div className="label-prenom">
+                  {l.profil_prenom}
+                  {l.profil_classe && <span className="classe">({l.profil_classe})</span>}
+                </div>
+                <ul className={`label-items${dense ? " dense" : ""}`}>
+                  {l.items.map((it, idx) => (
+                    <li key={idx}>• {it.name}</li>
+                  ))}
+                </ul>
+                <div className="label-bottom">
+                  {l.allergens.length > 0 && (
+                    <div className="label-allergens">
+                      ⚠️ Allergènes : {l.allergens.join(" · ")}
+                    </div>
+                  )}
+                  <div className="label-footer">
+                    Préparé le {fmtDateOnlyShort(l.prepared_at)} <span className="conservation">· À conserver au frais et consommer rapidement</span>
                   </div>
-                )}
-                <div className="label-footer">
-                  Préparé le {fmtDateOnlyShort(l.prepared_at)} <span className="conservation">· À conserver au frais et consommer rapidement</span>
                 </div>
               </div>
-            </div>
-          )
-        })}
-      </div>
-      </div>
+            )
+          })}
+        </div>
+        </div>
+      ))}
     </div>
   )
 }
