@@ -4,13 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { AdminBackButton } from "../../AdminBackButton"
 import { planLabels, usedAfterPrint, usedForStartCell, CELLS_PER_SHEET, SHEET_COLS } from "@/lib/etiquettes-planche"
-
-const METIER_OPTIONS: { value: string; label: string }[] = [
-  { value: "", label: "TOUS" },
-  { value: "pandattitude", label: "Pandattitude" },
-  { value: "ecole_la_patience", label: "La Patience" },
-  { value: "panda_guest", label: "Panda Guest" },
-]
+import { METIER_FILTERS } from "@/lib/metiers"
 
 interface Label {
   order_number: string
@@ -325,7 +319,7 @@ export function EtiquettesClient({ serviceDate }: { serviceDate: string }) {
         </div>
         <div className="px-6 pb-3 flex items-center gap-2 flex-wrap">
           <span className="text-xs font-semibold text-gray-700 uppercase">Métier</span>
-          {METIER_OPTIONS.map(opt => (
+          {METIER_FILTERS.map(opt => (
             <button
               key={opt.value}
               onClick={() => setMetier(opt.value)}

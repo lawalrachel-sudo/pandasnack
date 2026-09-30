@@ -3,11 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { AdminBackButton } from "../../AdminBackButton"
 
-const SOURCE_LABELS: Record<string, string> = {
-  pandattitude: "Pandattitude",
-  ecole_la_patience: "La Patience",
-  panda_guest: "Panda Guest",
-}
+import { metierLabel } from "@/lib/metiers"
 
 interface OrderItem {
   id: string
@@ -117,7 +113,7 @@ export function ListeClient({ serviceDate, sourceGroup }: { serviceDate: string;
     [...orders].sort((a, b) => a.order_number.localeCompare(b.order_number)),
     [orders])
 
-  const metierLabel = sourceGroup ? SOURCE_LABELS[sourceGroup] || sourceGroup : "Tous les métiers"
+  const metierLbl = sourceGroup ? metierLabel(sourceGroup) : "Tous les métiers"
 
   return (
     <div className="bg-white">
@@ -149,7 +145,7 @@ export function ListeClient({ serviceDate, sourceGroup }: { serviceDate: string;
         <div className="border-b-2 border-gray-300 pb-3 mb-4">
           <h1 className="text-2xl font-bold">Liste commandes — {fmtServiceDate(serviceDate)}</h1>
           <p className="text-sm text-gray-700 mt-1">
-            <strong>Métier :</strong> {metierLabel}
+            <strong>Métier :</strong> {metierLbl}
             {recap && (
               <>
                 {" · "}
