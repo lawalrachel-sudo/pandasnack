@@ -14,7 +14,7 @@ beforeEach(() => { store.value = undefined; store.set.mockReset() })
 
 describe("POST /api/admin/renew", () => {
   it("cookie valide → renewed:true et ré-émission", async () => {
-    store.value = createAdminSessionValue()
+    store.value = await createAdminSessionValue()
     const res = await POST()
     const body = await res.json()
     expect(body.renewed).toBe(true)

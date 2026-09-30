@@ -46,7 +46,8 @@ export async function requireAdminPage(): Promise<{ userEmail: string }> {
 
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || !(await isAdminUser(supabase, user))) redirect("/")
+  // PS-11 — jamais vers "/" (accueil public) : on renvoie vers la page de connexion admin.
+  if (!user || !(await isAdminUser(supabase, user))) redirect("/admin")
   return { userEmail: user.email || "" }
 }
 

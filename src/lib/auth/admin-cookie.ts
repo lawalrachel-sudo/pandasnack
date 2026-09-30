@@ -1,25 +1,13 @@
 import crypto from "node:crypto"
 import { cookies } from "next/headers"
+import {
+  ADMIN_COOKIE_NAME, ADMIN_COOKIE_MAX_AGE, adminCookieOptions,
+  signAdminSession, verifyAdminSession,
+} from "./admin-session"
 
-// Accès admin par mot de passe (indépendant du système de comptes Supabase).
-// Cookie signé HMAC-SHA256, httpOnly, 30 jours. Le secret vit dans l'env var
-// Vercel ADMIN_COOKIE_SECRET (jamais commité). Tourne en runtime Node (route
-// handlers + server components) — PAS en middleware Edge, donc node:crypto OK.
-
-export const ADMIN_COOKIE_NAME = "admin_session"
-// PS-05b — session admin longue (90 jours), renouvelée à chaque visite (/api/admin/renew).
-export const ADMIN_COOKIE_MAX_AGE = 60 * 60 * 24 * 90 // 90 jours en secondes
-
-// Options communes du cookie admin (login + renew), pour une seule source de vérité.
-export function adminCookieOptions() {
-  return {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax" as const,
-    path: "/",
-    maxAge: ADMIN_COOKIE_MAX_AGE,
-  }
-}
+// PS-11 — la logique de signature/validation vit dans admin-session.ts (Edge-safe, partagée
+// avec le middleware). Ici : les accès Node (cookie store, mot de passe).
+export { ADMIN_COOKIE_NAME, ADMIN_COOKIE_MAX_AGE, adminCookieOptions }
 
 function getSecret(): string {
   const secret = process.env.ADMIN_COOKIE_SECRET
@@ -27,47 +15,20 @@ function getSecret(): string {
   return secret
 }
 
-function sign(payload: string): string {
-  return crypto.createHmac("sha256", getSecret()).update(payload).digest("base64url")
+/** Valeur de cookie signée (90 j). Async : utilise la même primitive que le middleware. */
+export function createAdminSessionValue(): Promise<string> {
+  return signAdminSession(getSecret())
 }
 
-// Valeur du cookie : "admin.<expEpochSec>.<hmacBase64url>"
-export function createAdminSessionValue(): string {
-  const exp = Math.floor(Date.now() / 1000) + ADMIN_COOKIE_MAX_AGE
-  const payload = `admin.${exp}`
-  return `${payload}.${sign(payload)}`
+/** Validation partagée (même fonction que le middleware). */
+export function verifyAdminSessionValue(value: string | undefined | null): Promise<boolean> {
+  return verifyAdminSession(value, process.env.ADMIN_COOKIE_SECRET)
 }
 
-export function verifyAdminSessionValue(value: string | undefined | null): boolean {
-  if (!value) return false
-  const lastDot = value.lastIndexOf(".")
-  if (lastDot <= 0) return false
-  const payload = value.slice(0, lastDot)
-  const sig = value.slice(lastDot + 1)
-
-  let expected: string
-  try {
-    expected = sign(payload)
-  } catch {
-    return false // secret manquant → on refuse plutôt que crasher
-  }
-
-  const sigBuf = Buffer.from(sig)
-  const expBuf = Buffer.from(expected)
-  if (sigBuf.length !== expBuf.length) return false
-  if (!crypto.timingSafeEqual(sigBuf, expBuf)) return false
-
-  const [tag, expStr] = payload.split(".")
-  if (tag !== "admin") return false
-  const exp = Number(expStr)
-  if (!Number.isFinite(exp) || exp < Math.floor(Date.now() / 1000)) return false
-  return true
-}
-
-// Lecture depuis le cookie store — utilisable en server component ET route handler.
+// Lecture depuis le cookie store — server component ET route handler.
 export async function hasValidAdminCookie(): Promise<boolean> {
   const store = await cookies()
-  return verifyAdminSessionValue(store.get(ADMIN_COOKIE_NAME)?.value)
+  return verifyAdminSession(store.get(ADMIN_COOKIE_NAME)?.value, process.env.ADMIN_COOKIE_SECRET)
 }
 
 // Comparaison constante du mot de passe (évite la fuite par timing/longueur).
