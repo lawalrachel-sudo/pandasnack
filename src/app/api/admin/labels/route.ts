@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabase } from "@/lib/supabase/server"
-import { requireAdmin, SOURCE_LABELS } from "@/lib/auth/admin"
+import { requireAdmin } from "@/lib/auth/admin"
+import { metierOfOrder, metierEtiquette, orderMatchesMetier } from "@/lib/metiers"
 import { getSupabaseAdmin } from "@/lib/supabase/admin"
 import { notesHaveSauce } from "@/lib/menu-options"
 import { isProduction, composeItemLabel } from "@/lib/service-du-jour"
@@ -66,11 +67,11 @@ export async function GET(req: NextRequest) {
   // au lieu de dédoubler le filtre en chaîne PostgREST `.or(...)`. Les deux vues ne peuvent
   // plus diverger (bug Sofia du 26/09 : une étiquette manquante alors que la commande
   // figurait bien au Service du jour).
-  let query = admin
+  const query = admin
     .from("orders")
     .select(`
       id, order_number, status, payment_method,
-      service_slots!inner(service_date, target_source_group),
+      service_slots!inner(service_date, target_source_group, day_type),
       accounts!inner(source_group, nom_compte, is_test),
       order_items(
         id, profil_id, prenom_libre, formula_choices, topping_ids, takeaway, notes,
@@ -81,7 +82,6 @@ export async function GET(req: NextRequest) {
     `)
     .eq("service_slots.service_date", serviceDate)
 
-  if (sourceGroup) query = query.eq("accounts.source_group", sourceGroup)
 
   const { data: dataAll, error } = await query
   // Filtre production identique à classifySections(...).aPreparer : paid OU on_site pending,
@@ -89,7 +89,8 @@ export async function GET(req: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data = (dataAll || []).filter((o: any) =>
     !o.accounts?.is_test &&
-    isProduction({ status: o.status, payment_method: o.payment_method } as Parameters<typeof isProduction>[0])
+    isProduction({ status: o.status, payment_method: o.payment_method } as Parameters<typeof isProduction>[0]) &&
+    orderMatchesMetier({ day_type: o.service_slots?.day_type, source_group: o.accounts?.source_group }, sourceGroup)
   )
   if (error) {
     console.error("[admin/labels]", error)
@@ -158,8 +159,8 @@ export async function GET(req: NextRequest) {
     }
     const dlcAt = new Date(new Date(preparedAt).getTime() + dlcMin * 3600 * 1000).toISOString()
 
-    const sg = order.accounts?.source_group
-    const metier = (SOURCE_LABELS[sg] || sg || "").toUpperCase()
+    const metierValue = metierOfOrder({ day_type: order.service_slots?.day_type, source_group: order.accounts?.source_group })
+    const metier = metierEtiquette(metierValue).toUpperCase() // « DEVOIRS · <date> » pour les commandes devoirs
 
     labels.push({
       order_number: order.order_number,
