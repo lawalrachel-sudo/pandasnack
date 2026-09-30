@@ -8,6 +8,9 @@ export function GET() {
   const manifest = {
     name: "Admin Panda Snack",
     short_name: "Admin PS",
+    // PS-11 — id distinct du manifest client ("/") : Chrome/Android traite l'admin comme une
+    // application séparée qui possède /admin/ (scope), et ne le confond pas avec l'app client.
+    id: "/admin/",
     description: "Cuisine & comptoir Panda Snack — service du jour, encaissement, étiquettes.",
     start_url: "/admin/home",
     scope: "/admin/",
