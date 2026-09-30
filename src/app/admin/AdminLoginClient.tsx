@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Logo } from "@/components/Logo"
 import { InstallAdminButton } from "./InstallAdminButton"
 
-export function AdminLoginClient() {
+export function AdminLoginClient({ next = "/admin/home" }: { next?: string }) {
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -24,7 +24,7 @@ export function AdminLoginClient() {
 
       if (res.ok) {
         // Redirection dure pour que le cookie soit pris en compte côté serveur
-        window.location.href = "/admin/home"
+        window.location.href = next
         return
       }
 
@@ -54,6 +54,9 @@ export function AdminLoginClient() {
         {error && <div style={styles.errorBox}>{error}</div>}
 
         <form onSubmit={handleSubmit} style={styles.form}>
+          {/* PS-11 — identifiant caché pour que les gestionnaires de mots de passe mémorisent. */}
+          <input type="text" name="username" value="admin" readOnly autoComplete="username"
+            aria-hidden="true" tabIndex={-1} style={{ display: "none" }} />
           <label style={styles.label}>
             Mot de passe
             <div style={styles.passwordWrap}>
@@ -61,6 +64,8 @@ export function AdminLoginClient() {
                 type={showPassword ? "text" : "password"}
                 required
                 autoFocus
+                name="password"
+                id="admin-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 style={{ ...styles.input, paddingRight: 44 }}

@@ -31,6 +31,6 @@ export async function POST(req: NextRequest) {
   }
 
   const res = NextResponse.json({ ok: true })
-  res.cookies.set(ADMIN_COOKIE_NAME, createAdminSessionValue(), adminCookieOptions())
+  res.cookies.set(ADMIN_COOKIE_NAME, await createAdminSessionValue(), adminCookieOptions())
   return res
 }

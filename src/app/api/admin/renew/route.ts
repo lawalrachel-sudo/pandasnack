@@ -16,10 +16,10 @@ export const dynamic = "force-dynamic"
 export async function POST() {
   const store = await cookies()
   const current = store.get(ADMIN_COOKIE_NAME)?.value
-  if (!verifyAdminSessionValue(current)) {
+  if (!(await verifyAdminSessionValue(current))) {
     return NextResponse.json({ renewed: false })
   }
   const res = NextResponse.json({ renewed: true })
-  res.cookies.set(ADMIN_COOKIE_NAME, createAdminSessionValue(), adminCookieOptions())
+  res.cookies.set(ADMIN_COOKIE_NAME, await createAdminSessionValue(), adminCookieOptions())
   return res
 }

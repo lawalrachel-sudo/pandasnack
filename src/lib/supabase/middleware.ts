@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { withLongSession } from './cookie-options'
+import { ADMIN_COOKIE_NAME, adminCookieOptions, signAdminSession, verifyAdminSession } from '@/lib/auth/admin-session'
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -35,6 +36,31 @@ export async function updateSession(request: NextRequest) {
   // /admin + /api/admin : accès admin par mot de passe (cookie signé, sans session Supabase).
   // On ne redirige donc PAS vers /auth ici — la garde réelle se fait dans requireAdminPage()
   // (server components) et requireAdmin() (API routes), qui acceptent le cookie OU le compte admin.
+  // PS-11 — Garde des pages /admin/* (cookie mot de passe signé, validation PARTAGÉE avec la
+  // page /admin via admin-session.ts). Deux effets :
+  //   1. anonyme sur une page admin protégée → /admin?next=… (JAMAIS "/") ;
+  //   2. cookie valide → on le RENOUVELLE sur cette navigation (top-level), ce qui contourne le
+  //      plafond ITP de 7 jours appliqué aux cookies posés hors navigation (login/renew XHR).
+  const path = request.nextUrl.pathname
+  if (path.startsWith('/admin')) {
+    const secret = process.env.ADMIN_COOKIE_SECRET || ''
+    const cookieVal = request.cookies.get(ADMIN_COOKIE_NAME)?.value
+    if (await verifyAdminSession(cookieVal, secret)) {
+      supabaseResponse.cookies.set(ADMIN_COOKIE_NAME, await signAdminSession(secret), adminCookieOptions())
+      return supabaseResponse
+    }
+    // Pas de cookie valide : la page /admin (connexion) et un compte Supabase is_admin restent
+    // autorisés ; sinon on renvoie vers la connexion admin avec le chemin demandé.
+    if (path !== '/admin' && !user) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/admin'
+      url.search = ''
+      url.searchParams.set('next', path)
+      return NextResponse.redirect(url)
+    }
+    return supabaseResponse
+  }
+
   const publicPaths = ['/auth', '/allergenes', '/nos-prix-shop', '/cgv', '/cgu', '/api/stripe/webhook', '/admin', '/api/admin', '/boutique']
   const isPublic = publicPaths.some(p => request.nextUrl.pathname.startsWith(p))
 
