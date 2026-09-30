@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next"
 import { Fredoka, Nunito } from "next/font/google"
 import "./globals.css"
 import { LayoutClient } from "@/components/LayoutClient"
+import { ImpersonationBanner } from "@/components/ImpersonationBanner"
 
 // PS-01 Opération Beauty — polices chargées UNE fois ici (next/font/google, self-hosted au build).
 // Fredoka = titres / noms d'items / prix / boutons (token --font-display, classe `font-display`).
@@ -47,6 +48,7 @@ export default function RootLayout({
     <html lang="fr" data-layout="mobile" suppressHydrationWarning className={`h-full antialiased overflow-x-hidden ${fredoka.variable} ${nunito.variable}`}>
       <body className="min-h-full flex flex-col overflow-x-hidden">
         <script dangerouslySetInnerHTML={{ __html: LAYOUT_BOOT }} />
+        <ImpersonationBanner />
         <LayoutClient>{children}</LayoutClient>
       </body>
     </html>
