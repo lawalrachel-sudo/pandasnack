@@ -26,7 +26,12 @@ export async function requireAdmin(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any, "public", any>
 ): Promise<{ user: User | null } | { error: NextResponse }> {
-  if (await hasValidAdminCookie()) return { user: null }
+  // PS-13c — le cookie admin signé est AUTORITAIRE : il suffit toujours, quelle que soit la
+  // session Supabase présente (ex. une session « vue client » / compte test non-admin). On ne
+  // laisse jamais une erreur de lecture du cookie rétrograder vers la voie Supabase.
+  try {
+    if (await hasValidAdminCookie()) return { user: null }
+  } catch { /* pas de cookie valide → on tente la voie compte Supabase ci-dessous */ }
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {

@@ -3,8 +3,14 @@
 import { useState } from "react"
 import { Logo } from "@/components/Logo"
 import { InstallAdminButton } from "./InstallAdminButton"
+import { PasskeyLoginButton } from "@/components/PasskeyLoginButton"
 
-export function AdminLoginClient({ next = "/admin/home" }: { next?: string }) {
+const MESSAGES: Record<string, string> = {
+  session_perdue: "Ta session admin a expiré sur cet appareil. Reconnecte-toi (mot de passe ou empreinte).",
+}
+
+export function AdminLoginClient({ next = "/admin/home", msg }: { next?: string; msg?: string }) {
+  const notice = msg ? MESSAGES[msg] : null
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -51,6 +57,8 @@ export function AdminLoginClient({ next = "/admin/home" }: { next?: string }) {
         <h2 style={styles.title}>Espace admin</h2>
         <p style={styles.subtitle}>Saisis le mot de passe pour accéder au dashboard.</p>
 
+        {notice && <div style={styles.notice}>{notice}</div>}
+
         {error && <div style={styles.errorBox}>{error}</div>}
 
         <form onSubmit={handleSubmit} style={styles.form}>
@@ -96,6 +104,7 @@ export function AdminLoginClient({ next = "/admin/home" }: { next?: string }) {
             {loading ? "Vérification…" : "Entrer"}
           </button>
         </form>
+        <PasskeyLoginButton next={next} />
         <InstallAdminButton />
       </div>
     </div>
@@ -185,6 +194,17 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontWeight: 700,
     cursor: "pointer",
     marginTop: 6,
+  },
+  notice: {
+    background: "#FFF8E6",
+    border: "1px solid #F0D98C",
+    color: "#8A6B1E",
+    padding: "10px 14px",
+    borderRadius: 10,
+    fontSize: 13,
+    marginBottom: 16,
+    textAlign: "center",
+    lineHeight: 1.45,
   },
   errorBox: {
     background: "#FEF2F0",
