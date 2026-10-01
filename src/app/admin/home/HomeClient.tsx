@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { ADMIN_TILES, tileHref } from "@/lib/admin-nav"
-import { PasskeyEnroll } from "@/components/PasskeyEnroll"
+import { TrustedDevices } from "@/components/TrustedDevices"
 
 // PS-06e — accueil admin : tuiles 2 colonnes, mobile-first 430 px, Fredoka. Pas d'onglets.
 export function HomeClient() {
@@ -32,8 +32,6 @@ export function HomeClient() {
         >Déconnexion</button>
       </header>
 
-      <PasskeyEnroll />
-
       <div style={S.grid}>
         {ADMIN_TILES.map((t) => {
           if (t.disabled) {
@@ -53,6 +51,8 @@ export function HomeClient() {
           )
         })}
       </div>
+
+      <TrustedDevices />
     </div>
   )
 }

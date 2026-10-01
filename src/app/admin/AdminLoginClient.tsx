@@ -3,7 +3,6 @@
 import { useState } from "react"
 import { Logo } from "@/components/Logo"
 import { InstallAdminButton } from "./InstallAdminButton"
-import { PasskeyLoginButton } from "@/components/PasskeyLoginButton"
 
 const MESSAGES: Record<string, string> = {
   session_perdue: "Ta session admin a expiré sur cet appareil. Reconnecte-toi (mot de passe ou empreinte).",
@@ -104,7 +103,6 @@ export function AdminLoginClient({ next = "/admin/home", msg }: { next?: string;
             {loading ? "Vérification…" : "Entrer"}
           </button>
         </form>
-        <PasskeyLoginButton next={next} />
         <InstallAdminButton />
       </div>
     </div>

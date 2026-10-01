@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { withLongSession } from './cookie-options'
 import { ADMIN_COOKIE_NAME, adminCookieOptions, signAdminSession, verifyAdminSession } from '@/lib/auth/admin-session'
+import { TRUSTED_COOKIE_NAME, trustedCookieOptions, lookupTrustedDevice, touchTrustedDevice } from '@/lib/auth/trusted-device'
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -48,6 +49,27 @@ export async function updateSession(request: NextRequest) {
     if (await verifyAdminSession(cookieVal, secret)) {
       supabaseResponse.cookies.set(ADMIN_COOKIE_NAME, await signAdminSession(secret), adminCookieOptions())
       return supabaseResponse
+    }
+    // PS-13c — APPAREIL DE CONFIANCE : admin_session absent/expiré mais cookie ps_trusted valide
+    // (jeton reconnu en base) → on ré-émet admin_session (entrée directe, sans mot de passe) et on
+    // renouvelle le cookie de confiance (1 an). Redirection pour que le Set-Cookie s'applique avant
+    // le rendu : vers ?next (ou /admin/home) depuis la page de connexion, sinon vers le chemin demandé.
+    const trustedTok = request.cookies.get(TRUSTED_COOKIE_NAME)?.value
+    if (trustedTok) {
+      const device = await lookupTrustedDevice(trustedTok)
+      if (device) {
+        const url = request.nextUrl.clone()
+        if (path === '/admin') {
+          const nx = request.nextUrl.searchParams.get('next')
+          url.pathname = nx && nx.startsWith('/admin') && !nx.startsWith('//') ? nx : '/admin/home'
+          url.search = ''
+        }
+        const redir = NextResponse.redirect(url)
+        redir.cookies.set(ADMIN_COOKIE_NAME, await signAdminSession(secret), adminCookieOptions())
+        redir.cookies.set(TRUSTED_COOKIE_NAME, trustedTok, trustedCookieOptions())
+        await touchTrustedDevice(device.id)
+        return redir
+      }
     }
     // Pas de cookie valide : la page /admin (connexion) et un compte Supabase is_admin restent
     // autorisés ; sinon on renvoie vers la connexion admin avec le chemin demandé.
