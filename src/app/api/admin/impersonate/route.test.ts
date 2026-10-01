@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
   isAdmin: true,
+  adminCookieValid: true,
   targets: [] as Array<{ id: string; email: string | null; nom_compte: string | null; is_test: boolean }>,
   verifyErr: null as unknown,
   signOutCalled: false,
@@ -9,6 +10,9 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/auth/admin", () => ({
   requireAdmin: async () => (mocks.isAdmin ? { user: null } : { error: new Response("unauth", { status: 401 }) }),
+}))
+vi.mock("@/lib/auth/admin-cookie", () => ({
+  hasValidAdminCookie: async () => mocks.adminCookieValid,
 }))
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabase: async () => ({
@@ -46,7 +50,7 @@ import { POST as exit } from "./exit/route"
 const call = async (fn: () => Promise<Response>) => { const r = await fn(); return { status: r.status, body: await r.json().catch(() => ({})) } }
 const enterWith = (accountId?: string) => enter(new Request("http://x", { method: "POST", body: JSON.stringify({ accountId }), headers: { "Content-Type": "application/json" } }) as never)
 
-beforeEach(() => { mocks.isAdmin = true; mocks.targets = []; mocks.verifyErr = null; mocks.signOutCalled = false })
+beforeEach(() => { mocks.isAdmin = true; mocks.adminCookieValid = true; mocks.targets = []; mocks.verifyErr = null; mocks.signOutCalled = false })
 
 describe("POST /api/admin/impersonate (PS-13)", () => {
   it("non-admin → 401", async () => {
@@ -74,15 +78,24 @@ describe("POST /api/admin/impersonate (PS-13)", () => {
   })
 })
 
-describe("POST /api/admin/impersonate/exit (PS-13)", () => {
-  it("ferme la session client (signOut) et renvoie /admin/home", async () => {
+describe("POST /api/admin/impersonate/exit (PS-13c)", () => {
+  it("cookie admin intact → ferme la session client (signOut) et renvoie /admin/home", async () => {
     const r = await call(() => exit())
     expect(r.status).toBe(200)
     expect(r.body.redirect).toBe("/admin/home")
+    expect(r.body.adminStillValid).toBe(true)
     expect(mocks.signOutCalled).toBe(true)
   })
-  it("non-admin → 401 (le cookie admin doit être intact)", async () => {
-    mocks.isAdmin = false
-    expect((await call(() => exit())).status).toBe(401)
+
+  // PS-13c — régression de l'incident 01/10 : sur Android, le cookie admin est absent du contexte
+  // où tourne /commander. L'exit NE DOIT PLUS échouer en silence : on ferme quand même la session
+  // test et on renvoie vers la page de connexion avec un message clair (jamais de boucle muette).
+  it("cookie admin perdu → NE boucle PAS : ferme la session test + /admin?msg=session_perdue", async () => {
+    mocks.adminCookieValid = false
+    const r = await call(() => exit())
+    expect(r.status).toBe(200)
+    expect(mocks.signOutCalled).toBe(true)              // session test fermée malgré tout
+    expect(r.body.adminStillValid).toBe(false)
+    expect(r.body.redirect).toBe("/admin?msg=session_perdue")
   })
 })

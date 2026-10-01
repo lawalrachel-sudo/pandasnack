@@ -15,8 +15,9 @@ function safeNext(next: string | undefined): string {
 
 // Page d'accès admin : 1 champ mot de passe → dashboard.
 // Si déjà admin (cookie mot de passe OU compte avec accounts.is_admin) → destination.
-export default async function AdminLoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
-  const dest = safeNext((await searchParams).next)
+export default async function AdminLoginPage({ searchParams }: { searchParams: Promise<{ next?: string; msg?: string }> }) {
+  const sp = await searchParams
+  const dest = safeNext(sp.next)
 
   if (await hasValidAdminCookie()) redirect(dest)
 
@@ -25,5 +26,5 @@ export default async function AdminLoginPage({ searchParams }: { searchParams: P
   const { data: { user } } = await supabase.auth.getUser()
   if (await isAdminUser(supabase, user)) redirect(dest)
 
-  return <AdminLoginClient next={dest} />
+  return <AdminLoginClient next={dest} msg={sp.msg} />
 }
