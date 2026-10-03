@@ -3,6 +3,8 @@ import { redirect } from "next/navigation"
 import { CommanderClient } from "./CommanderClient"
 import { destinationApresAuth } from "@/lib/profil-gate"
 import { filterSlotsForAccount } from "@/lib/devoirs"
+import { getSupabaseAdmin } from "@/lib/supabase/admin"
+import { getSaKiNiHero } from "@/lib/sa-ki-ni-server"
 
 export const dynamic = "force-dynamic"
 
@@ -120,6 +122,11 @@ export default async function CommanderPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const slots = filterSlotsForAccount<any>(slotsAll || [], account, activeProfils)
 
+  // PS-14 — hero temporel Sa ki ni (jour J, après clôture, jusqu'à 10h30, si portions restantes)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const admin: any = getSupabaseAdmin()
+  const saKiNiHero = admin ? await getSaKiNiHero(supabase, admin) : null
+
   return (
     <CommanderClient
       account={account}
@@ -133,6 +140,7 @@ export default async function CommanderPage() {
       pendingTotalCents={pendingTotalCents}
       weekItemCount={weekItemCount}
       weekTotalCents={weekTotalCents}
+      saKiNiHero={saKiNiHero}
     />
   )
 }
