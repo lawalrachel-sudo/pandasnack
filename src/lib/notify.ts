@@ -116,7 +116,7 @@ export async function notifyNewOrder(
     const { data: order } = await db
       .from("orders")
       .select(`
-        id, order_number, total_cents, payment_method, paid_at, created_at,
+        id, order_number, total_cents, payment_method, paid_at, created_at, sa_ki_ni,
         service_slots(service_date),
         accounts(nom_compte),
         order_items(quantity, notes, menu_formulas(name), catalog_items(name, sku, category_id), profils(prenom))
@@ -155,7 +155,8 @@ export async function notifyNewOrder(
 
     // PS-06d §3 — objet : prénom de l'enfant + jour de service.
     const serviceDay = formatServiceDay(serviceDate)
-    const subject = `🥘 ${child} · ${serviceDay}`
+    // PS-14 — préfixe Sa ki ni dans l'objet du mail
+    const subject = `${o.sa_ki_ni ? "🍽️ Sa ki ni · " : ""}🥘 ${child} · ${serviceDay}`
     // Heure de PASSAGE de la commande (created_at) en clair, heure Martinique — jamais l'heure d'envoi.
     const passeeLe = `Commande passée le ${formatCreatedAtMartinique(o.created_at)} (heure Martinique)`
     // PS-06d-b §2 — quand le paiement/la confirmation a lieu à un moment DIFFÉRENT de la

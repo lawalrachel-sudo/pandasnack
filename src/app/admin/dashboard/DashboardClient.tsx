@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { SaKiNiAdminPanel } from "@/components/SaKiNiAdminPanel"
 import Link from "next/link"
 import { AdminBackButton } from "../AdminBackButton"
 import {
@@ -159,6 +160,9 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
             <Link href={`/admin/etiquettes/${slot.service_date}`} style={S.ctaSecondary}>🏷️ Étiquettes</Link>
           </div>
 
+          {/* PS-14 — ouvrir des portions Sa ki ni pour ce jour */}
+          <SaKiNiAdminPanel date={slot.service_date} />
+
           {/* ── À PRÉPARER ── */}
           <h2 style={S.h2}>À préparer ({sections.aPreparer.length})</h2>
           {sections.aPreparer.length === 0 && <p style={S.muted}>Aucune commande à préparer.</p>}
@@ -242,7 +246,7 @@ function OrderCard({
     <div style={{ ...S.card, opacity: prepared ? 0.55 : 1 }}>
       <div style={S.cardHead}>
         <div>
-          <div style={S.childName}>{o.child_prenom}{o.child_classe ? <span style={S.childClasse}> · {o.child_classe}</span> : null}</div>
+          <div style={S.childName}>{o.child_prenom}{o.child_classe ? <span style={S.childClasse}> · {o.child_classe}</span> : null}{o.sa_ki_ni && <span style={S.badgeSkn}>🍽️ Sa ki ni</span>}</div>
           <div style={S.parentLine}>
             <Link href={`/admin/clients/${o.account_id}`} style={S.parentLink}>{o.parent_nom}</Link>
             {o.parent_telephone && <> · <a href={`tel:${o.parent_telephone}`} style={S.tel}>📞 {o.parent_telephone}</a></>}
@@ -342,6 +346,7 @@ const S: Record<string, React.CSSProperties> = {
   parentLink: { color: "var(--accent)", textDecoration: "none" },
   tel: { color: "var(--accent)", textDecoration: "none", whiteSpace: "nowrap" },
   badgePaid: { fontSize: 12, fontWeight: 700, color: "#166534", background: "#DCFCE7", borderRadius: 999, padding: "4px 10px", whiteSpace: "nowrap" },
+  badgeSkn: { fontSize: 11, fontWeight: 800, color: "#fff", background: "#DC2626", borderRadius: 999, padding: "2px 8px", marginLeft: 8, whiteSpace: "nowrap" },
   badgeCollect: { fontSize: 12, fontWeight: 700, color: "#92400E", background: "#FEF3E2", borderRadius: 999, padding: "4px 10px", whiteSpace: "nowrap" },
   badgeMuted: { fontSize: 12, color: "var(--ink-soft)" },
   items: { listStyle: "none", padding: 0, margin: "10px 0 0", fontSize: 15, lineHeight: 1.5 },

@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
     .from("orders")
     .select(`
       id, order_number, status, total_cents, paid_at, payment_method, payment_mode, prepared_at,
-      created_at, special_request,
+      created_at, special_request, sa_ki_ni,
       accounts!inner(id, nom_compte, telephone, is_test),
       order_items(
         id, prenom_libre, quantity, notes, formula_choices, topping_ids,
@@ -98,6 +98,7 @@ export async function GET(req: NextRequest) {
       order_number: o.order_number,
       status: o.status,
       payment_method: o.payment_method,
+      sa_ki_ni: !!o.sa_ki_ni,
       paid_at: o.paid_at,
       payment_mode: o.payment_mode,
       prepared_at: o.prepared_at,

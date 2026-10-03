@@ -28,6 +28,7 @@ export interface SvcOrder {
   order_number: string
   status: OrderStatus
   payment_method: string | null
+  sa_ki_ni?: boolean
   paid_at: string | null
   payment_mode: string | null
   prepared_at: string | null

@@ -12,6 +12,7 @@ import { visForSource as visForSourceShared, isMenuPlatSku, visForDevoirs } from
 import { RENTREE_BANNER, SECTION_LABELS, SNACK_SECTION, HOWTO_STEPS, HOWTO_TITLE, HOWTO_PILL } from "@/lib/banner"
 import { InfoParentsBanner } from "@/components/InfoParentsBanner"
 import { profilCommandable } from "@/lib/profil-gate"
+import { SaKiNiHero, type SaKiNiHeroData } from "@/components/SaKiNiHero"
 
 // ============================================================================
 // TYPES
@@ -49,6 +50,7 @@ interface Props {
   pendingTotalCents: number
   weekItemCount: number
   weekTotalCents: number
+  saKiNiHero: SaKiNiHeroData | null
 }
 
 // ============================================================================
@@ -100,7 +102,7 @@ function buildImgUrl(url: string): string {
 // COMPONENT
 // ============================================================================
 
-export function CommanderClient({ account, profils, wallet, categories, menuFormulas, toppings, slots, pendingCount, pendingTotalCents, weekItemCount, weekTotalCents }: Props) {
+export function CommanderClient({ account, profils, wallet, categories, menuFormulas, toppings, slots, pendingCount, pendingTotalCents, weekItemCount, weekTotalCents, saKiNiHero }: Props) {
   const router = useRouter()
   const { refreshPendingCount } = useCart()
   const [selectedSlotId, setSelectedSlotId] = useState<string>(slots[0]?.id || "")
@@ -505,6 +507,9 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       {/* T3 (3-E) — HeaderMetier composant réutilisable */}
       <HeaderMetier sg={sg} />
 
+      {/* PS-14 — hero temporel Sa ki ni (jour J, après clôture, jusqu'à 10h30) */}
+      {saKiNiHero && <SaKiNiHero hero={saKiNiHero} profils={activeProfils.map((p) => ({ id: p.id, prenom: p.prenom }))} />}
+
       {/* PS-01 — Bandeau rentrée permanent (texte dans src/lib/banner.ts). Remplace le HERO Portes Ouvertes. */}
       <section aria-label="Rentrée" className="px-4 pt-2 pb-4">
         <div className="rounded-2xl px-4 py-4 text-center" style={{ background: "var(--accent)", color: "var(--ink-on-accent)", boxShadow: "0 2px 16px var(--shadow)" }}>
@@ -675,7 +680,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
 
       {/* PANDATTITUDE — BRIEF Menu Panda (17/06) : hero "Menu Panda" + swipe plats inline.
           Le bento n'est plus le hero ; il vit dans le swipe au même niveau que les autres plats. */}
-      {visFormulas.length > 0 && sg === "pandattitude" && (() => {
+      {!saKiNiHero && visFormulas.length > 0 && sg === "pandattitude" && (() => {
         const mp = visFormulas.find((f) => f.code === "MENU_PANDA")
         if (!mp) return null
         return (

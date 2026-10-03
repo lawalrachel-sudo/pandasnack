@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
   const query = admin
     .from("orders")
     .select(`
-      id, order_number, status, payment_method,
+      id, order_number, status, payment_method, sa_ki_ni,
       service_slots!inner(service_date, target_source_group, day_type),
       accounts!inner(source_group, nom_compte, is_test),
       order_items(
@@ -160,7 +160,8 @@ export async function GET(req: NextRequest) {
     const dlcAt = new Date(new Date(preparedAt).getTime() + dlcMin * 3600 * 1000).toISOString()
 
     const metierValue = metierOfOrder({ day_type: order.service_slots?.day_type, source_group: order.accounts?.source_group })
-    const metier = metierEtiquette(metierValue).toUpperCase() // « DEVOIRS · <date> » pour les commandes devoirs
+    // PS-14 — en-tête « SA KI NI · <date> » pour ces commandes, sinon métier (« DEVOIRS · <date> »…)
+    const metier = order.sa_ki_ni ? "SA KI NI" : metierEtiquette(metierValue).toUpperCase()
 
     labels.push({
       order_number: order.order_number,
