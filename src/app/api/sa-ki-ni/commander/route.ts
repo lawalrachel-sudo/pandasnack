@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabase } from "@/lib/supabase/server"
-import { SA_KI_NI_SUPPLEMENT_CENTS } from "@/lib/sa-ki-ni"
 import { notifyNewOrder } from "@/lib/notify"
 
 export const dynamic = "force-dynamic"
@@ -41,7 +40,6 @@ export async function POST(req: NextRequest) {
   const payload = {
     slot_id: slotId,
     idempotency_key: idempotencyKey || null,
-    supplement_cents: SA_KI_NI_SUPPLEMENT_CENTS,
     items: items.map((i) => ({
       catalog_item_id: i.catalog_item_id,
       is_formula: !!i.is_formula,

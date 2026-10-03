@@ -50,6 +50,7 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
   const [showAnnulees, setShowAnnulees] = useState(false)
   const [showTest, setShowTest] = useState(false)
   const [encaisserFor, setEncaisserFor] = useState<string | null>(null)
+  const [confirmCancel, setConfirmCancel] = useState<string | null>(null)
 
   const load = useCallback(async (d: string | null) => {
     setLoading(true); setError(null)
@@ -95,6 +96,19 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
       })
       if (!res.ok) { const j = await res.json().catch(() => ({})); alert(j.error || "Erreur"); return }
       setEncaisserFor(null)
+      await load(date)
+    } finally { setBusyId(null) }
+  }
+
+  async function markCancel(id: string) {
+    setBusyId(id)
+    try {
+      const res = await fetch("/api/admin/orders/cancel", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: id }),
+      })
+      if (!res.ok) { const j = await res.json().catch(() => ({})); alert(j.error || "Erreur"); return }
+      setConfirmCancel(null)
       await load(date)
     } finally { setBusyId(null) }
   }
@@ -172,6 +186,9 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
               encaisserOpen={encaisserFor === o.id}
               onEncaisserToggle={() => setEncaisserFor(encaisserFor === o.id ? null : o.id)}
               onMarkPaid={markPaid} onMarkPrepared={markPrepared}
+              confirmCancel={confirmCancel === o.id}
+              onCancelToggle={() => setConfirmCancel(confirmCancel === o.id ? null : o.id)}
+              onCancel={markCancel}
             />
           ))}
 
@@ -227,6 +244,7 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
 
 function OrderCard({
   o, busy, encaisserOpen, onEncaisserToggle, onMarkPaid, onMarkPrepared,
+  confirmCancel, onCancelToggle, onCancel,
 }: {
   o: SvcOrder
   busy: boolean
@@ -234,6 +252,9 @@ function OrderCard({
   onEncaisserToggle: () => void
   onMarkPaid: (id: string, mode: "especes" | "cb_sumup") => void
   onMarkPrepared: (id: string, prepared: boolean) => void
+  confirmCancel: boolean
+  onCancelToggle: () => void
+  onCancel: (id: string) => void
 }) {
   const prepared = !!o.prepared_at
   const toCollect = isToCollect(o)
@@ -298,6 +319,17 @@ function OrderCard({
         {paid && o.payment_mode && (
           <span style={S.paidMode}>{o.payment_mode === "especes" ? "💵 espèces" : "💳 CB"}</span>
         )}
+
+        {/* PS-14b — annulation unifiée (Sa ki ni → reverse : recrédit + portion rendue) */}
+        {!confirmCancel
+          ? <button onClick={onCancelToggle} disabled={busy} style={S.cancelBtn}>Annuler</button>
+          : (
+            <span style={S.cancelConfirm}>
+              Annuler{o.sa_ki_ni ? " (recrédit + portion rendue)" : paid ? " (recrédit wallet)" : ""} ?
+              <button onClick={() => onCancel(o.id)} disabled={busy} style={S.cancelYes}>Oui</button>
+              <button onClick={onCancelToggle} disabled={busy} style={S.cancelNo}>Non</button>
+            </span>
+          )}
       </div>
       <div style={S.orderNum}>{o.order_number}</div>
     </div>
@@ -347,6 +379,10 @@ const S: Record<string, React.CSSProperties> = {
   tel: { color: "var(--accent)", textDecoration: "none", whiteSpace: "nowrap" },
   badgePaid: { fontSize: 12, fontWeight: 700, color: "#166534", background: "#DCFCE7", borderRadius: 999, padding: "4px 10px", whiteSpace: "nowrap" },
   badgeSkn: { fontSize: 11, fontWeight: 800, color: "#fff", background: "#DC2626", borderRadius: 999, padding: "2px 8px", marginLeft: 8, whiteSpace: "nowrap" },
+  cancelBtn: { fontSize: 12, fontWeight: 700, color: "#B84A2E", background: "transparent", border: "1px solid #F5B5A8", borderRadius: 999, padding: "6px 12px", cursor: "pointer", minHeight: 36 },
+  cancelConfirm: { fontSize: 12, color: "#B84A2E", display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" },
+  cancelYes: { fontSize: 12, fontWeight: 800, color: "#fff", background: "#DC2626", border: "none", borderRadius: 999, padding: "6px 12px", cursor: "pointer", minHeight: 36 },
+  cancelNo: { fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", background: "transparent", border: "1px solid var(--border)", borderRadius: 999, padding: "6px 12px", cursor: "pointer", minHeight: 36 },
   badgeCollect: { fontSize: 12, fontWeight: 700, color: "#92400E", background: "#FEF3E2", borderRadius: 999, padding: "4px 10px", whiteSpace: "nowrap" },
   badgeMuted: { fontSize: 12, color: "var(--ink-soft)" },
   items: { listStyle: "none", padding: 0, margin: "10px 0 0", fontSize: 15, lineHeight: 1.5 },
