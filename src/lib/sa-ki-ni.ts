@@ -6,7 +6,11 @@
 //
 // Martinique = UTC-4 sans heure d'été (cohérent avec src/lib/caisse-date.ts).
 
-/** Supplément éventuel ajouté au prix carte (0 par défaut ; ajouté au total seulement si > 0). */
+/**
+ * Supplément éventuel ajouté au prix carte (0 par défaut ; ajouté au total seulement si > 0).
+ * MIROIR de v_supp dans la fonction SQL sa_ki_ni_commander (migration 20261009_ps14b_sa_ki_ni.sql) :
+ * la valeur fait foi côté serveur SQL ; garder les deux synchronisées.
+ */
 export const SA_KI_NI_SUPPLEMENT_CENTS = 0
 
 /** Borne haute de la fenêtre : 10h30 Martinique le jour de service (Date absolue). */

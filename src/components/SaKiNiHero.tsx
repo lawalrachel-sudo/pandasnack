@@ -58,6 +58,9 @@ export function SaKiNiHero({ hero, profils }: { hero: SaKiNiHeroData; profils: P
         <div className="flex items-center gap-2">
           <span style={{ width: 12, height: 12, borderRadius: 999, background: "#DC2626", boxShadow: "0 0 0 4px rgba(220,38,38,0.2)", display: "inline-block" }} aria-hidden="true" />
           <h2 className="font-display font-semibold text-2xl" style={{ color: "#DC2626" }}>SA KI NI</h2>
+          {/* PS-14b — réafficher l'explication à la demande (pas seulement une fois par appareil) */}
+          <button onClick={() => setShowToast(true)} aria-label="C'est quoi Sa ki ni ?"
+            style={{ marginLeft: "auto", background: "transparent", border: "none", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>ℹ️</button>
         </div>
         <p className="text-sm mt-0.5" style={{ color: "var(--ink-soft)" }}>ce qu&apos;il y a aujourd&apos;hui · jusqu&apos;à 10h30, payé au Panda Wallet</p>
 

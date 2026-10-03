@@ -104,6 +104,9 @@ export function CaisseClient() {
         <Row label="CB SumUp" value={euro(tm.cb_sumup)} />
         {tm.non_encaisse > 0 && <Row label="Non encaissé" value={euro(tm.non_encaisse)} />}
         <Row label="Espèces attendues" value={euro(z.totaux.especes_attendues)} strong />
+        {z.precommandes.dont_sa_ki_ni && z.precommandes.dont_sa_ki_ni.nb > 0 && (
+          <Row label={`dont Sa ki ni (${z.precommandes.dont_sa_ki_ni.nb})`} value={euro(z.precommandes.dont_sa_ki_ni.total)} />
+        )}
         <div style={S.subMeta}>
           {z.precommandes.nb} précommande(s) · {z.comptoir.nb} vente(s) comptoir
           {z.comptoir.nb_annulations > 0 ? ` · ${z.comptoir.nb_annulations} annulation(s)` : ""}
