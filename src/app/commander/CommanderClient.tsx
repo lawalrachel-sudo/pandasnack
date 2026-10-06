@@ -106,6 +106,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   const router = useRouter()
   const { refreshPendingCount } = useCart()
   const [selectedSlotId, setSelectedSlotId] = useState<string>(slots[0]?.id || "")
+  const [sknToast, setSknToast] = useState(false)  // PS-14b — toast Sa ki ni (hero + pilule jour fermé)
   const [selectedProfilId, setSelectedProfilId] = useState<string>("")
   const [addedToast, setAddedToast] = useState<string | null>(null)
   const [addInFlight, setAddInFlight] = useState(false)
@@ -508,7 +509,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       <HeaderMetier sg={sg} />
 
       {/* PS-14 — hero temporel Sa ki ni (jour J, après clôture, jusqu'à 10h30) */}
-      {saKiNiHero && <SaKiNiHero hero={saKiNiHero} profils={activeProfils.map((p) => ({ id: p.id, prenom: p.prenom }))} />}
+      {saKiNiHero && <SaKiNiHero hero={saKiNiHero} profils={activeProfils.map((p) => ({ id: p.id, prenom: p.prenom }))} toastOpen={sknToast} onToastOpenChange={setSknToast} />}
 
       {/* PS-01 — Bandeau rentrée permanent (texte dans src/lib/banner.ts). Remplace le HERO Portes Ouvertes. */}
       <section aria-label="Rentrée" className="px-4 pt-2 pb-4">
@@ -590,10 +591,18 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       {/* Slot — PS-01b : une décision par bloc, 16 px entre blocs */}
       <div className="px-4 pb-4">
         <h2 className="font-bold text-sm mb-2" style={{ color: "var(--ink-soft)" }}>Jour de livraison</h2>
-        {slots.length === 0 ? (
+        {slots.length === 0 && !saKiNiHero ? (
           <div className="rounded-xl p-4 text-sm" style={{ background: "var(--bg-alt)", color: "var(--ink-soft)" }}>Aucun créneau ouvert pour le moment.</div>
         ) : (
           <div className="flex gap-2 overflow-x-auto pb-2">
+            {/* PS-14b — pilule du jour fermé : tap → réaffiche le toast Sa ki ni */}
+            {saKiNiHero && (
+              <button onClick={() => setSknToast(true)}
+                className="px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap border"
+                style={{ color: "#DC2626", borderColor: "#DC2626", background: "#FEF2F2" }}>
+                Aujourd&apos;hui · fermé 🍽️
+              </button>
+            )}
             {slots.map((sl) => {
               const sel = selectedSlotId === sl.id
               const dev = sl.day_type === "devoirs"   // PS-10b — pilule bleue Devoirs

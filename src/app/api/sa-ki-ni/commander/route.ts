@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabase } from "@/lib/supabase/server"
-import { SA_KI_NI_SUPPLEMENT_CENTS } from "@/lib/sa-ki-ni"
 import { notifyNewOrder } from "@/lib/notify"
 
 export const dynamic = "force-dynamic"
@@ -21,6 +20,7 @@ const MESSAGES: Record<string, string> = {
   SKN_EPUISE: "Cette portion vient d'être prise. Il n'en reste plus.",
   SKN_NON_OFFERT: "Ce plat n'est pas proposé aujourd'hui.",
   SKN_NON_OK: "Ce plat n'est pas disponible en Sa ki ni.",
+  SKN_FORMULE: "Ce plat n'est disponible qu'en Menu Panda.",
   SKN_PROFIL_REQUIS: "Choisis un enfant pour cette commande.",
   SOLDE_INSUFFISANT: "Solde Panda Wallet insuffisant.",
 }
@@ -41,7 +41,6 @@ export async function POST(req: NextRequest) {
   const payload = {
     slot_id: slotId,
     idempotency_key: idempotencyKey || null,
-    supplement_cents: SA_KI_NI_SUPPLEMENT_CENTS,
     items: items.map((i) => ({
       catalog_item_id: i.catalog_item_id,
       is_formula: !!i.is_formula,

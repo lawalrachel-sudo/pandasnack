@@ -18,6 +18,7 @@ export interface CaisseZ {
   precommandes: {
     par_mode: { stripe: number; wallet: number; especes: number; cb_sumup: number; non_encaisse: number }
     nb: number
+    dont_sa_ki_ni?: { total: number; nb: number }  // PS-14b
   }
   comptoir: {
     par_mode: { wallet: number; especes: number; cb_sumup: number; jeton: number }

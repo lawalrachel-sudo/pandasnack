@@ -127,7 +127,7 @@ export function VeilleClient({ serviceDate }: { serviceDate: string }) {
                   const cptLines = comptoirByChild.get(norm(o.child_prenom)) || []
                   return (
                     <tr key={o.id}>
-                      <td className="col-enfant"><strong>{o.child_prenom}</strong>{o.child_classe ? <div className="classe">{o.child_classe}</div> : null}</td>
+                      <td className="col-enfant"><strong>{o.child_prenom}</strong>{o.sa_ki_ni ? <span className="skn-tag">🍽️ Sa ki ni</span> : null}{o.child_classe ? <div className="classe">{o.child_classe}</div> : null}</td>
                       <td>{o.parent_nom}{o.parent_telephone ? <div className="classe">{o.parent_telephone}</div> : null}</td>
                       <td>
                         <ul>
@@ -223,6 +223,7 @@ const PRINT_CSS = `
 .veille-table .col-pay { white-space: nowrap; }
 .comptoir-lines { margin-top: 4px; font-size: 12px; color: #5A3C1E; }
 .comptoir-tag { display: inline-block; font-weight: 800; color: #C85A3C; margin-right: 6px; }
+.skn-tag { display: inline-block; font-size: 10px; font-weight: 800; color: #fff; background: #DC2626; border-radius: 999px; padding: 1px 6px; margin-left: 6px; }
 .badge-cpt { font-size: 10px; font-weight: 700; color: #92400E; background: #FEF3C7; border: 1px solid #FCD34D; border-radius: 999px; padding: 1px 6px; }
 .veille-totals { display: flex; gap: 40px; margin-top: 24px; }
 .veille-totals ul { list-style: none; padding: 0; margin: 0; font-size: 14px; line-height: 1.8; }
