@@ -4,7 +4,7 @@
 --     Règle générale : toute RPC réservée admin = execute révoqué dès sa création.
 --  2) sa_ki_ni_commander : le supplément n'est plus lu du payload (valeur fixe dans la fonction,
 --     miroir de SA_KI_NI_SUPPLEMENT_CENTS). En formule : uniquement Menu Panda (code MENU_PANDA)
---     ET un plat catalog_items.sellable_in_menu = true, sinon SKN_MENU.
+--     ET un plat catalog_items.sellable_in_menu = true, sinon SKN_FORMULE.
 
 create or replace function public.sa_ki_ni_commander(p_payload jsonb)
 returns table(order_id uuid, order_number text, total_cents int, wallet_balance_after int)
@@ -93,11 +93,11 @@ begin
     if v_offer.qty_vendue >= v_offer.qty_ouverte then raise exception 'SKN_EPUISE' using errcode = '22023'; end if;
 
     if v_is_formula then
-      -- PS-14b : en formule, uniquement le Menu Panda ET un plat autorisé en menu.
-      if not coalesce(v_citem.sellable_in_menu, false) then raise exception 'SKN_MENU' using errcode = '22023'; end if;
+      -- PS-14b : en formule, uniquement le Menu Panda (code MENU_PANDA) ET un plat sellable_in_menu=true, sinon SKN_FORMULE.
+      if not coalesce(v_citem.sellable_in_menu, false) then raise exception 'SKN_FORMULE' using errcode = '22023'; end if;
       select price_cents into v_price from public.menu_formulas
         where id = v_menu_formula_id and active and code = 'MENU_PANDA';
-      if v_price is null then raise exception 'SKN_MENU' using errcode = '22023'; end if;
+      if v_price is null then raise exception 'SKN_FORMULE' using errcode = '22023'; end if;
     else
       v_price := v_citem.price_alone_cents;
       if v_price is null then raise exception 'SKN_PRIX' using errcode = '22023'; end if;

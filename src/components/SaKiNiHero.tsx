@@ -33,14 +33,17 @@ function euro(c: number | null): string {
   return (c / 100).toFixed(2).replace(".", ",") + " €"
 }
 
-export function SaKiNiHero({ hero, profils }: { hero: SaKiNiHeroData; profils: Profil[] }) {
+export function SaKiNiHero({ hero, profils, toastOpen, onToastOpenChange }: {
+  hero: SaKiNiHeroData; profils: Profil[]
+  toastOpen: boolean; onToastOpenChange: (v: boolean) => void
+}) {
   const [items, setItems] = useState<SaKiNiHeroItem[]>(hero.items)
   const [openItem, setOpenItem] = useState<SaKiNiHeroItem | null>(null)
-  const [showToast, setShowToast] = useState(false)
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    try { if (localStorage.getItem(TOAST_KEY) !== "1") { setShowToast(true); localStorage.setItem(TOAST_KEY, "1") } } catch { /* no-op */ }
+    // 1re fois sur cet appareil → ouverture auto du toast (la réouverture passe par la pilule du jour fermé ou le ℹ️).
+    try { if (localStorage.getItem(TOAST_KEY) !== "1") { onToastOpenChange(true); localStorage.setItem(TOAST_KEY, "1") } } catch { /* no-op */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   if (items.length === 0) return null
@@ -59,16 +62,16 @@ export function SaKiNiHero({ hero, profils }: { hero: SaKiNiHeroData; profils: P
           <span style={{ width: 12, height: 12, borderRadius: 999, background: "#DC2626", boxShadow: "0 0 0 4px rgba(220,38,38,0.2)", display: "inline-block" }} aria-hidden="true" />
           <h2 className="font-display font-semibold text-2xl" style={{ color: "#DC2626" }}>SA KI NI</h2>
           {/* PS-14b — réafficher l'explication à la demande (pas seulement une fois par appareil) */}
-          <button onClick={() => setShowToast(true)} aria-label="C'est quoi Sa ki ni ?"
+          <button onClick={() => onToastOpenChange(true)} aria-label="C'est quoi Sa ki ni ?"
             style={{ marginLeft: "auto", background: "transparent", border: "none", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>ℹ️</button>
         </div>
         <p className="text-sm mt-0.5" style={{ color: "var(--ink-soft)" }}>ce qu&apos;il y a aujourd&apos;hui · jusqu&apos;à 10h30, payé au Panda Wallet</p>
 
-        {showToast && (
+        {toastOpen && (
           <div className="mt-3 rounded-xl p-3 text-sm" style={{ background: "#FEF2F2", border: "1px solid #FCA5A5", color: "#991B1B" }}>
             {TOAST}
             <div className="mt-2 text-right">
-              <button className="underline font-semibold" onClick={() => setShowToast(false)}>J&apos;ai compris</button>
+              <button className="underline font-semibold" onClick={() => onToastOpenChange(false)}>J&apos;ai compris</button>
             </div>
           </div>
         )}

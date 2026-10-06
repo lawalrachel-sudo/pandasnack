@@ -20,6 +20,7 @@ const MESSAGES: Record<string, string> = {
   SKN_EPUISE: "Cette portion vient d'être prise. Il n'en reste plus.",
   SKN_NON_OFFERT: "Ce plat n'est pas proposé aujourd'hui.",
   SKN_NON_OK: "Ce plat n'est pas disponible en Sa ki ni.",
+  SKN_FORMULE: "Ce plat n'est disponible qu'en Menu Panda.",
   SKN_PROFIL_REQUIS: "Choisis un enfant pour cette commande.",
   SOLDE_INSUFFISANT: "Solde Panda Wallet insuffisant.",
 }
