@@ -31,6 +31,7 @@ interface CatalogItem {
   image_url: string | null; ui_group: string | null; category_id: string
   coming_soon?: boolean | null  // PS-01 — visible mais non sélectionnable (badge « Bientôt disponible ! »)
   sellable_devoirs?: boolean | null; sellable_comptoir?: boolean | null; parent_id?: string | null  // PS-10b
+  sellable_stage?: boolean | null  // PS-16 — carte stage (froide)
 }
 interface Category { id: string; name: string; emoji: string | null; sort_order: number; morning_available: boolean | null; catalog_items: CatalogItem[] }
 interface MenuFormula { id: string; code: string; name: string; description: string | null; price_cents: number; image_url: string | null; emoji: string | null; active: boolean; sort_order: number }
@@ -233,6 +234,8 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   )
   // PS-10b — Panda Devoirs : créneau du soir. Carte filtrée, enfants inscrits Devoirs.
   const isDevoirs = selectedSlot?.day_type === "devoirs"
+  // PS-16 — jour de stage : carte froide limitée (sandwichs & clubs, seuls ou en Menu Panda).
+  const isStage = selectedSlot?.day_type === "stage"
   const devoirsProfils = useMemo(() => {
     const act = profils.filter((p) => p.active && !p.archived_at && p.type_profil === "eleve")
     return account.source_group === "panda_devoirs" ? act : act.filter((p) => p.devoirs === true)
@@ -283,6 +286,8 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
   // catalog_items.active + visibilité public. Ensuite seul le flag diffère (sellable_in_menu vs
   // sellable_alone) ; coming_soon est porté tel quel par ProductCard (grisé « Bientôt ! » des deux côtés).
   function visForSource(item: CatalogItem): boolean {
+    // PS-16 — sur un créneau stage, on restreint à la carte froide (sellable_stage).
+    if (isStage && item.sellable_stage !== true) return false
     return item.active && visForSourceShared(item, sg, sd)
   }
 
@@ -299,7 +304,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       .filter((i) => isMenuPlatSku(i.sku, sg))
       .sort((a, b) => a.sort_order - b.sort_order)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categories, sg, sd])
+  }, [categories, sg, sd, isStage])
 
   // PS-01 Opération Beauty — sections « article seul » par catégorie (ordre catalog_categories.sort_order,
   // titre = SECTION_LABELS[id] ou name DB, emoji DB) + snacks (ui_group snack_gourmand) à part.
@@ -329,7 +334,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
     snacks.sort((a, b) => a.sort_order - b.sort_order)
     return { alcSections: sections, snackItems: snacks }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categories, sg, sd])
+  }, [categories, sg, sd, isStage])
 
   // PS-02 C — carrousel Article seul : sections aplaties (ordre catégorie puis item), Bubble Tea
   // extrait (§7 : bloc fixe sous le carrousel, jamais dans le swipe).
@@ -606,13 +611,15 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
             {slots.map((sl) => {
               const sel = selectedSlotId === sl.id
               const dev = sl.day_type === "devoirs"   // PS-10b — pilule bleue Devoirs
-              const style: React.CSSProperties = dev
-                ? (sel ? { background: "var(--devoirs)", color: "#fff", borderColor: "transparent" } : { color: "var(--devoirs)", borderColor: "var(--devoirs)" })
+              const stg = sl.day_type === "stage"     // PS-16 — pilule orange Stage
+              const accent = dev ? "var(--devoirs)" : stg ? "var(--stage)" : null
+              const style: React.CSSProperties = accent
+                ? (sel ? { background: accent, color: "#fff", borderColor: "transparent" } : { color: accent, borderColor: accent })
                 : (sel ? { background: "var(--accent)" } : {})
               return (<button key={sl.id} onClick={() => setSelectedSlotId(sl.id)}
-                className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap border transition-colors ${sel && !dev ? "text-white border-transparent" : "border-[var(--border)]"}`}
+                className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap border transition-colors ${sel && !accent ? "text-white border-transparent" : "border-[var(--border)]"}`}
                 style={style}>
-                {fmtShort(sl.service_date)}{dev ? " · Devoirs" : ""}
+                {fmtShort(sl.service_date)}{dev ? " · Devoirs" : stg ? " · Stage" : ""}
               </button>)
             })}
           </div>

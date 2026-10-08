@@ -36,4 +36,16 @@ describe("filterSlotsForAccount (PS-10b — source unique des pilules)", () => {
     const r = filterSlotsForAccount(slots, { source_group: "panda_devoirs" }, [])
     expect(r.map((s) => s.id)).toEqual(["d"])
   })
+
+  // PS-16 — créneau stage (pandattitude) : visible à TOUTE famille pandattitude commandable,
+  // aucun filtre par famille (les dates font le tri). Invisible à un compte panda_devoirs.
+  const stage = { id: "s", day_type: "stage", target_source_group: "pandattitude" }
+  it("pandattitude (même sans lien devoirs) → voit le créneau stage", () => {
+    const r = filterSlotsForAccount([midi, stage], { source_group: "pandattitude" }, [{ active: true, devoirs: false }])
+    expect(r.map((x) => x.id).sort()).toEqual(["m", "s"])
+  })
+  it("compte panda_devoirs → ne voit pas le créneau stage (midi pandattitude)", () => {
+    const r = filterSlotsForAccount([stage], { source_group: "panda_devoirs" }, [])
+    expect(r).toEqual([])
+  })
 })

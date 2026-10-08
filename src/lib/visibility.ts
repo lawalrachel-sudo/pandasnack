@@ -24,6 +24,8 @@ export interface VisibleItem {
   parent_id?: string | null
   // PS-10a — article commandable sur un créneau Panda Devoirs (soir).
   sellable_devoirs?: boolean | null
+  // PS-16 — article de la carte stage (froide) : sandwichs & clubs, seuls ou en Menu Panda.
+  sellable_stage?: boolean | null
 }
 
 // PS-10a — Visibilité sur un créneau Panda Devoirs : uniquement les articles flaggés
@@ -35,6 +37,15 @@ export function visForDevoirs(item: VisibleItem): boolean {
   if (item.parent_id) return false
   if (item.sellable_comptoir && !item.sellable_alone && !item.sellable_in_menu) return false
   return item.sellable_devoirs === true
+}
+
+// PS-16 — Visibilité sur un créneau stage (day_type='stage') : la visibilité normale du public,
+// restreinte aux articles flaggés sellable_stage (sandwichs & clubs). Combinée à sellable_alone /
+// sellable_in_menu côté écran, elle rend la carte froide « seul ou en Menu Panda ». Source unique
+// (même endroit que Devoirs). Le Bubble Tea seul (non sellable_stage) est donc exclu de la
+// précommande stage ; il reste dans le Menu Panda et au comptoir.
+export function visForStageCarte(item: VisibleItem, sg: string | null | undefined, sd?: string | null): boolean {
+  return item.sellable_stage === true && visForSource(item, sg, sd)
 }
 
 // Un article est-il visible pour ce public ? (coming_soon n'entre PAS ici : un article
