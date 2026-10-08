@@ -6,97 +6,83 @@ import {
 
 const SECRET = "test-secret"
 const PAYLOAD: PontPayload = {
-  v: 1, famille_id: "fam_demo", email_titulaire: "titulaire@example.com", email_parent2: null,
-  email_connecte: "titulaire@example.com",
-  enfants: [{ profil_id: "p1", prenom: "Lou", nom: "Martin" }],
-  iat: 1760000000, exp: 1760000300, nonce: "nonce-demo-1",
+  email: "famille@example.com", familleId: "fam_demo",
+  enfants: [{ prenom: "Lou", nom: "Martin" }], tags: ["stages"],
+  exp: 1760000300, jti: "jti-demo-1",
 }
-const VECTOR_TOKEN = "v1.eyJ2IjoxLCJmYW1pbGxlX2lkIjoiZmFtX2RlbW8iLCJlbWFpbF90aXR1bGFpcmUiOiJ0aXR1bGFpcmVAZXhhbXBsZS5jb20iLCJlbWFpbF9wYXJlbnQyIjpudWxsLCJlbWFpbF9jb25uZWN0ZSI6InRpdHVsYWlyZUBleGFtcGxlLmNvbSIsImVuZmFudHMiOlt7InByb2ZpbF9pZCI6InAxIiwicHJlbm9tIjoiTG91Iiwibm9tIjoiTWFydGluIn1dLCJpYXQiOjE3NjAwMDAwMDAsImV4cCI6MTc2MDAwMDMwMCwibm9uY2UiOiJub25jZS1kZW1vLTEifQ.HaFFGoO_1Rv3MlYvtEpvcw7hguSEpPNLnoco4ep1kqI"
-const MID = 1760000100  // entre iat et exp
+// Vecteur calculé avec l'algorithme de référence (pandattitude-3d/pandaSnack.ts, node:crypto).
+const VECTOR_TOKEN = "eyJlbWFpbCI6ImZhbWlsbGVAZXhhbXBsZS5jb20iLCJmYW1pbGxlSWQiOiJmYW1fZGVtbyIsImVuZmFudHMiOlt7InByZW5vbSI6IkxvdSIsIm5vbSI6Ik1hcnRpbiJ9XSwidGFncyI6WyJzdGFnZXMiXSwiZXhwIjoxNzYwMDAwMzAwLCJqdGkiOiJqdGktZGVtby0xIn0.QNQ48f3XasbrQ25mwgl7HiAf7mhHw6BXSdt2w3iBxjg"
+const BEFORE_EXP = 1760000200
+const AFTER_EXP = 1760000400
 
-const acc = (id: string, email: string, fam: string | null = null, archived: string | null = null): PontAccount =>
-  ({ id, email, pandapp_famille_id: fam, archived_at: archived })
+const acc = (id: string, email: string, fam: string | null = null): PontAccount =>
+  ({ id, email, pandapp_famille_id: fam, archived_at: null })
 
-describe("PS-15 — pont-pandapp (lib pure)", () => {
-  it("vecteur de test : buildPontToken reproduit le jeton attendu (signature identique à PandApp)", async () => {
+describe("PS-15 — pont-pandapp (lib pure, contrat pandattitude-3d)", () => {
+  it("vecteur de test : buildPontToken reproduit le jeton de référence (signature identique à PandApp)", async () => {
     expect(await buildPontToken(SECRET, PAYLOAD)).toBe(VECTOR_TOKEN)
   })
 
-  it("jeton valide → ok + payload décodé", async () => {
-    const r = await verifyPontToken(VECTOR_TOKEN, SECRET, MID)
+  it("jeton valide → ok + payload décodé (email, familleId, enfants, tags)", async () => {
+    const r = await verifyPontToken(VECTOR_TOKEN, SECRET, BEFORE_EXP)
     expect(r.ok).toBe(true)
-    if (r.ok) { expect(r.payload.famille_id).toBe("fam_demo"); expect(r.payload.enfants[0].prenom).toBe("Lou") }
+    if (r.ok) {
+      expect(r.payload.familleId).toBe("fam_demo")
+      expect(r.payload.enfants[0]).toEqual({ prenom: "Lou", nom: "Martin" })
+      expect(r.payload.tags).toContain("stages")
+    }
   })
 
-  it("signature fausse → refus", async () => {
-    const bad = VECTOR_TOKEN.slice(0, -1) + (VECTOR_TOKEN.endsWith("A") ? "B" : "A")
-    const r = await verifyPontToken(bad, SECRET, MID)
+  it("signature invalide → refus", async () => {
+    const bad = VECTOR_TOKEN.slice(0, -1) + (VECTOR_TOKEN.endsWith("g") ? "h" : "g")
+    const r = await verifyPontToken(bad, SECRET, BEFORE_EXP)
     expect(r.ok).toBe(false); if (!r.ok) expect(r.reason).toBe("signature")
   })
 
   it("mauvais secret → refus signature", async () => {
-    const r = await verifyPontToken(VECTOR_TOKEN, "autre-secret", MID)
+    const r = await verifyPontToken(VECTOR_TOKEN, "autre", BEFORE_EXP)
     expect(r.ok).toBe(false); if (!r.ok) expect(r.reason).toBe("signature")
   })
 
-  it("expiré (now > exp) → refus expired", async () => {
-    const r = await verifyPontToken(VECTOR_TOKEN, SECRET, 1760000400)
+  it("jeton expiré (exp < now) → refus expired", async () => {
+    const r = await verifyPontToken(VECTOR_TOKEN, SECRET, AFTER_EXP)
     expect(r.ok).toBe(false); if (!r.ok) expect(r.reason).toBe("expired")
   })
 
-  it("iat dans le futur (hors tolérance 60 s) → refus iat_future", async () => {
-    const r = await verifyPontToken(VECTOR_TOKEN, SECRET, 1760000000 - 61)
-    expect(r.ok).toBe(false); if (!r.ok) expect(r.reason).toBe("iat_future")
-  })
-
-  it("v != 1 → refus version", async () => {
-    const t = await buildPontToken(SECRET, { ...PAYLOAD, v: 2 })
-    const r = await verifyPontToken(t, SECRET, MID)
-    expect(r.ok).toBe(false); if (!r.ok) expect(r.reason).toBe("version")
-  })
-
   it("format cassé / vide → refus format", async () => {
-    expect((await verifyPontToken("", SECRET, MID)).ok).toBe(false)
-    expect((await verifyPontToken("v1.abc", SECRET, MID)).ok).toBe(false)
-    expect((await verifyPontToken(VECTOR_TOKEN, "", MID)).ok).toBe(false)
+    expect((await verifyPontToken("", SECRET, BEFORE_EXP)).ok).toBe(false)
+    expect((await verifyPontToken("abc", SECRET, BEFORE_EXP)).ok).toBe(false)
+    expect((await verifyPontToken(VECTOR_TOKEN, "", BEFORE_EXP)).ok).toBe(false)
   })
 
-  describe("pickPontAccount — ordre famille > titulaire > parent 2", () => {
+  describe("pickPontAccount — famille_id puis e-mail du payload", () => {
     it("famille_id prioritaire", () => {
-      const r = pickPontAccount(acc("A", "t@x", "fam"), [acc("B", "t@x")], [])
-      expect(r.account?.id).toBe("A"); expect(r.action).toBe("conflict") // A et B distincts
+      const r = pickPontAccount(acc("A", "x@x", "fam"), [acc("B", "x@x")])
+      expect(r.account?.id).toBe("A"); expect(r.action).toBe("conflict")
     })
-    it("titulaire si pas de lien famille", () => {
-      const r = pickPontAccount(null, [acc("B", "t@x")], [])
+    it("e-mail si pas de lien famille", () => {
+      const r = pickPontAccount(null, [acc("B", "x@x")])
       expect(r.account?.id).toBe("B"); expect(r.conflict).toBe(false); expect(r.action).toBe("matched")
     })
-    it("parent 2 en dernier recours", () => {
-      const r = pickPontAccount(null, [], [acc("C", "p2@x")])
-      expect(r.account?.id).toBe("C"); expect(r.action).toBe("matched")
-    })
-    it("plusieurs comptes distincts → titulaire + conflict", () => {
-      const r = pickPontAccount(null, [acc("B", "t@x")], [acc("C", "p2@x")])
+    it("plusieurs comptes distincts → e-mail du payload + conflict", () => {
+      const r = pickPontAccount(null, [acc("B", "x@x"), acc("C", "x@x")])
       expect(r.account?.id).toBe("B"); expect(r.conflict).toBe(true); expect(r.action).toBe("conflict")
     })
-    it("rien trouvé → none", () => {
-      expect(pickPontAccount(null, [], []).action).toBe("none")
+    it("rien → none", () => {
+      expect(pickPontAccount(null, []).action).toBe("none")
     })
   })
 
   describe("childrenToCreate — jamais de doublon", () => {
-    const enfants = [{ profil_id: "p1", prenom: "Lou", nom: "Martin" }, { profil_id: "p2", prenom: "Zoé", nom: "Martin" }]
+    const enfants = [{ prenom: "Lou", nom: "Martin" }, { prenom: "Zoé", nom: "Martin" }]
     it("enfant déjà présent (insensible casse/espaces) non dupliqué", () => {
-      const out = childrenToCreate([{ prenom: " lou ", nom: "MARTIN" }], enfants)
-      expect(out.map((e) => e.prenom)).toEqual(["Zoé"])
+      expect(childrenToCreate([{ prenom: " lou ", nom: "MARTIN" }], enfants).map((e) => e.prenom)).toEqual(["Zoé"])
     })
     it("tous nouveaux → tous créés", () => {
       expect(childrenToCreate([], enfants).length).toBe(2)
     })
-    it("doublon dans le payload lui-même dédupliqué", () => {
-      expect(childrenToCreate([], [...enfants, { profil_id: "p3", prenom: "lou", nom: "martin" }]).length).toBe(2)
-    })
-    it("enfant sans prénom/nom ignoré", () => {
-      expect(childrenToCreate([], [{ profil_id: "p4", prenom: "", nom: "X" }]).length).toBe(0)
+    it("doublon dans le payload dédupliqué", () => {
+      expect(childrenToCreate([], [...enfants, { prenom: "lou", nom: "martin" }]).length).toBe(2)
     })
   })
 })

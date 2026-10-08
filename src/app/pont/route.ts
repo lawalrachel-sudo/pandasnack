@@ -5,19 +5,19 @@ import { verifyPontToken, pickPontAccount, childrenToCreate, type PontAccount } 
 
 export const dynamic = "force-dynamic"
 
-// PS-15 — Réception du pont PandApp → Panda Snack. GET /auth/pandapp?t=<jeton>
-// Vérifie le jeton signé, résout/crée le compte (+ wallet + profils enfants), ouvre la session
-// (magic link consommé côté serveur, aucun mot de passe en code) et redirige vers /commander.
-// Un seul compte Snack par famille. Ne touche jamais un compte non concerné.
+// PS-15 — Réception du pont PandApp → Panda Snack. GET /pont?t=<jeton>
+// Vérifie le jeton (signature + exp), rejette le rejeu (jti), résout/crée le compte (+ wallet +
+// profils enfants du payload), ouvre la session (magic link consommé côté serveur, aucun mot de
+// passe en code) → /commander. Un seul compte Snack par famille. Jamais un compte non concerné.
 
 const ERROR_HTML = `<!doctype html><html lang="fr"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>Lien invalide</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Lien expiré</title>
 <style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#FBF5EC,#F0E6D6);font-family:-apple-system,system-ui,sans-serif;color:#3A2A20}
 .card{background:#fff;border:1px solid #E8D6BF;border-radius:18px;padding:28px 24px;max-width:360px;margin:16px;text-align:center;box-shadow:0 20px 60px rgba(200,90,60,.12)}
 h1{font-size:20px;margin:0 0 8px}p{font-size:14px;color:#6B5742;line-height:1.5;margin:0 0 18px}
 a{display:inline-block;background:#C85A3C;color:#fff;text-decoration:none;border-radius:12px;padding:12px 20px;font-weight:700}</style>
-</head><body><div class="card"><h1>Lien expiré ou invalide</h1>
-<p>Reviens depuis PandApp ou connecte-toi.</p><a href="/auth">Se connecter</a></div></body></html>`
+</head><body><div class="card"><h1>Lien expiré</h1>
+<p>Repasse par PandApp pour ouvrir Panda Snack, ou connecte-toi.</p><a href="/auth">Se connecter</a></div></body></html>`
 
 function errorPage() {
   return new NextResponse(ERROR_HTML, { status: 400, headers: { "Content-Type": "text/html; charset=utf-8" } })
@@ -42,40 +42,37 @@ export async function GET(req: NextRequest) {
     return errorPage()
   }
   const p = verified.payload
+  const email = p.email.trim().toLowerCase()
 
-  // Nonce à usage unique : insertion = réservation. Conflit → rejeu → refus.
-  const { error: nonceErr } = await admin.from("pont_nonces").insert({ nonce: p.nonce, famille_id: p.famille_id })
-  if (nonceErr) {
-    await logPont(admin, p.famille_id, null, "refused", "nonce_replay")
+  // jti à usage unique : insertion = réservation. Conflit → rejeu → refus.
+  const { error: jtiErr } = await admin.from("pont_jetons_consommes").insert({ jti: p.jti, famille_id: p.familleId })
+  if (jtiErr) {
+    await logPont(admin, p.familleId, null, "refused", "jti_replay")
     return errorPage()
   }
 
-  // Résolution : famille_id → titulaire → parent 2.
+  // Résolution : famille_id → e-mail du payload.
   const sel = "id, email, pandapp_famille_id, archived_at"
-  const { data: byFamilleRow } = await admin.from("accounts").select(sel).eq("pandapp_famille_id", p.famille_id).maybeSingle()
-  const { data: byTit } = await admin.from("accounts").select(sel).ilike("email", p.email_titulaire)
-  const byParent2: PontAccount[] = p.email_parent2
-    ? ((await admin.from("accounts").select(sel).ilike("email", p.email_parent2)).data || [])
-    : []
-  const picked = pickPontAccount(byFamilleRow || null, byTit || [], byParent2)
+  const { data: byFamilleRow } = await admin.from("accounts").select(sel).eq("pandapp_famille_id", p.familleId).maybeSingle()
+  const { data: byEmail } = await admin.from("accounts").select(sel).ilike("email", email)
+  const picked = pickPontAccount(byFamilleRow || null, byEmail || [])
 
   let account: PontAccount | null = picked.account
   let action: "matched" | "created" | "conflict" = picked.action === "conflict" ? "conflict" : "matched"
 
   if (!account) {
     // Création au premier appui : createUser déclenche handle_new_user (account + wallet 0 + profil parent).
-    const { data: created, error: cErr } = await admin.auth.admin.createUser({ email: p.email_titulaire, email_confirm: true })
+    const { data: created, error: cErr } = await admin.auth.admin.createUser({ email, email_confirm: true })
     if (cErr || !created?.user) {
-      // Déjà un utilisateur auth sans compte résolu : on retente la résolution par e-mail.
-      const { data: again } = await admin.from("accounts").select(sel).ilike("email", p.email_titulaire).maybeSingle()
-      if (!again) { await logPont(admin, p.famille_id, null, "refused", "create_failed"); return errorPage() }
+      const { data: again } = await admin.from("accounts").select(sel).ilike("email", email).maybeSingle()
+      if (!again) { await logPont(admin, p.familleId, null, "refused", "create_failed"); return errorPage() }
       account = again
       action = "matched"
     } else {
       const { data: acc } = await admin.from("accounts").select(sel).eq("auth_user_id", created.user.id).maybeSingle()
       account = acc || null
       action = "created"
-      if (!account) { await logPont(admin, p.famille_id, null, "refused", "account_missing"); return errorPage() }
+      if (!account) { await logPont(admin, p.familleId, null, "refused", "account_missing"); return errorPage() }
     }
   }
 
@@ -83,7 +80,7 @@ export async function GET(req: NextRequest) {
 
   // Lien famille posé s'il est vide.
   if (!account.pandapp_famille_id) {
-    await admin.from("accounts").update({ pandapp_famille_id: p.famille_id }).eq("id", account.id)
+    await admin.from("accounts").update({ pandapp_famille_id: p.familleId }).eq("id", account.id)
   }
 
   // Profils enfants manquants (jamais de modification/suppression d'un profil existant).
@@ -94,11 +91,10 @@ export async function GET(req: NextRequest) {
       account_id: account!.id, prenom: e.prenom, nom: e.nom,
       metier: "pandattitude", type_profil: "eleve", active: true, is_default: false,
     })))
-    // Réactivation auto si le compte était archivé (ajout d'un enfant actif).
     if (account.archived_at) await admin.from("accounts").update({ archived_at: null }).eq("id", account.id)
   }
 
-  await logPont(admin, p.famille_id, account.id, action, `enfants+${toCreate.length}`)
+  await logPont(admin, p.familleId, account.id, action, `tags=${(p.tags || []).join("|")};enfants+${toCreate.length}`)
 
   // Session : magic link consommé côté serveur (aucun mot de passe en code), comme PS-13.
   if (!account.email) return errorPage()
