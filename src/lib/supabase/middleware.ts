@@ -83,7 +83,7 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse
   }
 
-  const publicPaths = ['/auth', '/allergenes', '/nos-prix-shop', '/cgv', '/cgu', '/api/stripe/webhook', '/admin', '/api/admin', '/boutique']
+  const publicPaths = ['/auth', '/pont', '/allergenes', '/nos-prix-shop', '/cgv', '/cgu', '/api/stripe/webhook', '/admin', '/api/admin', '/boutique']
   const isPublic = publicPaths.some(p => request.nextUrl.pathname.startsWith(p))
 
   if (!user && !isPublic && request.nextUrl.pathname !== '/') {
