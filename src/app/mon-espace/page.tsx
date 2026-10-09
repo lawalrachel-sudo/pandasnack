@@ -48,6 +48,16 @@ export default async function MonEspacePage() {
     .eq("account_id", account.id)
     .eq("status", "pending_payment")
 
+  // PS-18 — Panda Bonus émis (non consommés) du compte. Lecture via le client authentifié :
+  // la RLS ne renvoie QUE les bonus des profils de ce compte.
+  const { data: bonus } = await supabase
+    .from("panda_bonus")
+    .select("id, libelle, produit, profils(prenom)")
+    .eq("statut", "emis")
+    .order("emis_at", { ascending: false })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pandaBonus = (bonus || []).map((b: any) => ({ id: b.id, libelle: b.libelle, produit: b.produit, prenom: b.profils?.prenom || null }))
+
   return (
     <MonEspaceClient
       account={account as any}
@@ -57,6 +67,7 @@ export default async function MonEspacePage() {
       orderCount={orderCount || 0}
       userEmail={user.email || ""}
       pendingCount={pendingCount || 0}
+      pandaBonus={pandaBonus}
     />
   )
 }

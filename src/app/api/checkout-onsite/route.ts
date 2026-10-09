@@ -37,6 +37,12 @@ export async function POST(req: NextRequest) {
       .in("id", orderIds)
       .eq("account_id", account.id)
       .eq("status", "pending_payment")
+    // PS-18 — Panda Bonus : applique les bonus (bubble tea offert) et réduit total_cents avant
+    // la confirmation sur place. Idempotent par commande, non bloquant.
+    for (const oid of orderIds) {
+      try { await supabase.rpc("panda_bonus_appliquer", { p_order_id: oid }) } catch { /* non bloquant */ }
+    }
+
     const wasOnSite = new Set(
       (before || []).filter((o: { payment_method: string | null }) => o.payment_method === "on_site").map((o: { id: string }) => o.id)
     )

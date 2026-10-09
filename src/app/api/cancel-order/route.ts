@@ -77,6 +77,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Commande non annulable" }, { status: 409 })
     }
 
+    // PS-18 — Panda Bonus : une commande annulée restitue les bonus qu'elle avait consommés
+    // (retour à 'emis', réutilisables). Non bloquant.
+    try {
+      await admin.from("panda_bonus")
+        .update({ statut: "emis", consomme_at: null, commande_id: null })
+        .eq("commande_id", orderId).eq("statut", "consomme")
+    } catch { /* non bloquant */ }
+
     // Recrédit wallet si payé par wallet/carte. §7 — JAMAIS pour 'on_site' : l'argent a été
     // encaissé en espèces/CB au comptoir, il n'est jamais entré dans le wallet (sinon on
     // créditerait un remboursement fantôme).

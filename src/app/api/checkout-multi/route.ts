@@ -44,6 +44,9 @@ export async function POST(req: NextRequest) {
     // Process each order via RPC (cascade wallet → some may be paid immediately, others need card)
     const results: PaymentResult[] = []
     for (const orderId of orderIds) {
+      // PS-18 — Panda Bonus : applique les bonus disponibles (bubble tea offert) et réduit
+      // total_cents AVANT le paiement. Idempotent par commande, non bloquant.
+      try { await supabase.rpc("panda_bonus_appliquer", { p_order_id: orderId }) } catch { /* non bloquant */ }
       const { data: rpcResult, error: rpcErr } = await supabase.rpc("process_order_payment", {
         p_order_id: orderId,
         p_payment_method: paymentMethod,

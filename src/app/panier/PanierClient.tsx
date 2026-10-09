@@ -1,5 +1,7 @@
 "use client"
 
+import { bonusPreview, type BonusRow } from "@/lib/panda-bonus"
+
 import { useState, useMemo, useRef, useEffect } from "react"
 import Link from "next/link"
 import { Navbar } from "@/components/Navbar"
@@ -70,6 +72,7 @@ interface Props {
   catalogItems: CatalogItem[]
   toppings: Topping[]
   walletBonusPct: number  // UX-C — % de bonus max lu depuis wallet_recharge_config
+  pandaBonus: BonusRow[]  // PS-18 — bonus émis (aperçu produit offert)
 }
 
 // PS-01 — visibilité par public : source unique src/lib/visibility.ts (plus de duplication).
@@ -86,7 +89,7 @@ function todayMartinique(): string {
   }).format(new Date())
 }
 
-export function PanierClient({ account, profils, orders, wallet, upcomingSlots, pendingCount, catalogItems, toppings, walletBonusPct }: Props) {
+export function PanierClient({ account, profils, orders, wallet, upcomingSlots, pendingCount, catalogItems, toppings, walletBonusPct, pandaBonus }: Props) {
   const { refreshPendingCount } = useCart()
   // POINT 6 — refresh badge cart au mount (retour Stripe peut laisser BottomNav stale)
   useEffect(() => { refreshPendingCount() }, [refreshPendingCount])
@@ -338,6 +341,26 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
       .reduce((s, o) => s + (o.total_cents || 0), 0)
   }, [orders, selectedOrderIds, todayMQ])
 
+  // PS-18 — aperçu Panda Bonus : bubble tea autonomes (DRINK-BBL) dans les commandes sélectionnées
+  // éligibles ; 1 offert par bonus émis (cumul). La consommation autoritative se fait au paiement.
+  const bbtSelected = useMemo(() => {
+    let units = 0, unitPrice = 0
+    for (const o of orders) {
+      if (o.status !== "pending_payment" || o.payment_method === "on_site" || !selectedOrderIds.has(o.id)) continue
+      const sd = o.service_slots?.service_date
+      if (sd && sd < todayMQ) continue
+      for (const it of o.order_items || []) {
+        if (it.catalog_items?.sku === "DRINK-BBL" && (it.unit_price_cents || 0) > 0) {
+          units += it.quantity || 1
+          unitPrice = it.unit_price_cents || unitPrice
+        }
+      }
+    }
+    return { units, unitPrice }
+  }, [orders, selectedOrderIds, todayMQ])
+  const bonusApplied = useMemo(() => bonusPreview(pandaBonus.length, bbtSelected.units, bbtSelected.unitPrice || 0), [pandaBonus, bbtSelected])
+  const totalAfterBonus = Math.max(0, selectedSum - bonusApplied.discountCents)
+
   // POINT 5 — handler "Retirer du panier" pour orders périmées
   async function handleRemoveExpired(orderId: string) {
     if (!confirm("Retirer cette commande périmée du panier ?")) return
@@ -507,11 +530,17 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
               <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--ink-soft)" }}>
                 Total · {selectedOrderIds.size} commande{selectedOrderIds.size > 1 ? "s" : ""}
               </span>
-              <span className="text-lg font-display font-semibold" style={{ color: "var(--accent)" }}>{fmtPrice(selectedSum)}</span>
+              <span className="text-lg font-display font-semibold" style={{ color: "var(--accent)" }}>{fmtPrice(totalAfterBonus)}</span>
             </div>
+            {bonusApplied.freeCount > 0 && (
+              <div className="flex justify-between items-center mb-2 text-sm" style={{ color: "#92400E" }}>
+                <span className="font-semibold">🎁 Panda Bonus · {bonusApplied.freeCount} Bubble Tea offert{bonusApplied.freeCount > 1 ? "s" : ""}</span>
+                <span className="font-semibold">−{fmtPrice(bonusApplied.discountCents)}</span>
+              </div>
+            )}
             {/* Paiement en ligne principal (wallet + CB via checkout-multi) */}
             <button onClick={handlePayMulti} disabled={payingMulti}
-              aria-label={`Payer ${selectedOrderIds.size} commande${selectedOrderIds.size > 1 ? "s" : ""} pour ${fmtPrice(selectedSum)}`}
+              aria-label={`Payer ${selectedOrderIds.size} commande${selectedOrderIds.size > 1 ? "s" : ""} pour ${fmtPrice(totalAfterBonus)}`}
               className="focus-ring flex items-center justify-center w-full h-12 rounded-xl font-display font-semibold text-white shadow-lg active:scale-[0.98] transition-transform text-center px-3 disabled:opacity-50"
               style={{ background: "var(--accent)" }}>
               {payingMulti ? "Redirection..." : `💳 Payer ${fmtPrice(selectedSum)}`}

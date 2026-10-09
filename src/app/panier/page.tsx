@@ -68,6 +68,15 @@ export default async function PanierPage() {
     .eq("active", true)
     .order("sort_order")
 
+  // PS-18 — Panda Bonus émis (non consommés), pour l'aperçu « produit offert » dans le panier.
+  // Lecture via le client authentifié → RLS (uniquement les bonus de ce compte).
+  const { data: bonusRows } = await supabase
+    .from("panda_bonus")
+    .select("id, libelle, produit, profils(prenom)")
+    .eq("statut", "emis")
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pandaBonus = (bonusRows || []).map((b: any) => ({ id: b.id, libelle: b.libelle, produit: b.produit, prenom: b.profils?.prenom || null }))
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pendingCount = (orders || []).filter((o: any) => o.status === "pending_payment").length
 
@@ -91,6 +100,7 @@ export default async function PanierPage() {
       catalogItems={(catalogItems || []) as any[]}
       toppings={(toppings || []) as any[]}
       walletBonusPct={walletBonusPct}
+      pandaBonus={pandaBonus}
     />
   )
 }
