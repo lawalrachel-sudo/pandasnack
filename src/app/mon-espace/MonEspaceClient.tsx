@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { groupBonusByChild, type BonusRow } from "@/lib/panda-bonus"
+import { groupBonusByChild, fmtBonusDate, type BonusRow } from "@/lib/panda-bonus"
 import { useSearchParams } from "next/navigation"
 import { Navbar } from "@/components/Navbar"
 import { HeaderMetier } from "@/components/HeaderMetier"
@@ -339,8 +339,8 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
             {groupBonusByChild(pandaBonus).map((g) => (
               <div key={g.prenom} className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-semibold" style={{ color: "var(--ink)" }}>{g.prenom}</span>
-                {g.libelles.map((lib, i) => (
-                  <span key={i} className="text-xs font-semibold rounded-full px-3 py-1" style={{ background: "#FEF3E2", color: "#92400E", border: "1px solid #F5D5A0" }}>🎁 {lib}</span>
+                {g.items.map((it, i) => (
+                  <span key={i} className="text-xs font-semibold rounded-full px-3 py-1" style={{ background: "#FEF3E2", color: "#92400E", border: "1px solid #F5D5A0" }}>🎁 {it.libelle} · valable jusqu&apos;au {fmtBonusDate(it.valideJusquAu)}</span>
                 ))}
               </div>
             ))}

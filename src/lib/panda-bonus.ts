@@ -16,15 +16,30 @@ export function bonusPreview(emisBonusCount: number, eligibleUnits: number, unit
   return { freeCount, discountCents: freeCount * Math.max(0, unitPriceCents || 0) }
 }
 
-export interface BonusRow { id: string; libelle: string; prenom: string | null }
+export interface BonusRow { id: string; libelle: string; prenom: string | null; valide_jusqu_au: string }
 
-/** Regroupe les bonus « Mes bonus » par enfant (prénom) → liste de libellés. */
-export function groupBonusByChild(rows: BonusRow[]): Array<{ prenom: string; libelles: string[] }> {
-  const map = new Map<string, string[]>()
+/** PS-18b — un bonus est-il encore valide à la date Martinique du jour (AAAA-MM-JJ) ? */
+export function bonusIsValid(valideJusquAu: string | null | undefined, todayMartinique: string): boolean {
+  if (!valideJusquAu) return false
+  return valideJusquAu >= todayMartinique
+}
+
+/** Date AAAA-MM-JJ → « JJ/MM/AAAA » (affichage « valable jusqu'au … »). */
+export function fmtBonusDate(iso: string | null | undefined): string {
+  if (!iso) return ""
+  const [y, m, d] = iso.slice(0, 10).split("-")
+  return `${d}/${m}/${y}`
+}
+
+export interface BonusBadge { libelle: string; valideJusquAu: string }
+
+/** Regroupe les bonus « Mes bonus » par enfant (prénom) → badges (libellé + date de validité). */
+export function groupBonusByChild(rows: BonusRow[]): Array<{ prenom: string; items: BonusBadge[] }> {
+  const map = new Map<string, BonusBadge[]>()
   for (const r of rows || []) {
     const k = r.prenom || "—"
     if (!map.has(k)) map.set(k, [])
-    map.get(k)!.push(r.libelle)
+    map.get(k)!.push({ libelle: r.libelle, valideJusquAu: r.valide_jusqu_au })
   }
-  return Array.from(map.entries()).map(([prenom, libelles]) => ({ prenom, libelles }))
+  return Array.from(map.entries()).map(([prenom, items]) => ({ prenom, items }))
 }

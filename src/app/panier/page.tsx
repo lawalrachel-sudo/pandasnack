@@ -1,6 +1,7 @@
 import { createServerSupabase as createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { PanierClient } from "./PanierClient"
+import { martiniqueToday } from "@/lib/caisse-date"
 
 // POINT 6 — force-dynamic : pas de cache, données fraîches au retour Stripe
 export const dynamic = "force-dynamic"
@@ -72,10 +73,11 @@ export default async function PanierPage() {
   // Lecture via le client authentifié → RLS (uniquement les bonus de ce compte).
   const { data: bonusRows } = await supabase
     .from("panda_bonus")
-    .select("id, libelle, produit, profils(prenom)")
+    .select("id, libelle, produit, valide_jusqu_au, profils(prenom)")
     .eq("statut", "emis")
+    .gte("valide_jusqu_au", martiniqueToday())
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const pandaBonus = (bonusRows || []).map((b: any) => ({ id: b.id, libelle: b.libelle, produit: b.produit, prenom: b.profils?.prenom || null }))
+  const pandaBonus = (bonusRows || []).map((b: any) => ({ id: b.id, libelle: b.libelle, produit: b.produit, valide_jusqu_au: b.valide_jusqu_au, prenom: b.profils?.prenom || null }))
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pendingCount = (orders || []).filter((o: any) => o.status === "pending_payment").length

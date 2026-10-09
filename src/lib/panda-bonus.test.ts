@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { bonusFreeCount, bonusPreview, groupBonusByChild } from "./panda-bonus"
+import { bonusFreeCount, bonusPreview, groupBonusByChild, bonusIsValid, fmtBonusDate } from "./panda-bonus"
 
 describe("PS-18 — panda-bonus (aperçu pur)", () => {
   it("1 bonus + 2 bubble tea → 1 offert", () => {
@@ -16,14 +16,27 @@ describe("PS-18 — panda-bonus (aperçu pur)", () => {
     expect(bonusPreview(0, 2, 250)).toEqual({ freeCount: 0, discountCents: 0 })
     expect(bonusPreview(2, 0, 250)).toEqual({ freeCount: 0, discountCents: 0 })
   })
-  it("groupBonusByChild : regroupe par prénom (jumelles = 2 libellés)", () => {
+  it("groupBonusByChild : regroupe par prénom (jumelles = 2 badges) avec date de validité", () => {
     const g = groupBonusByChild([
-      { id: "1", prenom: "Léa", libelle: "1 bubble tea 🎂" },
-      { id: "2", prenom: "Lou", libelle: "1 bubble tea 🎂" },
-      { id: "3", prenom: "Léa", libelle: "1 bubble tea 🎂" },
+      { id: "1", prenom: "Léa", libelle: "1 bubble tea 🎂", valide_jusqu_au: "2027-06-30" },
+      { id: "2", prenom: "Lou", libelle: "1 bubble tea 🎂", valide_jusqu_au: "2027-06-30" },
+      { id: "3", prenom: "Léa", libelle: "1 bubble tea 🎂", valide_jusqu_au: "2027-06-30" },
     ])
     const lea = g.find((x) => x.prenom === "Léa")
-    expect(lea?.libelles.length).toBe(2)
+    expect(lea?.items.length).toBe(2)
+    expect(lea?.items[0].valideJusquAu).toBe("2027-06-30")
     expect(g.length).toBe(2)
+  })
+
+  it("bonusIsValid : non échu (>= aujourd'hui) vrai ; échu (hier) faux (PS-18b)", () => {
+    expect(bonusIsValid("2027-06-30", "2026-10-09")).toBe(true)
+    expect(bonusIsValid("2026-10-09", "2026-10-09")).toBe(true)   // même jour = valide
+    expect(bonusIsValid("2026-10-08", "2026-10-09")).toBe(false)  // hier = échu
+    expect(bonusIsValid(null, "2026-10-09")).toBe(false)
+  })
+
+  it("fmtBonusDate : AAAA-MM-JJ → JJ/MM/AAAA", () => {
+    expect(fmtBonusDate("2027-06-30")).toBe("30/06/2027")
+    expect(fmtBonusDate("")).toBe("")
   })
 })
