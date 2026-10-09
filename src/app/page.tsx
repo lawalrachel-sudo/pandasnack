@@ -1,14 +1,26 @@
 import Link from "next/link"
 import { Logo } from "@/components/Logo"
 import { InfoParentsBanner } from "@/components/InfoParentsBanner"
+import { StageHero } from "@/components/StageHero"
+import { getSupabaseAdmin } from "@/lib/supabase/admin"
+import { getStageDisplay } from "@/lib/stage-server"
 
-export default function Home() {
+export const dynamic = "force-dynamic"
+
+export default async function Home() {
+  // PS-17 — hero Stage de Toussaint tant qu'un créneau stage actif est à venir (sans date en dur).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const admin: any = getSupabaseAdmin()
+  const stage = await getStageDisplay(admin)
+
   return (
     <div className="flex flex-col flex-1 items-center justify-center px-6 py-16">
       {/* Logo banner xl */}
       <div className="mb-8">
         <Logo size="xl" />
       </div>
+
+      {stage.heroUpcoming && <div className="w-full max-w-sm mb-4"><StageHero /></div>}
 
       <h1 className="text-2xl font-bold text-center mb-3" style={{ color: 'var(--ink)' }}>
         Commande en ligne

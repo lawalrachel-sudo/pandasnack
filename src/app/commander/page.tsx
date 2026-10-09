@@ -5,6 +5,7 @@ import { destinationApresAuth } from "@/lib/profil-gate"
 import { filterSlotsForAccount } from "@/lib/devoirs"
 import { getSupabaseAdmin } from "@/lib/supabase/admin"
 import { getSaKiNiHero } from "@/lib/sa-ki-ni-server"
+import { getStageDisplay } from "@/lib/stage-server"
 
 export const dynamic = "force-dynamic"
 
@@ -127,6 +128,9 @@ export default async function CommanderPage() {
   const admin: any = getSupabaseAdmin()
   const saKiNiHero = admin ? await getSaKiNiHero(supabase, admin) : null
 
+  // PS-17 — hero/bandeau Stage de Toussaint (dérivés des créneaux stage actifs, sans date en dur).
+  const stage = admin ? await getStageDisplay(admin) : { heroUpcoming: false, weekNow: false }
+
   return (
     <CommanderClient
       account={account}
@@ -141,6 +145,8 @@ export default async function CommanderPage() {
       weekItemCount={weekItemCount}
       weekTotalCents={weekTotalCents}
       saKiNiHero={saKiNiHero}
+      stageHeroUpcoming={stage.heroUpcoming}
+      stageWeekNow={stage.weekNow}
     />
   )
 }

@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest"
 import { METIER_FILTERS, HIDDEN_METIERS, metierOfOrder, orderMatchesMetier, metierLabel, metierEtiquette } from "./metiers"
 
 describe("métiers (PS-13b)", () => {
-  it("options : TOUS, Pandattitude, Panda Devoirs uniquement", () => {
-    expect(METIER_FILTERS.map((f) => f.value)).toEqual(["", "pandattitude", "panda_devoirs"])
+  it("options : TOUS, Pandattitude, Panda Devoirs, Stage", () => {
+    expect(METIER_FILTERS.map((f) => f.value)).toEqual(["", "pandattitude", "panda_devoirs", "stage"])
   })
   it("anciens métiers masqués des menus", () => {
     for (const m of ["ecole_la_patience", "panda_guest", "ecole", "coffret_bureau", "divers"]) {
@@ -25,6 +25,14 @@ describe("métiers (PS-13b)", () => {
     expect(orderMatchesMetier(midi, "panda_devoirs")).toBe(false)
     expect(orderMatchesMetier(midi, "pandattitude")).toBe(true)
   })
+  it("PS-17 — stage : metierOfOrder='stage' + en-tête étiquette « STAGE »", () => {
+    expect(metierOfOrder({ day_type: "stage", source_group: "pandattitude" })).toBe("stage")
+    expect(metierEtiquette("stage")).toBe("Stage")
+    expect(metierEtiquette("stage").toUpperCase()).toBe("STAGE")
+    expect(orderMatchesMetier({ day_type: "stage", source_group: "pandattitude" }, "stage")).toBe(true)
+    expect(orderMatchesMetier({ day_type: "mercredi", source_group: "pandattitude" }, "stage")).toBe(false)
+  })
+
   it("libellés historiques restent lisibles", () => {
     expect(metierLabel("ecole_la_patience")).toBe("École La Patience")
     expect(metierLabel("panda_guest")).toBe("Panda Guest")
