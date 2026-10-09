@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { groupBonusByChild, fmtBonusDate, type BonusRow } from "@/lib/panda-bonus"
 import { useSearchParams } from "next/navigation"
 import { Navbar } from "@/components/Navbar"
 import { HeaderMetier } from "@/components/HeaderMetier"
@@ -42,9 +43,10 @@ interface Props {
   orderCount: number
   userEmail: string
   pendingCount: number
+  pandaBonus: BonusRow[]  // PS-18 — bonus émis (non consommés)
 }
 
-export function MonEspaceClient({ account, profils, wallet, walletTransactions, orderCount, userEmail, pendingCount }: Props) {
+export function MonEspaceClient({ account, profils, wallet, walletTransactions, orderCount, userEmail, pendingCount, pandaBonus }: Props) {
   const searchParams = useSearchParams()
   const initialTab = searchParams.get("tab") === "wallet" ? "wallet" : searchParams.get("tab") === "compte" ? "compte" : "profils"
   const [tab, setTab] = useState<"profils" | "wallet" | "compte">(initialTab)
@@ -328,6 +330,26 @@ export function MonEspaceClient({ account, profils, wallet, walletTransactions, 
           </div>
         </div>
       </div>
+
+      {/* PS-18 — Mes bonus (🎁) : un badge par bonus émis non consommé, avec l'enfant et le libellé. */}
+      {pandaBonus.length > 0 && (
+        <div className="px-4 py-4 border-b" style={{ borderColor: "var(--border)" }}>
+          <p className="text-sm font-bold mb-2" style={{ color: "var(--ink)" }}>🎁 Mes bonus</p>
+          <div className="flex flex-col gap-2">
+            {groupBonusByChild(pandaBonus).map((g) => (
+              <div key={g.prenom} className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-semibold" style={{ color: "var(--ink)" }}>{g.prenom}</span>
+                {g.items.map((it, i) => (
+                  <span key={i} className="text-xs font-semibold rounded-full px-3 py-1" style={{ background: "#FEF3E2", color: "#92400E", border: "1px solid #F5D5A0" }}>🎁 {it.libelle} · valable jusqu&apos;au {fmtBonusDate(it.valideJusquAu)}</span>
+                ))}
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] mt-2 leading-snug" style={{ color: "var(--ink-soft)" }}>
+            Offert par l&apos;école. S&apos;applique tout seul à ta prochaine commande du produit.
+          </p>
+        </div>
+      )}
 
       {/* G — Encart Mon ID Panda (visible dès l'arrivée) */}
       <div className="px-4 py-4 border-b" style={{ borderColor: "var(--border)", background: "var(--bg-alt)" }}>

@@ -49,6 +49,13 @@ export async function POST(req: NextRequest) {
   if (cancelErr) { console.error("[admin/orders/cancel]", cancelErr); return NextResponse.json({ error: "L'annulation a échoué" }, { status: 500 }) }
   if (!cancelled || cancelled.length === 0) return NextResponse.json({ error: "Commande non annulable" }, { status: 409 })
 
+  // PS-18 — restitue les Panda Bonus consommés par cette commande.
+  try {
+    await admin.from("panda_bonus")
+      .update({ statut: "emis", consomme_at: null, commande_id: null })
+      .eq("commande_id", orderId).eq("statut", "consomme")
+  } catch { /* non bloquant */ }
+
   let refunded = false
   if (order.status === "paid" && order.total_cents > 0 && order.payment_method !== "on_site") {
     const { data: wallet } = await admin.from("wallets").select("id, balance_cents, total_credited_cents").eq("account_id", order.account_id).maybeSingle()
