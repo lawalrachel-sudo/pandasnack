@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabase } from "@/lib/supabase/server"
 import { requireAdmin } from "@/lib/auth/admin"
+import { resolveServiceNav } from "@/lib/service-nav"
 import { getSupabaseAdmin } from "@/lib/supabase/admin"
 import { notesHaveSauce } from "@/lib/menu-options"
 
@@ -46,18 +47,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ slot: null, nav: { prev: null, next: null }, orders: [] })
   }
 
-  // Date résolue : demandée si elle existe, sinon prochain service, sinon dernier passé.
-  let idx = -1
-  if (askedDate) idx = slots.findIndex((s) => s.service_date === askedDate)
-  if (idx === -1) {
-    idx = slots.findIndex((s) => s.service_date >= today)
-    if (idx === -1) idx = slots.length - 1
-  }
+  // Date résolue + navigation ‹ › (pure, testée). Les jours de stage (pandattitude) en font partie.
+  const { idx, prev, next } = resolveServiceNav(slots, askedDate, today)
   const slot = slots[idx]
-  const nav = {
-    prev: idx > 0 ? slots[idx - 1].service_date : null,
-    next: idx < slots.length - 1 ? slots[idx + 1].service_date : null,
-  }
+  const nav = { prev, next }
   const cutoffPassed = slot.orders_cutoff_at ? new Date() >= new Date(slot.orders_cutoff_at) : false
 
   // Commandes du service (toutes, y compris cancelled et comptes test : le client trie).

@@ -10,6 +10,7 @@ export const METIER_FILTERS: MetierFilter[] = [
   { value: "", label: "TOUS" },
   { value: "pandattitude", label: "Pandattitude" },
   { value: "panda_devoirs", label: "Panda Devoirs" },
+  { value: "stage", label: "Stage" },  // PS-17 — commandes sur créneau day_type='stage'
 ]
 
 // Métiers historiques masqués des menus (conservés en base).
@@ -19,6 +20,7 @@ export const HIDDEN_METIERS = ["ecole_la_patience", "ecole", "panda_guest", "cof
 export const METIER_LABELS: Record<string, string> = {
   pandattitude: "Pandattitude",
   panda_devoirs: "Panda Devoirs",
+  stage: "Stage",
   ecole_la_patience: "École La Patience",
   ecole: "École",
   panda_guest: "Panda Guest",
@@ -40,6 +42,7 @@ export interface OrderMetierInput { day_type?: string | null; source_group?: str
  */
 export function metierOfOrder(o: OrderMetierInput): string {
   if (o.day_type === "devoirs" || o.source_group === "panda_devoirs") return "panda_devoirs"
+  if (o.day_type === "stage") return "stage"  // PS-17
   return o.source_group || ""
 }
 
@@ -52,5 +55,6 @@ export function orderMatchesMetier(o: OrderMetierInput, filterValue: string | nu
 /** Libellé court pour l'en-tête d'étiquette (« Devoirs · <date> », « Pandattitude · <date> »). */
 export function metierEtiquette(metier: string): string {
   if (metier === "panda_devoirs") return "Devoirs"
+  if (metier === "stage") return "Stage"  // PS-17 — en-tête « STAGE · <date> »
   return metierLabel(metier)
 }

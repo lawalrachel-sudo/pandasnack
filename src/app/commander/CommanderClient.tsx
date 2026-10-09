@@ -9,10 +9,12 @@ import { useCart } from "@/lib/cart-context"
 import { HeaderMetier } from "@/components/HeaderMetier"
 import { sauceCheckboxApplies, setSauceInNotes } from "@/lib/menu-options"
 import { visForSource as visForSourceShared, isMenuPlatSku, visForDevoirs } from "@/lib/visibility"
-import { RENTREE_BANNER, SECTION_LABELS, SNACK_SECTION, HOWTO_STEPS, HOWTO_TITLE, HOWTO_PILL } from "@/lib/banner"
+import { RENTREE_BANNER, STAGE_HORAIRES, SECTION_LABELS, SNACK_SECTION, HOWTO_STEPS, HOWTO_TITLE, HOWTO_PILL } from "@/lib/banner"
 import { InfoParentsBanner } from "@/components/InfoParentsBanner"
 import { profilCommandable } from "@/lib/profil-gate"
 import { SaKiNiHero, type SaKiNiHeroData } from "@/components/SaKiNiHero"
+import { StageHero } from "@/components/StageHero"
+import { pickHero } from "@/lib/hero-priority"
 
 // ============================================================================
 // TYPES
@@ -52,6 +54,8 @@ interface Props {
   weekItemCount: number
   weekTotalCents: number
   saKiNiHero: SaKiNiHeroData | null
+  stageHeroUpcoming: boolean  // PS-17
+  stageWeekNow: boolean       // PS-17
 }
 
 // ============================================================================
@@ -103,11 +107,13 @@ function buildImgUrl(url: string): string {
 // COMPONENT
 // ============================================================================
 
-export function CommanderClient({ account, profils, wallet, categories, menuFormulas, toppings, slots, pendingCount, pendingTotalCents, weekItemCount, weekTotalCents, saKiNiHero }: Props) {
+export function CommanderClient({ account, profils, wallet, categories, menuFormulas, toppings, slots, pendingCount, pendingTotalCents, weekItemCount, weekTotalCents, saKiNiHero, stageHeroUpcoming, stageWeekNow }: Props) {
   const router = useRouter()
   const { refreshPendingCount } = useCart()
   const [selectedSlotId, setSelectedSlotId] = useState<string>(slots[0]?.id || "")
   const [sknToast, setSknToast] = useState(false)  // PS-14b — toast Sa ki ni (hero + pilule jour fermé)
+  // PS-17 — un seul hero affiché : Sa ki ni > Stage > (produit maison, non géré ici).
+  const heroKind = pickHero({ saKiNiActive: !!saKiNiHero, stageActive: stageHeroUpcoming })
   const [selectedProfilId, setSelectedProfilId] = useState<string>("")
   const [addedToast, setAddedToast] = useState<string | null>(null)
   const [addInFlight, setAddInFlight] = useState(false)
@@ -514,13 +520,14 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       <HeaderMetier sg={sg} />
 
       {/* PS-14 — hero temporel Sa ki ni (jour J, après clôture, jusqu'à 10h30) */}
-      {saKiNiHero && <SaKiNiHero hero={saKiNiHero} profils={activeProfils.map((p) => ({ id: p.id, prenom: p.prenom }))} toastOpen={sknToast} onToastOpenChange={setSknToast} />}
+      {heroKind === "sakini" && saKiNiHero && <SaKiNiHero hero={saKiNiHero} profils={activeProfils.map((p) => ({ id: p.id, prenom: p.prenom }))} toastOpen={sknToast} onToastOpenChange={setSknToast} />}
+      {heroKind === "stage" && <StageHero />}
 
       {/* PS-01 — Bandeau rentrée permanent (texte dans src/lib/banner.ts). Remplace le HERO Portes Ouvertes. */}
       <section aria-label="Rentrée" className="px-4 pt-2 pb-4">
         <div className="rounded-2xl px-4 py-4 text-center" style={{ background: "var(--accent)", color: "var(--ink-on-accent)", boxShadow: "0 2px 16px var(--shadow)" }}>
           <h2 className="font-display font-semibold text-lg leading-snug">{RENTREE_BANNER.title}</h2>
-          <p className="text-sm mt-1.5 opacity-95">{RENTREE_BANNER.subtitle}</p>
+          <p className="text-sm mt-1.5 opacity-95">{stageWeekNow ? STAGE_HORAIRES : RENTREE_BANNER.subtitle}</p>
         </div>
       </section>
       {/* PS-04 — Info parents (commande la veille avant 20h), juste sous le bandeau horaires */}

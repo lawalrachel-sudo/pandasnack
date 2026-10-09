@@ -36,6 +36,7 @@ function formatSaleLine(l: ComptoirLine): string {
 export function VeilleClient({ serviceDate }: { serviceDate: string }) {
   const [orders, setOrders] = useState<SvcOrder[] | null>(null)
   const [isDevoirs, setIsDevoirs] = useState(false)
+  const [isStage, setIsStage] = useState(false)  // PS-17
   const [comptoir, setComptoir] = useState<ComptoirLine[]>([])
   const [comptoirTotals, setComptoirTotals] = useState<{ name: string; qty: number }[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -54,6 +55,7 @@ export function VeilleClient({ serviceDate }: { serviceDate: string }) {
         if (annule) return
         setOrders(jsvc.orders || [])
         setIsDevoirs(jsvc.slot?.day_type === "devoirs")
+        setIsStage(jsvc.slot?.day_type === "stage")
         setComptoir(rcpt.ok ? (jcpt.lines || []) : [])
         setComptoirTotals(rcpt.ok ? (jcpt.totals || []) : [])
       } catch (e) { if (!annule) setError((e as Error).message) }
@@ -107,7 +109,7 @@ export function VeilleClient({ serviceDate }: { serviceDate: string }) {
       {orders && (
         <>
           <header className="veille-head">
-            <h1>Feuille de route — {jourLong(serviceDate)}{isDevoirs ? " · Panda Devoirs" : ""}</h1>
+            <h1>Feuille de route — {jourLong(serviceDate)}{isDevoirs ? " · Panda Devoirs" : ""}{isStage ? " · STAGE" : ""}</h1>
             <p>{sections.aPreparer.length} commande(s) à préparer{comptoir.length > 0 ? ` · ${comptoir.length} ligne(s) comptoir` : ""}</p>
           </header>
 
