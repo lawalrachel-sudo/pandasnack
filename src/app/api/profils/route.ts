@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabase as createClient } from "@/lib/supabase/server"
 import { getSupabaseAdmin } from "@/lib/supabase/admin"
+import { attachPendingBonus } from "@/lib/panda-bonus-server"
 import { CLASSES_PAR_METIER, classeValidePourMetier, type Metier } from "@/lib/profil-gate"
 import { shouldReactivateOnProfil } from "@/lib/account-archive"
 import { isValidPlafond } from "@/lib/plafond"
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 })
 
   const { data: account } = await supabase
-    .from("accounts").select("id, source_group").eq("auth_user_id", user.id).single()
+    .from("accounts").select("id, source_group, email, pandapp_famille_id").eq("auth_user_id", user.id).single()
   if (!account) return NextResponse.json({ error: "Compte introuvable" }, { status: 404 })
 
   const { prenom, nom, classe, notes_allergies, metier } = await req.json()
@@ -81,6 +82,8 @@ export async function POST(req: NextRequest) {
   }
   if (!profil) return NextResponse.json({ error: "Profil non créé" }, { status: 500 })
   await reactivateIfChild(account.id, { type_profil: profil.type_profil, active: profil.active })
+  // PS-19 — rattache les Panda Bonus émis par email (prénom qui matche → profil_id).
+  try { const a = getSupabaseAdmin(); if (a) await attachPendingBonus(a, account) } catch { /* non bloquant */ }
   return NextResponse.json({ success: true, profil })
 }
 

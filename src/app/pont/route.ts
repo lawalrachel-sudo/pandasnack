@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabase } from "@/lib/supabase/server"
 import { getSupabaseAdmin } from "@/lib/supabase/admin"
 import { verifyPontToken, pickPontAccount, childrenToCreate, type PontAccount } from "@/lib/pont-pandapp"
+import { attachPendingBonus } from "@/lib/panda-bonus-server"
 
 export const dynamic = "force-dynamic"
 
@@ -95,6 +96,9 @@ export async function GET(req: NextRequest) {
   }
 
   await logPont(admin, p.familleId, account.id, action, `tags=${(p.tags || []).join("|")};enfants+${toCreate.length}`)
+
+  // PS-19 — rattache les Panda Bonus émis par email de cette famille (prénom qui matche → profil_id).
+  try { await attachPendingBonus(admin, { id: account.id, email: account.email, pandapp_famille_id: account.pandapp_famille_id }) } catch { /* non bloquant */ }
 
   // Session : magic link consommé côté serveur (aucun mot de passe en code), comme PS-13.
   if (!account.email) return errorPage()

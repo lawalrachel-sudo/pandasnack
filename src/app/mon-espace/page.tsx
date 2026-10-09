@@ -53,12 +53,12 @@ export default async function MonEspacePage() {
   // la RLS ne renvoie QUE les bonus des profils de ce compte.
   const { data: bonus } = await supabase
     .from("panda_bonus")
-    .select("id, libelle, produit, valide_jusqu_au, profils(prenom)")
+    .select("id, libelle, produit, valide_jusqu_au, prenom_enfant, profils(prenom)")
     .eq("statut", "emis")
     .gte("valide_jusqu_au", martiniqueToday())
     .order("emis_at", { ascending: false })
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const pandaBonus = (bonus || []).map((b: any) => ({ id: b.id, libelle: b.libelle, produit: b.produit, valide_jusqu_au: b.valide_jusqu_au, prenom: b.profils?.prenom || null }))
+  const pandaBonus = (bonus || []).map((b: any) => ({ id: b.id, libelle: b.libelle, produit: b.produit, valide_jusqu_au: b.valide_jusqu_au, prenom: b.profils?.prenom || b.prenom_enfant || null }))
 
   return (
     <MonEspaceClient
