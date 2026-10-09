@@ -18,6 +18,16 @@ export function bonusPreview(emisBonusCount: number, eligibleUnits: number, unit
 
 export interface BonusRow { id: string; libelle: string; prenom: string | null; valide_jusqu_au: string }
 
+/** PS-19 — prénom normalisé (minuscules, sans accents/espaces) pour rattacher un bonus émis par
+ *  email au bon enfant. Jamais de match approximatif : on compare des prénoms normalisés égaux. */
+export function prenomNorm(s: string | null | undefined): string {
+  return (s || "").trim().toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "")
+}
+export function prenomMatch(a: string | null | undefined, b: string | null | undefined): boolean {
+  const na = prenomNorm(a); const nb = prenomNorm(b)
+  return na.length > 0 && na === nb
+}
+
 /** PS-18b — un bonus est-il encore valide à la date Martinique du jour (AAAA-MM-JJ) ? */
 export function bonusIsValid(valideJusquAu: string | null | undefined, todayMartinique: string): boolean {
   if (!valideJusquAu) return false

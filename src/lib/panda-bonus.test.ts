@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { bonusFreeCount, bonusPreview, groupBonusByChild, bonusIsValid, fmtBonusDate } from "./panda-bonus"
+import { bonusFreeCount, bonusPreview, groupBonusByChild, bonusIsValid, fmtBonusDate, prenomMatch } from "./panda-bonus"
 
 describe("PS-18 — panda-bonus (aperçu pur)", () => {
   it("1 bonus + 2 bubble tea → 1 offert", () => {
@@ -33,6 +33,14 @@ describe("PS-18 — panda-bonus (aperçu pur)", () => {
     expect(bonusIsValid("2026-10-09", "2026-10-09")).toBe(true)   // même jour = valide
     expect(bonusIsValid("2026-10-08", "2026-10-09")).toBe(false)  // hier = échu
     expect(bonusIsValid(null, "2026-10-09")).toBe(false)
+  })
+
+  it("prenomMatch (PS-19) : égalité normalisée (casse/accents/espaces), jamais approximatif", () => {
+    expect(prenomMatch("Léa", "lea")).toBe(true)
+    expect(prenomMatch("  Noé ", "NOE")).toBe(true)
+    expect(prenomMatch("Lou", "Louis")).toBe(false)   // pas d'à-peu-près
+    expect(prenomMatch("", "Lou")).toBe(false)
+    expect(prenomMatch(null, null)).toBe(false)
   })
 
   it("fmtBonusDate : AAAA-MM-JJ → JJ/MM/AAAA", () => {
