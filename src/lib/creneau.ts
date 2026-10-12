@@ -33,3 +33,21 @@ export function classeToCreneau(classe: string | null | undefined): CreneauResul
   const distinct = Array.from(new Set(jours))
   return { jour: jours[0] ?? null, ambiguous: distinct.length > 1, source: classe ?? null }
 }
+
+// PS-21 — classe à poser par le pont PandApp sur un profil enfant :
+//  - si l'enfant est un élève COURS (présent dans eleves_connus de l'année, même prénom normalisé)
+//    → son vrai jour (mercredi/samedi/vendredi ; double jour → premier jour, cf. classeToCreneau) ;
+//  - sinon (enfant stage, hors eleves_connus) → 'stage'.
+// Évite qu'un élève cours passé par le pont reste bloqué en 'stage' (le trigger PS-20 ne recrée
+// pas un profil déjà existant).
+import { prenomKey } from "./eleves-connus"
+
+export function classePourEnfantPont(
+  elevesCoursAnnee: Array<{ prenom: string | null; classe: string | null }>,
+  prenomEnfant: string | null | undefined,
+): JourCreneau | "stage" {
+  const k = prenomKey(prenomEnfant)
+  const match = (elevesCoursAnnee || []).find((r) => prenomKey(r.prenom) === k)
+  if (!match) return "stage"
+  return classeToCreneau(match.classe).jour ?? "stage"
+}

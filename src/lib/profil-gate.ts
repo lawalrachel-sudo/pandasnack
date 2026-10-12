@@ -18,7 +18,7 @@ export type Metier = "ecole" | "pandattitude" | "panda_guest"
 // par l'ancien champ libre de /admin/profils.
 export const CLASSES_PAR_METIER: Record<Metier, readonly string[]> = {
   ecole: ["maternelle", "primaire", "college", "lycee", "prof"],
-  pandattitude: ["mercredi", "vendredi", "samedi"],
+  pandattitude: ["mercredi", "vendredi", "samedi", "stage"],  // PS-21 — 'stage' = famille stage (pont), commandable, carte filtrée par day_type
   panda_guest: [],
 }
 
