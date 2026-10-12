@@ -23,7 +23,7 @@ import { pickHero } from "@/lib/hero-priority"
 type SourceGroup = "ecole_la_patience" | "pandattitude" | "panda_guest" | "panda_devoirs"
 type Metier = "ecole" | "pandattitude" | "panda_guest"
 // BUG B — classe = scolaire OU créneau pandattitude (mer/ven/sam) OU null pour panda_guest
-type Classe = "maternelle" | "primaire" | "college" | "lycee" | "prof" | "mercredi" | "vendredi" | "samedi"
+type Classe = "maternelle" | "primaire" | "college" | "lycee" | "prof" | "mercredi" | "vendredi" | "samedi" | "stage"
 
 interface CatalogItem {
   id: string; sku: string | null; code: string | null; name: string
@@ -83,8 +83,8 @@ function skuCat(sku: string): string | null {
   return null
 }
 // BUG B — labels classe pour 3 métiers (scolaire + créneaux pandattitude)
-const CL: Record<string, string> = { maternelle: "Mat.", primaire: "Prim.", college: "Coll.", lycee: "Lyc.", prof: "Prof", mercredi: "Mer.", vendredi: "Ven.", samedi: "Sam." }
-const CLF: Record<string, string> = { maternelle: "Maternelle", primaire: "Primaire", college: "Collège", lycee: "Lycée", prof: "Prof/Équipe", mercredi: "Mercredi", vendredi: "Vendredi", samedi: "Samedi" }
+const CL: Record<string, string> = { maternelle: "Mat.", primaire: "Prim.", college: "Coll.", lycee: "Lyc.", prof: "Prof", mercredi: "Mer.", vendredi: "Ven.", samedi: "Sam.", stage: "Stage" }
+const CLF: Record<string, string> = { maternelle: "Maternelle", primaire: "Primaire", college: "Collège", lycee: "Lycée", prof: "Prof/Équipe", mercredi: "Mercredi", vendredi: "Vendredi", samedi: "Samedi", stage: "Stage" }
 // Mapping account.source_group → profil.metier (compat ascendante)
 function sgToMetier(sg: string | null | undefined): Metier {
   if (sg === "ecole_la_patience") return "ecole"

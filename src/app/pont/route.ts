@@ -3,6 +3,7 @@ import { createServerSupabase } from "@/lib/supabase/server"
 import { getSupabaseAdmin } from "@/lib/supabase/admin"
 import { verifyPontToken, pickPontAccount, childrenToCreate, type PontAccount } from "@/lib/pont-pandapp"
 import { attachPendingBonus } from "@/lib/panda-bonus-server"
+import { classePourEnfantPont } from "@/lib/creneau"
 
 export const dynamic = "force-dynamic"
 
@@ -88,9 +89,20 @@ export async function GET(req: NextRequest) {
   const { data: existing } = await admin.from("profils").select("prenom, nom").eq("account_id", account.id)
   const toCreate = childrenToCreate(existing || [], p.enfants || [])
   if (toCreate.length > 0) {
+    // PS-21 — classe commandable par enfant : vrai jour s'il est élève cours (eleves_connus de
+    // l'année, même e-mail), sinon 'stage' (famille stage). Un profil sans classe n'est pas
+    // commandable → la famille ne verrait ni les créneaux ni la carte stage.
+    const emailN = (account.email || "").trim().toLowerCase()
+    const { data: ecAll } = await admin.from("eleves_connus").select("prenom, classe, annee, email_parent, email_parent2")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const anneeMax = ((ecAll || []) as any[]).map((r) => r.annee as string).sort().reverse()[0] || null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const coursFamille = ((ecAll || []) as any[]).filter((r) =>
+      r.annee === anneeMax && ((r.email_parent || "").trim().toLowerCase() === emailN || (r.email_parent2 || "").trim().toLowerCase() === emailN))
     await admin.from("profils").insert(toCreate.map((e) => ({
       account_id: account!.id, prenom: e.prenom, nom: e.nom,
       metier: "pandattitude", type_profil: "eleve", active: true, is_default: false,
+      classe: classePourEnfantPont(coursFamille, e.prenom),
     })))
     if (account.archived_at) await admin.from("accounts").update({ archived_at: null }).eq("id", account.id)
   }
