@@ -4,7 +4,7 @@ import { ADMIN_TILES, tileHref } from "./admin-nav"
 describe("ADMIN_TILES (PS-06e)", () => {
   it("liste et ordre exacts des tuiles", () => {
     expect(ADMIN_TILES.map((t) => t.key)).toEqual([
-      "service", "veille", "etiquettes", "clients", "comptes-pandas", "historique", "calculette", "boutique", "caisse", "vue-client", "labo",
+      "service", "veille", "etiquettes", "clients", "comptes-pandas", "tickets", "historique", "calculette", "boutique", "caisse", "vue-client", "labo",
     ])
   })
 
