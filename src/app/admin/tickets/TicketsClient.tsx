@@ -17,6 +17,7 @@ interface TicketRow {
   montant_ttc: number | null
   moyen_paiement: TicketMoyen | null
   statut: TicketStatut
+  erreur: string | null
   created_at: string
   tickets_achats_lignes?: { count: number }[]
 }
@@ -39,6 +40,7 @@ export function TicketsClient() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [tickets, setTickets] = useState<TicketRow[] | null>(null)
+  const [sending, setSending] = useState<string | null>(null)
   const keyRef = useRef(1)
 
   async function loadListe() {
@@ -76,6 +78,17 @@ export function TicketsClient() {
   }
   function addLigne() { setLignes((ls) => [...ls, ligneVide(keyRef.current++)]) }
   function delLigne(k: number) { setLignes((ls) => (ls.length > 1 ? ls.filter((l) => l.key !== k) : ls)) }
+
+  async function sendToPennylane(id: string) {
+    setSending(id); setError(null)
+    try {
+      const res = await fetch(`/api/admin/tickets/${id}/pennylane`, { method: "POST" })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || "Échec de l'envoi")
+      await loadListe()
+    } catch (e) { setError((e as Error).message) }
+    finally { setSending(null) }
+  }
 
   function reset() {
     setPhoto(null); setCategorie(null); setFournisseur(""); setDate(martiniqueToday())
@@ -174,7 +187,7 @@ export function TicketsClient() {
       <button type="button" onClick={save} disabled={!categorie || busy} style={{ ...S.cta, ...((!categorie || busy) ? S.ctaOff : {}) }}>
         {busy ? "Enregistrement…" : "Enregistrer le ticket"}
       </button>
-      {categorie && !perso && <p style={S.plNote}>Envoi vers Pennylane : bientôt (jeton requis).</p>}
+      {categorie && !perso && <p style={S.plNote}>Après enregistrement, envoie-le à Pennylane depuis la liste ci-dessous.</p>}
 
       {/* Liste récente */}
       <h2 style={S.h2}>Tickets récents</h2>
@@ -190,7 +203,15 @@ export function TicketsClient() {
             {CATEGORIE_LABEL[t.categorie]} · {t.date_ticket || "—"} · {t.tickets_achats_lignes?.[0]?.count ?? 0} ligne(s)
             {!envoiPennylaneAutorise(t.categorie) ? "" : ""}
           </div>
-          <span style={{ ...S.badge, ...(t.statut === "exclu" ? S.badgeMuted : {}) }}>{STATUT_LABEL[t.statut]}</span>
+          <div style={S.cardFoot}>
+            <span style={{ ...S.badge, ...(t.statut === "exclu" ? S.badgeMuted : {}) }}>{STATUT_LABEL[t.statut]}</span>
+            {(t.statut === "a_envoyer" || t.statut === "a_verifier") && envoiPennylaneAutorise(t.categorie) && (
+              <button type="button" onClick={() => sendToPennylane(t.id)} disabled={sending === t.id} style={S.send}>
+                {sending === t.id ? "Envoi…" : "Envoyer à Pennylane"}
+              </button>
+            )}
+          </div>
+          {t.erreur && <p style={S.cardErr}>⚠ {t.erreur}</p>}
         </div>
       ))}
     </div>
@@ -232,6 +253,9 @@ const S: Record<string, React.CSSProperties> = {
   nom: { fontWeight: 800, fontSize: 16 },
   solde: { fontSize: 16, color: "var(--accent-2, #5A7F42)" },
   sub: { fontSize: 13, color: "var(--ink-soft)", marginTop: 4 },
-  badge: { display: "inline-block", marginTop: 8, fontSize: 12, fontWeight: 700, color: "var(--accent)", background: "#FBF0EA", borderRadius: 8, padding: "3px 8px" },
+  badge: { fontSize: 12, fontWeight: 700, color: "var(--accent)", background: "#FBF0EA", borderRadius: 8, padding: "3px 8px" },
   badgeMuted: { color: "var(--ink-soft)", background: "var(--bg-alt)" },
+  cardFoot: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 10 },
+  send: { minHeight: 40, borderRadius: 10, border: "none", background: "var(--accent)", color: "#fff", fontSize: 13, fontWeight: 700, fontFamily: "inherit", padding: "0 14px", cursor: "pointer" },
+  cardErr: { color: "#DC2626", fontSize: 12, margin: "8px 0 0" },
 }
