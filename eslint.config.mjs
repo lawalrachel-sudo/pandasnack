@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // PS-22 — Edge Functions Deno (runtime Supabase, pas la toolchain Node).
+    "supabase/functions/**",
   ]),
 ]);
 
