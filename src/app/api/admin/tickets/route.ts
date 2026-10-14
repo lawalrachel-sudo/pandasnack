@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabase } from "@/lib/supabase/server"
 import { requireAdmin } from "@/lib/auth/admin"
 import { getSupabaseAdmin } from "@/lib/supabase/admin"
-import { isCategorie, isMoyen, statutInitial, type LigneInput } from "@/lib/tickets"
+import { isCategorie, isMoyen, statutInitial } from "@/lib/tickets"
 
 export const dynamic = "force-dynamic"
 
@@ -82,21 +82,34 @@ export async function POST(req: NextRequest) {
   }).select("id").single()
   if (tErr || !ticket) return NextResponse.json({ error: tErr?.message || "Échec enregistrement" }, { status: 500 })
 
-  const lignes: LigneInput[] = Array.isArray(body?.lignes) ? body.lignes : []
-  const rows = lignes
-    .filter((l) => (l?.article && l.article.toString().trim()) || l?.prix_ttc != null)
-    .map((l) => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const lignes: any[] = Array.isArray(body?.lignes) ? body.lignes : []
+  // Chaque ligne est insérée avec son id (retour) pour pouvoir rattacher un mouvement de stock
+  // Bubble Tea (source 'ticket', pro_snack uniquement). Peu de lignes → insertions unitaires OK.
+  for (const l of lignes) {
+    const hasContent = (l?.article && l.article.toString().trim()) || l?.prix_ttc != null
+    if (!hasContent) continue
+    const bubbleOptionId = (categorie === "pro_snack" && l?.bubble_option_id) ? String(l.bubble_option_id) : null
+    const { data: ligne, error: lErr } = await admin.from("tickets_achats_lignes").insert({
       ticket_id: ticket.id,
       article: l.article?.toString().trim() || null,
-      quantite: l.quantite == null || (l.quantite as unknown) === "" ? null : Number(l.quantite),
+      quantite: l.quantite == null || l.quantite === "" ? null : Number(l.quantite),
       unite: l.unite?.toString().trim() || null,
-      prix_ttc: l.prix_ttc == null || (l.prix_ttc as unknown) === "" ? null : Number(l.prix_ttc),
-      taux_tva: l.taux_tva == null || (l.taux_tva as unknown) === "" ? null : Number(l.taux_tva),
-    }))
-  if (rows.length > 0) {
-    const { error: lErr } = await admin.from("tickets_achats_lignes").insert(rows)
+      prix_ttc: l.prix_ttc == null || l.prix_ttc === "" ? null : Number(l.prix_ttc),
+      taux_tva: l.taux_tva == null || l.taux_tva === "" ? null : Number(l.taux_tva),
+      bubble_option_id: bubbleOptionId,
+    }).select("id").single()
     if (lErr) return NextResponse.json({ error: `Lignes : ${lErr.message}` }, { status: 500 })
+    // Entrée de stock Bubble Tea depuis ce ticket (qty en ml/g déjà calculée côté écran).
+    const base = Number(l?.bubble_base)
+    if (ligne && bubbleOptionId && Number.isFinite(base) && base > 0) {
+      await admin.from("bubble_stock_mouvements").insert({
+        option_id: bubbleOptionId, qty: base, source: "ticket",
+        ref_ticket_ligne_id: ligne.id, note: `Ticket ${body?.fournisseur || ""}`.trim(),
+      })
+    }
   }
 
-  return NextResponse.json({ ok: true, id: ticket.id, statut: statutInitial(categorie), lignes: rows.length })
+  const nbLignes = lignes.filter((l) => (l?.article && l.article.toString().trim()) || l?.prix_ttc != null).length
+  return NextResponse.json({ ok: true, id: ticket.id, statut: statutInitial(categorie), lignes: nbLignes })
 }

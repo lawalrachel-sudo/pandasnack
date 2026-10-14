@@ -23,6 +23,7 @@ export const ADMIN_TILES: AdminTile[] = [
   { key: "clients", label: "Clients", emoji: "👥", href: "/admin/clients" },
   { key: "comptes-pandas", label: "Comptes des Pandas", emoji: "🐼", href: "/admin/comptes-pandas" },
   { key: "tickets", label: "Tickets de courses", emoji: "🧾", href: "/admin/tickets" },
+  { key: "bubble-tea", label: "Bubble Tea", emoji: "🧋", href: "/admin/bubble-tea" },
   { key: "historique", label: "Historique", emoji: "📜", href: "/admin/historique" },
   { key: "calculette", label: "Calculette", emoji: "🧮", href: "/calculette-prix-revient-panda-snack.html" },
   { key: "boutique", label: "Boutique", emoji: "🛒", href: "/admin/boutique" },

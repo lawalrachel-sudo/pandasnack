@@ -9,7 +9,7 @@ import { martiniqueToday } from "@/lib/caisse-date"
 interface Variant { id: string; sku: string; name: string; stock_qty: number | null; jeton_price?: number | null }
 interface Article { id: string; sku: string; name: string; price_alone_cents: number; stock_qty: number | null; is_special: boolean; allergens: string[]; parent_id?: string | null; variants?: Variant[]; jeton_price?: number | null }
 // Unité vendable : un article sans variante, ou une variante précise. C'est l'id envoyé à comptoir_sell.
-interface Unit { id: string; name: string; unit_price_cents: number; stock_qty: number | null; jeton_price: number | null }
+interface Unit { id: string; name: string; unit_price_cents: number; stock_qty: number | null; jeton_price: number | null; sku?: string }
 interface Enfant { id: string; prenom: string; classe: string | null; account_id: string; plafond_gouter_cents: number | null }
 interface Sale { id: string; sale_number: string; prenom: string | null; items: { name: string; qty: number }[]; total_cents: number; payment_mode: string; jeton_qty: number | null; reverses_sale_id: string | null; service_date?: string }
 interface ChildCtx { profil_id: string; prenom: string; classe: string | null; account_id: string; balance_cents: number; plafond_gouter_cents: number | null; consumed_cents: number }
@@ -42,6 +42,25 @@ export function BoutiqueClient() {
   const [toast, setToast] = useState<string | null>(null)
   const [reverseFor, setReverseFor] = useState<string | null>(null)
   const [variantsFor, setVariantsFor] = useState<Article | null>(null)   // sélecteur de variantes ouvert
+  // PS-23 — Bubble Tea au comptoir : parfum + bubbles (épuisé signalé mais sélectionnable).
+  const [bblSirops, setBblSirops] = useState<{ id: string; name: string; epuise: boolean }[]>([])
+  const [bblPerles, setBblPerles] = useState<{ id: string; name: string; epuise: boolean }[]>([])
+  const [bubbleByLine, setBubbleByLine] = useState<Record<string, { sirop_id: string; perles_id: string }>>({})
+  const [bblFor, setBblFor] = useState<Unit | null>(null)
+  const [pendSirop, setPendSirop] = useState<string | null>(null)
+  const [pendPerles, setPendPerles] = useState<string | null>(null)
+  useEffect(() => {
+    let annule = false
+    ;(async () => {
+      try {
+        const res = await fetch("/api/bubble-options")
+        const json = await res.json()
+        if (!annule && res.ok) { setBblSirops(json.sirops || []); setBblPerles(json.perles || []) }
+      } catch { /* non bloquant */ }
+    })()
+    return () => { annule = true }
+  }, [])
+  const bblN = (id: string | null) => id ? ([...bblSirops, ...bblPerles].find((o) => o.id === id)?.name ?? null) : null
   // PS-08a-e — date de service (« pour quand »), défaut = aujourd'hui Martinique.
   const [serviceDate, setServiceDate] = useState<string>(today)
   const [serviceDays, setServiceDays] = useState<string[]>([])
@@ -90,9 +109,9 @@ export function BoutiqueClient() {
     const m = new Map<string, Unit>()
     for (const a of articles) {
       if (a.variants && a.variants.length > 0) {
-        for (const v of a.variants) m.set(v.id, { id: v.id, name: `${a.name} · ${v.name}`, unit_price_cents: a.price_alone_cents, stock_qty: v.stock_qty, jeton_price: v.jeton_price ?? a.jeton_price ?? null })
+        for (const v of a.variants) m.set(v.id, { id: v.id, name: `${a.name} · ${v.name}`, unit_price_cents: a.price_alone_cents, stock_qty: v.stock_qty, jeton_price: v.jeton_price ?? a.jeton_price ?? null, sku: v.sku })
       } else {
-        m.set(a.id, { id: a.id, name: a.name, unit_price_cents: a.price_alone_cents, stock_qty: a.stock_qty, jeton_price: a.jeton_price ?? null })
+        m.set(a.id, { id: a.id, name: a.name, unit_price_cents: a.price_alone_cents, stock_qty: a.stock_qty, jeton_price: a.jeton_price ?? null, sku: a.sku })
       }
     }
     return m
@@ -115,7 +134,7 @@ export function BoutiqueClient() {
   function setQty(id: string, qty: number) {
     setCart((c) => { const n = { ...c }; if (qty <= 0) delete n[id]; else n[id] = qty; return n })
   }
-  function resetCart() { setCart({}); setSumup(""); setIdemKey(uuid()); setServiceDate(today); setDateOpen(false) }
+  function resetCart() { setCart({}); setBubbleByLine({}); setSumup(""); setIdemKey(uuid()); setServiceDate(today); setDateOpen(false) }
 
   async function sell() {
     if (lines.length === 0) return
@@ -131,7 +150,7 @@ export function BoutiqueClient() {
         prenom: child?.prenom ?? null,
         jeton_qty: null,   // PS-09a : calculé serveur (jeton_price × qté)
         sumup_receipt: mode === "cb_sumup" ? sumup.trim() || null : null,
-        items: lines.map((l) => ({ catalog_item_id: l.catalog_item_id, qty: l.qty })),
+        items: lines.map((l) => ({ catalog_item_id: l.catalog_item_id, qty: l.qty, bubble: bubbleByLine[l.catalog_item_id] || undefined })),
       }
       const res = await fetch("/api/admin/boutique/sell", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
@@ -241,8 +260,9 @@ export function BoutiqueClient() {
               </button>
             )
           }
+          const unit: Unit = { id: a.id, name: a.name, unit_price_cents: a.price_alone_cents, stock_qty: a.stock_qty, jeton_price: a.jeton_price ?? null, sku: a.sku }
           return (
-            <button key={a.id} onClick={() => !out && addUnit({ id: a.id, name: a.name, unit_price_cents: a.price_alone_cents, stock_qty: a.stock_qty, jeton_price: a.jeton_price ?? null })} disabled={out} style={{ ...S.article, ...(out ? S.articleOut : {}) }}>
+            <button key={a.id} onClick={() => { if (out) return; if (a.sku === "DRINK-BBL") { setBblFor(unit); setPendSirop(null); setPendPerles(null) } else addUnit(unit) }} disabled={out} style={{ ...S.article, ...(out ? S.articleOut : {}) }}>
               <span style={S.artName}>{a.is_special ? "⭐ " : ""}{a.name}</span>
               <span style={S.artPrice}>{euro(a.price_alone_cents)}</span>
               {a.stock_qty !== null && <span style={{ ...S.artStock, color: out ? "#DC2626" : "var(--ink-soft)" }}>stock {a.stock_qty}</span>}
@@ -270,6 +290,44 @@ export function BoutiqueClient() {
               )
             })}
           </div>
+        </div>
+      )}
+
+      {/* PS-23 — Sélecteur parfum + bubbles pour un Bubble Tea (épuisé signalé, sélectionnable). */}
+      {bblFor && (
+        <div style={S.variantSheet}>
+          <div style={S.variantHead}>
+            <strong>{bblFor.name} — parfum + bubbles</strong>
+            <button onClick={() => setBblFor(null)} style={S.clearChild}>×</button>
+          </div>
+          <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 6px" }}>Parfum</p>
+          <div style={S.chips}>
+            {bblSirops.map((o) => (
+              <button key={o.id} onClick={() => setPendSirop(o.id)}
+                style={{ ...S.chip, ...(pendSirop === o.id ? { borderColor: "var(--accent)", background: "#FBF0EA", color: "var(--accent)" } : {}), ...(o.epuise ? { opacity: 0.6 } : {}) }}>
+                {o.name}{o.epuise ? " · épuisé" : ""}
+              </button>
+            ))}
+          </div>
+          <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "10px 0 6px" }}>Bubbles</p>
+          <div style={S.chips}>
+            {bblPerles.map((o) => (
+              <button key={o.id} onClick={() => setPendPerles(o.id)}
+                style={{ ...S.chip, ...(pendPerles === o.id ? { borderColor: "var(--accent)", background: "#FBF0EA", color: "var(--accent)" } : {}), ...(o.epuise ? { opacity: 0.6 } : {}) }}>
+                {o.name}{o.epuise ? " · épuisé" : ""}
+              </button>
+            ))}
+          </div>
+          <button disabled={!pendSirop || !pendPerles}
+            onClick={() => {
+              if (!pendSirop || !pendPerles || !bblFor) return
+              setBubbleByLine((b) => ({ ...b, [bblFor.id]: { sirop_id: pendSirop, perles_id: pendPerles } }))
+              addUnit(bblFor)
+              setBblFor(null)
+            }}
+            style={{ ...S.chip, marginTop: 12, width: "100%", minHeight: 48, background: "var(--accent)", color: "#fff", borderColor: "var(--accent)", opacity: (!pendSirop || !pendPerles) ? 0.5 : 1 }}>
+            Ajouter {bblN(pendSirop) && bblN(pendPerles) ? `· ${bblN(pendSirop)} / ${bblN(pendPerles)}` : ""}
+          </button>
         </div>
       )}
 

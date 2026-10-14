@@ -7,7 +7,7 @@ import Link from "next/link"
 import { Navbar } from "@/components/Navbar"
 import { HeaderMetier } from "@/components/HeaderMetier"
 import { useCart } from "@/lib/cart-context"
-import { notesHaveSauce } from "@/lib/menu-options"
+import { notesHaveSauce, notesBubbleLabel } from "@/lib/menu-options"
 import { visForSource } from "@/lib/visibility"
 
 const WALLET_IMG = "https://res.cloudinary.com/dbkpvp9ts/image/upload/v1776714727/PANDA_WALLET.jpg"
@@ -764,6 +764,10 @@ export function PanierClient({ account, profils, orders, wallet, upcomingSlots, 
                                         {/* §5 — sauce piment (offerte), détectée dans notes */}
                                         {notesHaveSauce(item.notes) && (
                                           <p className="text-xs mt-0.5" style={{ color: "var(--ink-soft)" }}>🌶️ Sauce piment</p>
+                                        )}
+                                        {/* PS-23 — parfum / bubbles du Bubble Tea */}
+                                        {notesBubbleLabel(item.notes) && (
+                                          <p className="text-xs mt-0.5" style={{ color: "var(--ink-soft)" }}>🧋 {notesBubbleLabel(item.notes)}</p>
                                         )}
                                         {item.takeaway && (
                                           <p className="text-xs mt-0.5" style={{ color: "var(--ink-soft)" }}>· À emporter</p>

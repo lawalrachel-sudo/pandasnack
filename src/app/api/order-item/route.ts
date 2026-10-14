@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabase as createClient } from "@/lib/supabase/server"
-import { notesHaveSauce, setSauceInNotes } from "@/lib/menu-options"
+import { getSupabaseAdmin } from "@/lib/supabase/admin"
+import { notesHaveSauce, setSauceInNotes, notesBubbleLabel, setBubbleInNotes } from "@/lib/menu-options"
 
 // PATCH /api/order-item — swap plat (item solo OU plat dans formula) + toppings
 // Body: { orderItemId, newSku, selectedToppings? }
@@ -30,6 +31,7 @@ export async function PATCH(req: NextRequest) {
     // §5 — la sauce piment vit dans `notes` ; on la mémorise pour la reporter sur le
     // libellé reconstruit après swap (sinon l'option offerte serait perdue silencieusement).
     const keepSauce = notesHaveSauce(item.notes)
+    const keepBubble = notesBubbleLabel(item.notes)  // PS-23 — le choix parfum/bubbles survit au swap
 
     const isFormulaPlat = !!item.menu_formula_id  // formula avec ou sans plat
     const isSolo = !!item.catalog_item_id && !item.menu_formula_id
@@ -100,7 +102,7 @@ export async function PATCH(req: NextRequest) {
         catalog_item_id: newItem.id,
         unit_price_cents: newItem.price_alone_cents,
         line_total_cents: newItem.price_alone_cents,
-        notes: setSauceInNotes(newItem.name, keepSauce),
+        notes: setBubbleInNotes(setSauceInNotes(newItem.name, keepSauce), keepBubble),
       }).eq("id", orderItemId)
 
       // Recalc order totals (prix change pour solo) — TTC sans TVA ajoutée (art. L112-1)
@@ -137,7 +139,7 @@ export async function PATCH(req: NextRequest) {
         .select("name").in("id", newToppings)
       topNames = (tops || []).map((t: { name: string }) => t.name)
     }
-    const newNotes = setSauceInNotes(`${formula?.name || "Menu"} — ${newItem.name}${topNames.length ? ` (${topNames.join(", ")})` : ""}`, keepSauce)
+    const newNotes = setBubbleInNotes(setSauceInNotes(`${formula?.name || "Menu"} — ${newItem.name}${topNames.length ? ` (${topNames.join(", ")})` : ""}`, keepSauce), keepBubble)
 
     await supabase.from("order_items").update({
       catalog_item_id: newItem.id,
@@ -169,6 +171,7 @@ export async function POST(req: NextRequest) {
       orderId, slotId,
       catalogItemId, menuFormulaId, selectedPlatSku,
       profilId, prenomLibre, takeaway, notes, selectedToppings,
+      siropId, perlesId,
     } = body as {
       orderId?: string
       slotId?: string
@@ -180,6 +183,8 @@ export async function POST(req: NextRequest) {
       takeaway?: boolean
       notes: string
       selectedToppings?: string[]
+      siropId?: string | null
+      perlesId?: string | null
     }
 
     if (!notes || (!catalogItemId && !menuFormulaId)) {
@@ -197,9 +202,10 @@ export async function POST(req: NextRequest) {
     // une order pending vide orpheline).
     // Determine price from catalog or formula
     let unitPriceCents = 0
+    let isBubbleTea = false  // PS-23 : Bubble Tea seul (DRINK-BBL) ou Menu Panda (inclut un Bubble Tea)
     if (catalogItemId) {
       const { data: catalogItem } = await supabase
-        .from("catalog_items").select("price_alone_cents, sellable_alone, active, coming_soon").eq("id", catalogItemId).single()
+        .from("catalog_items").select("sku, price_alone_cents, sellable_alone, active, coming_soon").eq("id", catalogItemId).single()
       if (!catalogItem || !catalogItem.active || !catalogItem.sellable_alone || catalogItem.price_alone_cents == null) {
         return NextResponse.json({ error: "Article indisponible" }, { status: 400 })
       }
@@ -208,13 +214,40 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Article bientôt disponible" }, { status: 400 })
       }
       unitPriceCents = catalogItem.price_alone_cents
+      isBubbleTea = catalogItem.sku === "DRINK-BBL"
     } else if (menuFormulaId) {
       const { data: formula } = await supabase
-        .from("menu_formulas").select("price_cents, active").eq("id", menuFormulaId).single()
+        .from("menu_formulas").select("price_cents, active, code").eq("id", menuFormulaId).single()
       if (!formula || !formula.active) {
         return NextResponse.json({ error: "Formule indisponible" }, { status: 400 })
       }
       unitPriceCents = formula.price_cents
+      isBubbleTea = formula.code === "MENU_PANDA"
+    }
+
+    // PS-23 — Bubble Tea : parfum + bubbles obligatoires, et non épuisés (refus serveur BBL_EPUISE).
+    let bubbleSiropId: string | null = null
+    let bubblePerlesId: string | null = null
+    if (isBubbleTea) {
+      if (!siropId || !perlesId) {
+        return NextResponse.json({ error: "Choisis un parfum et des bubbles." }, { status: 400 })
+      }
+      const admin = getSupabaseAdmin()
+      if (!admin) return NextResponse.json({ error: "Service indisponible" }, { status: 503 })
+      const { data: opts } = await admin.from("bubble_stock_estime")
+        .select("option_id, kind, active, doses_restantes").in("option_id", [siropId, perlesId])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sirop = (opts || []).find((o: any) => o.option_id === siropId && o.kind === "sirop")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const perles = (opts || []).find((o: any) => o.option_id === perlesId && o.kind === "perles")
+      if (!sirop?.active || !perles?.active) {
+        return NextResponse.json({ error: "Parfum ou bubbles indisponible." }, { status: 400 })
+      }
+      if (Number(sirop.doses_restantes) < 1 || Number(perles.doses_restantes) < 1) {
+        return NextResponse.json({ error: "BBL_EPUISE", detail: "Ce parfum ou ces bubbles sont épuisés." }, { status: 400 })
+      }
+      bubbleSiropId = siropId
+      bubblePerlesId = perlesId
     }
 
     // Phase 1 (Brief 3-E) — lookup catalog_item_id du vrai plat si formula+plat
@@ -304,6 +337,8 @@ export async function POST(req: NextRequest) {
       prenom_libre: prenomLibre || null,
       takeaway: takeaway || false,
       notes,
+      bubble_sirop_id: bubbleSiropId,
+      bubble_perles_id: bubblePerlesId,
     })
 
     if (insertErr) {
