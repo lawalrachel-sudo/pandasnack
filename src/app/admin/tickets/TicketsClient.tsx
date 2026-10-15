@@ -8,6 +8,7 @@ import {
   ecartLignesVsTotal, envoiPennylaneAutorise,
   type TicketCategorie, type TicketMoyen, type TicketStatut, type LigneInput,
 } from "@/lib/tickets"
+import { conditionnementsFor, type BubbleKind } from "@/lib/bubble-stock"
 
 interface TicketRow {
   id: string
@@ -22,8 +23,8 @@ interface TicketRow {
   tickets_achats_lignes?: { count: number }[]
 }
 
-type LigneUI = LigneInput & { key: number }
-function ligneVide(k: number): LigneUI { return { key: k, article: "", quantite: null, unite: "", prix_ttc: null, taux_tva: null } }
+type LigneUI = LigneInput & { key: number; bubble_option_id?: string | null; bubble_cond?: string | null }
+function ligneVide(k: number): LigneUI { return { key: k, article: "", quantite: null, unite: "", prix_ttc: null, taux_tva: null, bubble_option_id: null, bubble_cond: null } }
 
 function euro(n: number | null | undefined) {
   return n == null ? "—" : `${n.toFixed(2).replace(".", ",")} €`
@@ -41,7 +42,26 @@ export function TicketsClient() {
   const [error, setError] = useState<string | null>(null)
   const [tickets, setTickets] = useState<TicketRow[] | null>(null)
   const [sending, setSending] = useState<string | null>(null)
+  const [bblOpts, setBblOpts] = useState<{ id: string; name: string; kind: BubbleKind }[]>([])
   const keyRef = useRef(1)
+
+  useEffect(() => {
+    let annule = false
+    ;(async () => {
+      try {
+        const res = await fetch("/api/bubble-options")
+        const json = await res.json()
+        if (annule || !res.ok) return
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const s = (json.sirops || []).map((o: any) => ({ id: o.id, name: o.name, kind: "sirop" as BubbleKind }))
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const p = (json.perles || []).map((o: any) => ({ id: o.id, name: o.name, kind: "perles" as BubbleKind }))
+        setBblOpts([...s, ...p])
+      } catch { /* non bloquant */ }
+    })()
+    return () => { annule = true }
+  }, [])
+  const bblKind = (id: string | null | undefined): BubbleKind | null => bblOpts.find((o) => o.id === id)?.kind ?? null
 
   async function loadListe() {
     try {
@@ -75,6 +95,14 @@ export function TicketsClient() {
 
   function setLigne(k: number, patch: Partial<LigneUI>) {
     setLignes((ls) => ls.map((l) => (l.key === k ? { ...l, ...patch } : l)))
+  }
+  function ligneBubbleBase(l: LigneUI): number | null {
+    const kind = bblKind(l.bubble_option_id)
+    if (!l.bubble_option_id || !l.bubble_cond || !kind) return null
+    const q = l.quantite && l.quantite > 0 ? l.quantite : 1
+    if (l.bubble_cond === "libre") return q
+    const cond = conditionnementsFor(kind).find((c) => c.key === l.bubble_cond)
+    return cond ? q * cond.base : null
   }
   function addLigne() { setLignes((ls) => [...ls, ligneVide(keyRef.current++)]) }
   function delLigne(k: number) { setLignes((ls) => (ls.length > 1 ? ls.filter((l) => l.key !== k) : ls)) }
@@ -111,6 +139,8 @@ export function TicketsClient() {
           photoDataUrl: photo,
           lignes: lignes.map((l) => ({
             article: l.article, quantite: l.quantite, unite: l.unite, prix_ttc: l.prix_ttc, taux_tva: l.taux_tva,
+            bubble_option_id: l.bubble_option_id || null,
+            bubble_base: ligneBubbleBase(l),
           })),
         }),
       })
@@ -176,7 +206,27 @@ export function TicketsClient() {
           <input type="number" inputMode="decimal" step="0.1" value={l.taux_tva ?? ""} onChange={(e) => setLigne(l.key, { taux_tva: e.target.value === "" ? null : Number(e.target.value) })} style={{ ...S.input, width: 64 }} placeholder="TVA%" />
           <button type="button" onClick={() => delLigne(l.key)} style={S.del} aria-label="Supprimer la ligne">✕</button>
         </div>
-      ))}
+      )).flatMap((row, i) => {
+        const l = lignes[i]
+        if (categorie !== "pro_snack") return [row]
+        const kind = bblKind(l.bubble_option_id)
+        return [row,
+          <div key={`bbl-${l.key}`} style={S.bblLink}>
+            <span style={S.bblLabel}>→ 🧋 stock</span>
+            <select value={l.bubble_option_id ?? ""} onChange={(e) => setLigne(l.key, { bubble_option_id: e.target.value || null, bubble_cond: null })} style={{ ...S.input, flex: 2 }}>
+              <option value="">—</option>
+              {bblOpts.map((o) => <option key={o.id} value={o.id}>{o.kind === "sirop" ? "Parfum" : "Bubbles"} · {o.name}</option>)}
+            </select>
+            {l.bubble_option_id && kind && (
+              <select value={l.bubble_cond ?? ""} onChange={(e) => setLigne(l.key, { bubble_cond: e.target.value || null })} style={{ ...S.input, flex: 2 }}>
+                <option value="">Conditionnement…</option>
+                {conditionnementsFor(kind).map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+                <option value="libre">Libre (qté = {kind === "sirop" ? "ml" : "g"})</option>
+              </select>
+            )}
+          </div>,
+        ]
+      })}
       <button type="button" onClick={addLigne} style={S.addLigne}>+ Ajouter une ligne</button>
       {montantNum != null && lignes.some((l) => l.prix_ttc != null) && (
         <p style={{ ...S.ecart, color: ecart && Math.abs(ecart) > 0.01 ? "#DC2626" : "var(--ink-soft)" }}>
@@ -243,6 +293,8 @@ const S: Record<string, React.CSSProperties> = {
   input: { width: "100%", minHeight: 44, padding: "0 10px", borderRadius: 10, border: "1px solid var(--border)", fontSize: 15, background: "var(--bg)", color: "var(--ink)", fontFamily: "inherit" },
   ligne: { display: "flex", gap: 6, alignItems: "center", marginBottom: 8 },
   del: { minWidth: 36, minHeight: 36, borderRadius: 8, border: "1px solid var(--border)", background: "var(--card, #fff)", color: "var(--ink-soft)", cursor: "pointer" },
+  bblLink: { display: "flex", gap: 6, alignItems: "center", margin: "-2px 0 10px", paddingLeft: 4 },
+  bblLabel: { fontSize: 12, color: "var(--ink-soft)", fontWeight: 700, whiteSpace: "nowrap" },
   addLigne: { background: "none", border: "none", color: "var(--accent)", fontWeight: 700, fontSize: 14, fontFamily: "inherit", cursor: "pointer", padding: "6px 0" },
   ecart: { fontSize: 13, margin: "4px 0 0" },
   cta: { width: "100%", minHeight: 54, marginTop: 18, borderRadius: 14, border: "none", background: "var(--accent)", color: "#fff", fontSize: 17, fontWeight: 800, fontFamily: "inherit", cursor: "pointer" },

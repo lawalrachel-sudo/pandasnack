@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
       service_slots!inner(service_date, target_source_group, day_type),
       accounts!inner(source_group, nom_compte, is_test),
       order_items(
-        id, profil_id, prenom_libre, formula_choices, topping_ids, takeaway, notes,
+        id, profil_id, prenom_libre, formula_choices, topping_ids, takeaway, notes, bubble_sirop_id, bubble_perles_id,
         menu_formulas(name, dlc_hours),
         catalog_items(name, sku, allergens, dlc_hours),
         profils(prenom, classe)
@@ -102,6 +102,12 @@ export async function GET(req: NextRequest) {
   const topName: Record<string, string> = Object.fromEntries(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (toppingsRef || []).map((t: any) => [t.id, t.name])
+  )
+  // PS-23 — parfums/bubbles (id → nom) pour l'étiquette « · Mangue / Passion ».
+  const { data: bubbleRef } = await admin.from("bubble_options").select("id, name")
+  const bblName: Record<string, string> = Object.fromEntries(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (bubbleRef || []).map((b: any) => [b.id, b.name])
   )
 
   // prepared_at = service_date 08:00 Martinique (UTC-4) → ISO
@@ -139,6 +145,8 @@ export async function GET(req: NextRequest) {
         platName: it.catalog_items?.name || null,
         toppingNames,
         hasSauce,
+        siropName: it.bubble_sirop_id ? (bblName[it.bubble_sirop_id] || null) : null,
+        perlesName: it.bubble_perles_id ? (bblName[it.bubble_perles_id] || null) : null,
       })
       return { name: text || (it.notes || "Article").slice(0, 80) }
     })

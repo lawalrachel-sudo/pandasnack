@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
       created_at, special_request, sa_ki_ni,
       accounts!inner(id, nom_compte, telephone, is_test),
       order_items(
-        id, prenom_libre, quantity, notes, formula_choices, topping_ids,
+        id, prenom_libre, quantity, notes, formula_choices, topping_ids, bubble_sirop_id, bubble_perles_id,
         menu_formulas(name),
         catalog_items(name, sku, category_id, allergens),
         profils(prenom, classe, notes_allergies)
@@ -78,6 +78,12 @@ export async function GET(req: NextRequest) {
   const topName: Record<string, string> = Object.fromEntries(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (toppingsRef || []).map((t: any) => [t.id, t.name])
+  )
+  // PS-23 — noms des parfums/bubbles (id → nom) pour « Bubble Tea · Mangue / Passion ».
+  const { data: bubbleRef } = await admin.from("bubble_options").select("id, name")
+  const bblName: Record<string, string> = Object.fromEntries(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (bubbleRef || []).map((b: any) => [b.id, b.name])
   )
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -119,6 +125,8 @@ export async function GET(req: NextRequest) {
           qty: it.quantity || 1,
           toppings,
           has_sauce: notesHaveSauce(it.notes) || toppings.some((n) => /sauce\s*piment|piment/i.test(n)),
+          sirop_name: it.bubble_sirop_id ? (bblName[it.bubble_sirop_id] || null) : null,
+          perles_name: it.bubble_perles_id ? (bblName[it.bubble_perles_id] || null) : null,
         }
       }),
     }

@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { classifySections, itemLine, routeTotals, type SvcOrder } from "@/lib/service-du-jour"
+import { classifySections, itemLine, routeTotals, isProduction, type SvcOrder } from "@/lib/service-du-jour"
+import { bubbleTotals } from "@/lib/bubble-stock"
 import { AdminBackButton } from "../../AdminBackButton"
 
 // PS-06b §6 / PS-08a-e — Feuille de route A4 imprimable : commandes à préparer (précommande),
@@ -65,6 +66,14 @@ export function VeilleClient({ serviceDate }: { serviceDate: string }) {
 
   const sections = useMemo(() => classifySections(orders || []), [orders])
   const totals = useMemo(() => routeTotals(orders || []), [orders])
+  // PS-23 — « Bubble Tea à préparer » : total par parfum et par bubble du jour (production, hors test).
+  const bubbles = useMemo(() => bubbleTotals(
+    (orders || [])
+      .filter((o) => !o.is_test && isProduction(o))
+      .flatMap((o) => (o.items || [])
+        .filter((it) => it.sirop_name || it.perles_name)
+        .map((it) => ({ siropName: it.sirop_name, perlesName: it.perles_name, quantity: it.qty }))),
+  ), [orders])
 
   // Regroupe les lignes comptoir par enfant (prénom normalisé).
   const comptoirByChild = useMemo(() => {
@@ -190,6 +199,15 @@ export function VeilleClient({ serviceDate }: { serviceDate: string }) {
                 {totals.boissons.length === 0 && <li>—</li>}
               </ul>
             </div>
+            {(bubbles.parSirop.length > 0 || bubbles.parPerles.length > 0) && (
+              <div>
+                <h2>🧋 Bubble Tea à préparer</h2>
+                <ul>
+                  {bubbles.parSirop.map((t) => <li key={`s-${t.name}`}><span className="tqty">{t.count}</span> {t.name} (parfum)</li>)}
+                  {bubbles.parPerles.map((t) => <li key={`p-${t.name}`}><span className="tqty">{t.count}</span> {t.name} (bubbles)</li>)}
+                </ul>
+              </div>
+            )}
           </section>
 
           {comptoirTotals.length > 0 && (

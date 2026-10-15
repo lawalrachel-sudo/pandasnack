@@ -37,3 +37,21 @@ export function sauceCheckboxApplies(skuOrCode: string | null | undefined): bool
   if (s.startsWith("BENT")) return true
   return s === "CROQ-PANDA"
 }
+
+// PS-23 — Bubble Tea : le choix parfum/bubbles est porté par order_items.bubble_sirop_id/perles_id
+// (source de vérité admin) ET baké en suffixe inline dans `notes` (la page /confirmation rend les
+// notes verbatim). Suffixe sur la 1re ligne du label : « Bubble Tea · 🧋 Mangue / Passion ».
+export const BUBBLE_MARK = " · 🧋 "
+
+export function setBubbleInNotes(notes: string | null | undefined, choiceLabel: string | null): string {
+  const lines = (notes || "").split("\n")
+  lines[0] = (lines[0] || "").split(BUBBLE_MARK)[0]
+  if (choiceLabel) lines[0] = `${lines[0]}${BUBBLE_MARK}${choiceLabel}`
+  return lines.join("\n")
+}
+
+export function notesBubbleLabel(notes: string | null | undefined): string | null {
+  const first = (notes || "").split("\n")[0] || ""
+  const i = first.indexOf(BUBBLE_MARK)
+  return i >= 0 ? first.slice(i + BUBBLE_MARK.length) : null
+}

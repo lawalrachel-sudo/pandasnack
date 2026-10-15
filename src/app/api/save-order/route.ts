@@ -126,6 +126,8 @@ export async function POST(req: NextRequest) {
         prenom_libre: item.profilPrenom || null,
         takeaway: item.isTakeaway || false,
         notes: item.itemName,
+        bubble_sirop_id: item.siropId || null,   // PS-23
+        bubble_perles_id: item.perlesId || null, // PS-23
       }
     })
 
@@ -160,4 +162,6 @@ interface SaveItem {
   formulaCode: string | null
   selectedPlat: string | null
   selectedToppings: string[]
+  siropId?: string | null   // PS-23
+  perlesId?: string | null  // PS-23
 }

@@ -21,6 +21,9 @@ export interface SvcItem {
   // Renseignés par /api/admin/service ; absents → itemLine retombe sur le parsing de `notes`.
   toppings?: string[]
   has_sauce?: boolean
+  // PS-23 — parfum/bubbles du Bubble Tea, résolus depuis bubble_sirop_id/bubble_perles_id.
+  sirop_name?: string | null
+  perles_name?: string | null
 }
 
 export interface SvcOrder {
@@ -187,6 +190,8 @@ export interface ComposeInput {
   platName?: string | null    // catalog_items.name : le plat d'un menu, ou l'article seul
   toppingNames?: string[]     // résolus depuis topping_ids
   hasSauce?: boolean          // sauce piment (case à cocher notée dans `notes`)
+  siropName?: string | null   // PS-23 — parfum du Bubble Tea
+  perlesName?: string | null  // PS-23 — bubbles du Bubble Tea
 }
 
 /**
@@ -204,7 +209,11 @@ export function composeItemLabel(input: ComposeInput): { plat: string; options: 
   const names = input.toppingNames || []
   const piment = !!input.hasSauce || names.some(estPiment)
   const food = names.filter((n) => !estPiment(n))
-  const options = [...(piment ? [PIMENT_LABEL] : []), ...food]
+  // PS-23 — choix Bubble Tea en tête des options : « Mangue / Passion ».
+  const bubble = input.siropName || input.perlesName
+    ? [`${input.siropName || "?"} / ${input.perlesName || "?"}`]
+    : []
+  const options = [...bubble, ...(piment ? [PIMENT_LABEL] : []), ...food]
   return { plat, options, text: options.length ? `${plat} · ${options.join(", ")}` : plat }
 }
 
@@ -219,6 +228,7 @@ export function itemLine(it: SvcItem): { label: string; options: string[] } {
     const c = composeItemLabel({
       formulaName: it.menu_formula_name, platName: it.catalog_item_name,
       toppingNames: it.toppings || [], hasSauce: it.has_sauce,
+      siropName: it.sirop_name, perlesName: it.perles_name,
     })
     return { label: c.plat, options: c.options }
   }

@@ -117,11 +117,31 @@ function SaKiNiModal({ hero, item, profils, onClose, onOrdered }: {
   const [error, setError] = useState<string | null>(null)
   const [needRecharge, setNeedRecharge] = useState(false)
   const [done, setDone] = useState<string | null>(null)
+  // PS-23 — le Menu Panda Sa ki ni inclut un Bubble Tea → parfum + bubbles obligatoires.
+  const [bblSirops, setBblSirops] = useState<{ id: string; name: string; epuise: boolean }[]>([])
+  const [bblPerles, setBblPerles] = useState<{ id: string; name: string; epuise: boolean }[]>([])
+  const [sirop, setSirop] = useState<string | null>(null)
+  const [perles, setPerles] = useState<string | null>(null)
+  useEffect(() => {
+    let annule = false
+    ;(async () => {
+      try {
+        const res = await fetch("/api/bubble-options")
+        const json = await res.json()
+        if (!annule && res.ok) { setBblSirops(json.sirops || []); setBblPerles(json.perles || []) }
+      } catch { /* non bloquant */ }
+    })()
+    return () => { annule = true }
+  }, [])
+  const bblName = (id: string | null) => id ? ([...bblSirops, ...bblPerles].find((o) => o.id === id)?.name ?? null) : null
+  const bubbleRequired = mode === "menu"
+  const bubbleMissing = bubbleRequired && (!sirop || !perles)
 
   const total = mode === "menu" ? hero.menu_price_cents : item.price_alone_cents
 
   async function confirm() {
     if (!profilId) { setError("Choisis un enfant."); return }
+    if (bubbleMissing) { setError("Choisis un parfum et des bubbles."); return }
     setBusy(true); setError(null); setNeedRecharge(false)
     try {
       const prenom = profils.find((p) => p.id === profilId)?.prenom || null
@@ -135,7 +155,10 @@ function SaKiNiModal({ hero, item, profils, onClose, onOrdered }: {
             catalog_item_id: item.catalog_item_id,
             is_formula: mode === "menu",
             menu_formula_id: mode === "menu" ? hero.menu_formula_id : null,
-            profil_id: profilId, prenom_libre: prenom, sauce, notes: item.name,
+            profil_id: profilId, prenom_libre: prenom, sauce,
+            notes: mode === "menu" && sirop && perles ? `${item.name} · 🧋 ${bblName(sirop)} / ${bblName(perles)}` : item.name,
+            bubble_sirop_id: mode === "menu" ? sirop : null,
+            bubble_perles_id: mode === "menu" ? perles : null,
           }],
         }),
       })
@@ -195,6 +218,25 @@ function SaKiNiModal({ hero, item, profils, onClose, onOrdered }: {
               </div>
             )}
 
+            {bubbleRequired && (
+              <div className="mt-3">
+                {[{ t: "Parfum", opts: bblSirops, sel: sirop, set: setSirop }, { t: "Bubbles", opts: bblPerles, sel: perles, set: setPerles }].map((r) => (
+                  <div key={r.t} className="mb-2">
+                    <div className="text-sm font-bold mb-1" style={{ color: "var(--ink)" }}>{r.t} <span style={{ color: "var(--accent)" }}>(obligatoire)</span></div>
+                    <div className="flex flex-wrap gap-2">
+                      {r.opts.map((o) => (
+                        <button key={o.id} disabled={o.epuise} onClick={() => r.set(o.id)}
+                          className="px-3 py-2 rounded-full text-sm font-bold border disabled:opacity-40"
+                          style={r.sel === o.id ? { background: "var(--accent)", color: "#fff", borderColor: "transparent" } : { borderColor: "var(--border)", color: "var(--ink)" }}>
+                          {o.name}{o.epuise ? " · épuisé" : ""}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <label className="mt-3 flex items-center gap-2 text-sm" style={{ color: "var(--ink)" }}>
               <input type="checkbox" checked={sauce} onChange={(e) => setSauce(e.target.checked)} /> Sauce piment (gratuit)
             </label>
@@ -206,7 +248,7 @@ function SaKiNiModal({ hero, item, profils, onClose, onOrdered }: {
               </div>
             )}
 
-            <button onClick={confirm} disabled={busy || !profilId} className="mt-4 w-full rounded-xl py-3 font-bold text-white" style={{ background: "#DC2626", opacity: busy ? 0.7 : 1 }}>
+            <button onClick={confirm} disabled={busy || !profilId || bubbleMissing} className="mt-4 w-full rounded-xl py-3 font-bold text-white disabled:opacity-50" style={{ background: "#DC2626", opacity: busy ? 0.7 : 1 }}>
               {busy ? "…" : `Payer ${euro(total)} au Panda Wallet`}
             </button>
             <button onClick={onClose} className="mt-2 w-full rounded-xl py-2 font-semibold" style={{ color: "var(--ink-soft)" }}>Annuler</button>
