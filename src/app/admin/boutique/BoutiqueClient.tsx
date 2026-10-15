@@ -43,10 +43,12 @@ export function BoutiqueClient() {
   const [reverseFor, setReverseFor] = useState<string | null>(null)
   const [variantsFor, setVariantsFor] = useState<Article | null>(null)   // sélecteur de variantes ouvert
   // PS-23 — Bubble Tea au comptoir : parfum + bubbles (épuisé signalé mais sélectionnable).
+  const [bblThes, setBblThes] = useState<{ id: string; name: string; epuise: boolean }[]>([])
   const [bblSirops, setBblSirops] = useState<{ id: string; name: string; epuise: boolean }[]>([])
   const [bblPerles, setBblPerles] = useState<{ id: string; name: string; epuise: boolean }[]>([])
-  const [bubbleByLine, setBubbleByLine] = useState<Record<string, { sirop_id: string; perles_id: string }>>({})
+  const [bubbleByLine, setBubbleByLine] = useState<Record<string, { the_id: string; sirop_id: string; perles_id: string; the: string; sirop: string; perles: string }>>({})
   const [bblFor, setBblFor] = useState<Unit | null>(null)
+  const [pendThe, setPendThe] = useState<string | null>(null)
   const [pendSirop, setPendSirop] = useState<string | null>(null)
   const [pendPerles, setPendPerles] = useState<string | null>(null)
   useEffect(() => {
@@ -55,12 +57,13 @@ export function BoutiqueClient() {
       try {
         const res = await fetch("/api/bubble-options")
         const json = await res.json()
-        if (!annule && res.ok) { setBblSirops(json.sirops || []); setBblPerles(json.perles || []) }
+        if (!annule && res.ok) { setBblThes(json.thes || []); setBblSirops(json.sirops || []); setBblPerles(json.perles || []) }
       } catch { /* non bloquant */ }
     })()
     return () => { annule = true }
   }, [])
-  const bblN = (id: string | null) => id ? ([...bblSirops, ...bblPerles].find((o) => o.id === id)?.name ?? null) : null
+  const bblN = (id: string | null) => id ? ([...bblThes, ...bblSirops, ...bblPerles].find((o) => o.id === id)?.name ?? "") : ""
+  const BBL_SKUS = ["DRINK-BBL", "GOUT-PANDA-GOUTER-BUBBLE"]
   // PS-08a-e — date de service (« pour quand »), défaut = aujourd'hui Martinique.
   const [serviceDate, setServiceDate] = useState<string>(today)
   const [serviceDays, setServiceDays] = useState<string[]>([])
@@ -262,7 +265,7 @@ export function BoutiqueClient() {
           }
           const unit: Unit = { id: a.id, name: a.name, unit_price_cents: a.price_alone_cents, stock_qty: a.stock_qty, jeton_price: a.jeton_price ?? null, sku: a.sku }
           return (
-            <button key={a.id} onClick={() => { if (out) return; if (a.sku === "DRINK-BBL") { setBblFor(unit); setPendSirop(null); setPendPerles(null) } else addUnit(unit) }} disabled={out} style={{ ...S.article, ...(out ? S.articleOut : {}) }}>
+            <button key={a.id} onClick={() => { if (out) return; if (BBL_SKUS.includes(a.sku)) { setBblFor(unit); setPendThe(null); setPendSirop(null); setPendPerles(null) } else addUnit(unit) }} disabled={out} style={{ ...S.article, ...(out ? S.articleOut : {}) }}>
               <span style={S.artName}>{a.is_special ? "⭐ " : ""}{a.name}</span>
               <span style={S.artPrice}>{euro(a.price_alone_cents)}</span>
               {a.stock_qty !== null && <span style={{ ...S.artStock, color: out ? "#DC2626" : "var(--ink-soft)" }}>stock {a.stock_qty}</span>}
@@ -297,10 +300,19 @@ export function BoutiqueClient() {
       {bblFor && (
         <div style={S.variantSheet}>
           <div style={S.variantHead}>
-            <strong>{bblFor.name} — parfum + bubbles</strong>
+            <strong>{bblFor.name} — thé + parfum + bubbles</strong>
             <button onClick={() => setBblFor(null)} style={S.clearChild}>×</button>
           </div>
-          <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 6px" }}>Parfum</p>
+          <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 6px" }}>Thé</p>
+          <div style={S.chips}>
+            {bblThes.map((o) => (
+              <button key={o.id} onClick={() => setPendThe(o.id)}
+                style={{ ...S.chip, ...(pendThe === o.id ? { borderColor: "var(--accent)", background: "#FBF0EA", color: "var(--accent)" } : {}) }}>
+                {o.name}
+              </button>
+            ))}
+          </div>
+          <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "10px 0 6px" }}>Parfum</p>
           <div style={S.chips}>
             {bblSirops.map((o) => (
               <button key={o.id} onClick={() => setPendSirop(o.id)}
@@ -318,15 +330,18 @@ export function BoutiqueClient() {
               </button>
             ))}
           </div>
-          <button disabled={!pendSirop || !pendPerles}
+          <button disabled={!pendThe || !pendSirop || !pendPerles}
             onClick={() => {
-              if (!pendSirop || !pendPerles || !bblFor) return
-              setBubbleByLine((b) => ({ ...b, [bblFor.id]: { sirop_id: pendSirop, perles_id: pendPerles } }))
+              if (!pendThe || !pendSirop || !pendPerles || !bblFor) return
+              setBubbleByLine((b) => ({ ...b, [bblFor.id]: {
+                the_id: pendThe, sirop_id: pendSirop, perles_id: pendPerles,
+                the: bblN(pendThe), sirop: bblN(pendSirop), perles: bblN(pendPerles),
+              } }))
               addUnit(bblFor)
               setBblFor(null)
             }}
-            style={{ ...S.chip, marginTop: 12, width: "100%", minHeight: 48, background: "var(--accent)", color: "#fff", borderColor: "var(--accent)", opacity: (!pendSirop || !pendPerles) ? 0.5 : 1 }}>
-            Ajouter {bblN(pendSirop) && bblN(pendPerles) ? `· ${bblN(pendSirop)} / ${bblN(pendPerles)}` : ""}
+            style={{ ...S.chip, marginTop: 12, width: "100%", minHeight: 48, background: "var(--accent)", color: "#fff", borderColor: "var(--accent)", opacity: (!pendThe || !pendSirop || !pendPerles) ? 0.5 : 1 }}>
+            Ajouter {pendThe && pendSirop && pendPerles ? `· Thé ${bblN(pendThe).toLowerCase()} · ${bblN(pendSirop)} / ${bblN(pendPerles)}` : ""}
           </button>
         </div>
       )}

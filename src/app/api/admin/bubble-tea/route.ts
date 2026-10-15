@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic"
 // PS-23 — Admin Bubble Tea : stock estimé (vue), activation, réassort, inventaire, +parfum/+bubble.
 // Journal en ajout seul : toute entrée/correction = un mouvement. Montants en ml (sirop) / g (perles).
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const ssr: any = await createServerSupabase()
   const auth = await requireAdmin(ssr)
@@ -18,12 +18,24 @@ export async function GET() {
   const admin: any = getSupabaseAdmin()
   if (!admin) return NextResponse.json({ error: "Service indisponible" }, { status: 503 })
 
+  // Page Historique (lien discret) : renvoie le journal des mouvements.
+  if (new URL(req.url).searchParams.get("history") === "1") {
+    const { data: mouvements } = await admin
+      .from("bubble_stock_mouvements")
+      .select("id, option_id, qty, source, note, is_test, created_at, bubble_options(name, kind, unite)")
+      .order("created_at", { ascending: false }).limit(200)
+    return NextResponse.json({ mouvements: mouvements || [] })
+  }
+
+  // PS-23b — alimente les suggestions de la liste de courses à l'ouverture.
+  await admin.rpc("courses_sync_bubble")
   const { data: options } = await admin.from("bubble_stock_estime").select("*").order("kind").order("sort_order")
-  const { data: mouvements } = await admin
-    .from("bubble_stock_mouvements")
-    .select("id, option_id, qty, source, note, is_test, created_at, bubble_options(name, kind, unite)")
-    .order("created_at", { ascending: false }).limit(60)
-  return NextResponse.json({ options: options || [], mouvements: mouvements || [] })
+  // Options déjà présentes dans la liste (ligne ouverte suggere|a_acheter).
+  const { data: openLines } = await admin.from("courses_items")
+    .select("bubble_option_id").in("statut", ["suggere", "a_acheter"]).not("bubble_option_id", "is", null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const dansListe = (openLines || []).map((l: any) => l.bubble_option_id)
+  return NextResponse.json({ options: options || [], dansListe })
 }
 
 export async function POST(req: NextRequest) {
@@ -87,6 +99,28 @@ export async function POST(req: NextRequest) {
     })
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true, delta })
+  }
+
+  // PS-23b — « Ajouter à la liste » (une option, ou toutes celles sous le seuil sans ligne ouverte).
+  if (action === "courses_add" || action === "courses_add_all") {
+    const { data: stock } = await admin.from("bubble_stock_estime")
+      .select("option_id, kind, name, active, doses_restantes, seuil_doses, conditionnement")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let cibles = (stock || []) as any[]
+    cibles = cibles.filter((o) => o.active && (o.kind === "sirop" || o.kind === "perles")
+      && Number(o.doses_restantes) < Number(o.seuil_doses))
+    if (action === "courses_add") cibles = cibles.filter((o) => o.option_id === body.id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows = cibles.map((o: any) => ({
+      libelle: (o.kind === "sirop" ? "Sirop " : "Perles ") + o.name,
+      quantite: 1,
+      unite: o.kind === "sirop" ? `bouteille ${o.conditionnement || 750} ml` : `pot ${o.conditionnement || 3200} g`,
+      source: "auto_bubble", bubble_option_id: o.option_id, statut: "a_acheter",
+    }))
+    for (const r of rows) {
+      await admin.from("courses_items").insert(r)  // l'index unique bloque un doublon de ligne ouverte
+    }
+    return NextResponse.json({ ok: true, ajoutes: rows.length })
   }
 
   return NextResponse.json({ error: "Action inconnue" }, { status: 400 })

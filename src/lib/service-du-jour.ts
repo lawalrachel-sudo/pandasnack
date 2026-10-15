@@ -8,6 +8,8 @@
 // Une commande `cancelled` n'est jamais « encaissée », jamais comptée, même si son
 // paid_at est renseigné.
 
+import { bubbleChoiceLabel } from "@/lib/bubble-stock"
+
 export type OrderStatus = "paid" | "pending_payment" | "cancelled" | string
 
 export interface SvcItem {
@@ -21,7 +23,8 @@ export interface SvcItem {
   // Renseignés par /api/admin/service ; absents → itemLine retombe sur le parsing de `notes`.
   toppings?: string[]
   has_sauce?: boolean
-  // PS-23 — parfum/bubbles du Bubble Tea, résolus depuis bubble_sirop_id/bubble_perles_id.
+  // PS-23/23b — thé/parfum/bubbles du Bubble Tea, résolus depuis bubble_the_id/sirop_id/perles_id.
+  the_name?: string | null
   sirop_name?: string | null
   perles_name?: string | null
 }
@@ -190,6 +193,7 @@ export interface ComposeInput {
   platName?: string | null    // catalog_items.name : le plat d'un menu, ou l'article seul
   toppingNames?: string[]     // résolus depuis topping_ids
   hasSauce?: boolean          // sauce piment (case à cocher notée dans `notes`)
+  theName?: string | null     // PS-23b — thé du Bubble Tea
   siropName?: string | null   // PS-23 — parfum du Bubble Tea
   perlesName?: string | null  // PS-23 — bubbles du Bubble Tea
 }
@@ -209,10 +213,9 @@ export function composeItemLabel(input: ComposeInput): { plat: string; options: 
   const names = input.toppingNames || []
   const piment = !!input.hasSauce || names.some(estPiment)
   const food = names.filter((n) => !estPiment(n))
-  // PS-23 — choix Bubble Tea en tête des options : « Mangue / Passion ».
-  const bubble = input.siropName || input.perlesName
-    ? [`${input.siropName || "?"} / ${input.perlesName || "?"}`]
-    : []
+  // PS-23/23b — choix Bubble Tea en tête des options : « Thé noir · Mangue / Passion ».
+  const bubbleLabel = bubbleChoiceLabel(input.theName, input.siropName, input.perlesName)
+  const bubble = bubbleLabel ? [bubbleLabel] : []
   const options = [...bubble, ...(piment ? [PIMENT_LABEL] : []), ...food]
   return { plat, options, text: options.length ? `${plat} · ${options.join(", ")}` : plat }
 }
@@ -228,7 +231,7 @@ export function itemLine(it: SvcItem): { label: string; options: string[] } {
     const c = composeItemLabel({
       formulaName: it.menu_formula_name, platName: it.catalog_item_name,
       toppingNames: it.toppings || [], hasSauce: it.has_sauce,
-      siropName: it.sirop_name, perlesName: it.perles_name,
+      theName: it.the_name, siropName: it.sirop_name, perlesName: it.perles_name,
     })
     return { label: c.plat, options: c.options }
   }

@@ -71,8 +71,8 @@ export function VeilleClient({ serviceDate }: { serviceDate: string }) {
     (orders || [])
       .filter((o) => !o.is_test && isProduction(o))
       .flatMap((o) => (o.items || [])
-        .filter((it) => it.sirop_name || it.perles_name)
-        .map((it) => ({ siropName: it.sirop_name, perlesName: it.perles_name, quantity: it.qty }))),
+        .filter((it) => it.the_name || it.sirop_name || it.perles_name)
+        .map((it) => ({ theName: it.the_name, siropName: it.sirop_name, perlesName: it.perles_name, quantity: it.qty }))),
   ), [orders])
 
   // Regroupe les lignes comptoir par enfant (prénom normalisé).
@@ -199,10 +199,11 @@ export function VeilleClient({ serviceDate }: { serviceDate: string }) {
                 {totals.boissons.length === 0 && <li>—</li>}
               </ul>
             </div>
-            {(bubbles.parSirop.length > 0 || bubbles.parPerles.length > 0) && (
+            {(bubbles.parThe.length > 0 || bubbles.parSirop.length > 0 || bubbles.parPerles.length > 0) && (
               <div>
                 <h2>🧋 Bubble Tea à préparer</h2>
                 <ul>
+                  {bubbles.parThe.map((t) => <li key={`t-${t.name}`}><span className="tqty">{t.count}</span> Thé {t.name.toLowerCase()}</li>)}
                   {bubbles.parSirop.map((t) => <li key={`s-${t.name}`}><span className="tqty">{t.count}</span> {t.name} (parfum)</li>)}
                   {bubbles.parPerles.map((t) => <li key={`p-${t.name}`}><span className="tqty">{t.count}</span> {t.name} (bubbles)</li>)}
                 </ul>

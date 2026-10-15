@@ -2,7 +2,7 @@
 // (bubble_sync_order, comptoir_sell/reverse) : 1 dose de sirop + 1 dose de perles par Bubble Tea.
 // Stock en ml (sirop) / g (perles) ; doses dérivées. Testée.
 
-export type BubbleKind = "sirop" | "perles"
+export type BubbleKind = "sirop" | "perles" | "the"
 
 export const DOSE_SIROP_ML = 30
 export const DOSE_PERLES_G = 78
@@ -34,6 +34,12 @@ export function conditionnementsFor(kind: BubbleKind): Conditionnement[] {
   return CONDITIONNEMENTS.filter((c) => c.kind === kind)
 }
 
+// Conditionnement par défaut (ml/g) pour le réassort / la liste de courses, par kind. Le thé n'est
+// pas suivi en stock → 0. (La valeur par option vit dans bubble_options.conditionnement ; Fraise=1500.)
+export function conditionnementDefaut(kind: BubbleKind): number {
+  return kind === "sirop" ? 750 : kind === "perles" ? 3200 : 0
+}
+
 export function dosesRestantes(stockBase: number, dose: number): number {
   if (!dose) return 0
   return Math.floor(stockBase / dose)
@@ -55,22 +61,26 @@ export function fmtStock(stockBase: number, unite: string, dose: number): string
   return `${Math.round(stockBase)} ${unite} · ${dosesRestantes(stockBase, dose)} doses`
 }
 
-// Feuille de route : total par sirop et par perle des Bubble Tea à préparer (jour).
-export interface BubbleRef { siropName?: string | null; perlesName?: string | null; quantity?: number }
-export function bubbleTotals(items: BubbleRef[]): { parSirop: { name: string; count: number }[]; parPerles: { name: string; count: number }[] } {
+// Feuille de route : total par thé, par sirop et par perle des Bubble Tea à préparer (jour).
+export interface BubbleRef { theName?: string | null; siropName?: string | null; perlesName?: string | null; quantity?: number }
+export function bubbleTotals(items: BubbleRef[]): { parThe: { name: string; count: number }[]; parSirop: { name: string; count: number }[]; parPerles: { name: string; count: number }[] } {
+  const the = new Map<string, number>()
   const sirop = new Map<string, number>()
   const perles = new Map<string, number>()
   for (const it of items) {
     const q = it.quantity && it.quantity > 0 ? it.quantity : 1
+    if (it.theName) the.set(it.theName, (the.get(it.theName) || 0) + q)
     if (it.siropName) sirop.set(it.siropName, (sirop.get(it.siropName) || 0) + q)
     if (it.perlesName) perles.set(it.perlesName, (perles.get(it.perlesName) || 0) + q)
   }
   const toArr = (m: Map<string, number>) => [...m.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name))
-  return { parSirop: toArr(sirop), parPerles: toArr(perles) }
+  return { parThe: toArr(the), parSirop: toArr(sirop), parPerles: toArr(perles) }
 }
 
-// Libellé « Mangue / Passion » (sirop / perles) pour les récaps.
-export function bubbleChoiceLabel(siropName?: string | null, perlesName?: string | null): string | null {
-  if (!siropName && !perlesName) return null
-  return `${siropName || "?"} / ${perlesName || "?"}`
+// Libellé « Thé noir · Mangue / Passion » pour les récaps. Le thé, s'il est présent, passe en tête.
+export function bubbleChoiceLabel(theName?: string | null, siropName?: string | null, perlesName?: string | null): string | null {
+  if (!theName && !siropName && !perlesName) return null
+  const parfumPerles = (siropName || perlesName) ? `${siropName || "?"} / ${perlesName || "?"}` : null
+  const the = theName ? `Thé ${theName.toLowerCase()}` : null
+  return [the, parfumPerles].filter(Boolean).join(" · ")
 }

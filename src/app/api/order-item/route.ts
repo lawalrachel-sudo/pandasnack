@@ -171,7 +171,7 @@ export async function POST(req: NextRequest) {
       orderId, slotId,
       catalogItemId, menuFormulaId, selectedPlatSku,
       profilId, prenomLibre, takeaway, notes, selectedToppings,
-      siropId, perlesId,
+      siropId, perlesId, theId,
     } = body as {
       orderId?: string
       slotId?: string
@@ -185,6 +185,7 @@ export async function POST(req: NextRequest) {
       selectedToppings?: string[]
       siropId?: string | null
       perlesId?: string | null
+      theId?: string | null
     }
 
     if (!notes || (!catalogItemId && !menuFormulaId)) {
@@ -225,21 +226,28 @@ export async function POST(req: NextRequest) {
       isBubbleTea = formula.code === "MENU_PANDA"
     }
 
-    // PS-23 — Bubble Tea : parfum + bubbles obligatoires, et non épuisés (refus serveur BBL_EPUISE).
+    // PS-23/23b — Bubble Tea : thé + parfum + bubbles obligatoires. Parfum/bubbles non épuisés
+    // (BBL_EPUISE) ; thé actif (BBL_THE_INDISPONIBLE). Le thé n'entre pas dans le stock.
     let bubbleSiropId: string | null = null
     let bubblePerlesId: string | null = null
+    let bubbleTheId: string | null = null
     if (isBubbleTea) {
-      if (!siropId || !perlesId) {
-        return NextResponse.json({ error: "Choisis un parfum et des bubbles." }, { status: 400 })
+      if (!siropId || !perlesId || !theId) {
+        return NextResponse.json({ error: "Choisis un thé, un parfum et des bubbles." }, { status: 400 })
       }
       const admin = getSupabaseAdmin()
       if (!admin) return NextResponse.json({ error: "Service indisponible" }, { status: 503 })
       const { data: opts } = await admin.from("bubble_stock_estime")
-        .select("option_id, kind, active, doses_restantes").in("option_id", [siropId, perlesId])
+        .select("option_id, kind, active, doses_restantes").in("option_id", [siropId, perlesId, theId])
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sirop = (opts || []).find((o: any) => o.option_id === siropId && o.kind === "sirop")
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const perles = (opts || []).find((o: any) => o.option_id === perlesId && o.kind === "perles")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const the = (opts || []).find((o: any) => o.option_id === theId && o.kind === "the")
+      if (!the?.active) {
+        return NextResponse.json({ error: "BBL_THE_INDISPONIBLE", detail: "Ce thé n'est plus disponible." }, { status: 400 })
+      }
       if (!sirop?.active || !perles?.active) {
         return NextResponse.json({ error: "Parfum ou bubbles indisponible." }, { status: 400 })
       }
@@ -248,6 +256,7 @@ export async function POST(req: NextRequest) {
       }
       bubbleSiropId = siropId
       bubblePerlesId = perlesId
+      bubbleTheId = theId
     }
 
     // Phase 1 (Brief 3-E) — lookup catalog_item_id du vrai plat si formula+plat
@@ -339,6 +348,7 @@ export async function POST(req: NextRequest) {
       notes,
       bubble_sirop_id: bubbleSiropId,
       bubble_perles_id: bubblePerlesId,
+      bubble_the_id: bubbleTheId,
     })
 
     if (insertErr) {

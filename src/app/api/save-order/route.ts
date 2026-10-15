@@ -128,6 +128,7 @@ export async function POST(req: NextRequest) {
         notes: item.itemName,
         bubble_sirop_id: item.siropId || null,   // PS-23
         bubble_perles_id: item.perlesId || null, // PS-23
+        bubble_the_id: item.theId || null,       // PS-23b
       }
     })
 
@@ -164,4 +165,5 @@ interface SaveItem {
   selectedToppings: string[]
   siropId?: string | null   // PS-23
   perlesId?: string | null  // PS-23
+  theId?: string | null     // PS-23b
 }

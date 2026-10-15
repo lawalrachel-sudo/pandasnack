@@ -26,17 +26,19 @@ describe("bubble-stock (PS-23)", () => {
     expect(conditionnementsFor("sirop").map((c) => c.doses)).toEqual([25, 50])
     expect(conditionnementsFor("perles").map((c) => c.doses)).toEqual([41])
   })
-  it("totaux feuille de route par sirop et par perle", () => {
+  it("totaux feuille de route par thé, sirop et perle", () => {
     const totals = bubbleTotals([
-      { siropName: "Mangue", perlesName: "Passion" },
-      { siropName: "Mangue", perlesName: "Lytchee", quantity: 2 },
-      { siropName: "Fraise", perlesName: "Passion" },
+      { theName: "Noir", siropName: "Mangue", perlesName: "Passion" },
+      { theName: "Vert", siropName: "Mangue", perlesName: "Lytchee", quantity: 2 },
+      { theName: "Noir", siropName: "Fraise", perlesName: "Passion" },
     ])
+    expect(totals.parThe).toEqual([{ name: "Noir", count: 2 }, { name: "Vert", count: 2 }])
     expect(totals.parSirop).toEqual([{ name: "Fraise", count: 1 }, { name: "Mangue", count: 3 }])
     expect(totals.parPerles).toEqual([{ name: "Lytchee", count: 2 }, { name: "Passion", count: 2 }])
   })
-  it("libellé choix", () => {
-    expect(bubbleChoiceLabel("Mangue", "Passion")).toBe("Mangue / Passion")
-    expect(bubbleChoiceLabel(null, null)).toBe(null)
+  it("libellé choix avec thé en tête", () => {
+    expect(bubbleChoiceLabel("Noir", "Mangue", "Passion")).toBe("Thé noir · Mangue / Passion")
+    expect(bubbleChoiceLabel(null, "Mangue", "Passion")).toBe("Mangue / Passion")
+    expect(bubbleChoiceLabel(null, null, null)).toBe(null)
   })
 })

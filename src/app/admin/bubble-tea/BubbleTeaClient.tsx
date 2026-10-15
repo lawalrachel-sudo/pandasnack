@@ -1,40 +1,31 @@
 "use client"
 
+import Link from "next/link"
 import { useEffect, useState } from "react"
 import { AdminBackButton } from "../AdminBackButton"
 import { conditionnementsFor, fmtStock, type BubbleKind } from "@/lib/bubble-stock"
 
 interface StockRow {
   option_id: string; kind: BubbleKind; name: string; active: boolean
-  unite: string; dose: number; seuil_doses: number
-  stock: number; doses_restantes: number; alerte: boolean
-}
-interface Mvt {
-  id: string; qty: number; source: string; note: string | null; is_test: boolean; created_at: string
-  bubble_options: { name: string; kind: string; unite: string } | null
-}
-
-function jour(iso: string) { return new Date(iso).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) }
-const SOURCE_LABEL: Record<string, string> = {
-  vente_precommande: "Vente précommande", vente_comptoir: "Vente comptoir", annulation: "Annulation",
-  reassort: "Réassort", ticket: "Ticket", inventaire: "Inventaire",
+  unite: string; dose: number | null; seuil_doses: number
+  stock: number; doses_restantes: number | null; alerte: boolean | null
 }
 
 export function BubbleTeaClient() {
   const [rows, setRows] = useState<StockRow[] | null>(null)
-  const [mvts, setMvts] = useState<Mvt[]>([])
+  const [dansListe, setDansListe] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [invFor, setInvFor] = useState<string | null>(null)
   const [invVal, setInvVal] = useState("")
-  const [newName, setNewName] = useState<{ sirop: string; perles: string }>({ sirop: "", perles: "" })
+  const [newName, setNewName] = useState<{ sirop: string; perles: string; the: string }>({ sirop: "", perles: "", the: "" })
 
   async function load() {
     try {
       const res = await fetch("/api/admin/bubble-tea")
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || "Erreur")
-      setRows(json.options || []); setMvts(json.mouvements || [])
+      setRows(json.options || []); setDansListe(json.dansListe || [])
     } catch (e) { setError((e as Error).message) }
   }
   useEffect(() => {
@@ -45,7 +36,7 @@ export function BubbleTeaClient() {
         const json = await res.json()
         if (annule) return
         if (!res.ok) throw new Error(json.error || "Erreur")
-        setRows(json.options || []); setMvts(json.mouvements || [])
+        setRows(json.options || []); setDansListe(json.dansListe || [])
       } catch (e) { if (!annule) setError((e as Error).message) }
     })()
     return () => { annule = true }
@@ -62,7 +53,8 @@ export function BubbleTeaClient() {
     finally { setBusy(false) }
   }
 
-  function sectionBlock(kind: BubbleKind, title: string) {
+  // Section sirop/perles (stock suivi).
+  function stockSection(kind: BubbleKind, title: string) {
     const list = (rows || []).filter((r) => r.kind === kind)
     return (
       <div style={S.block}>
@@ -77,7 +69,7 @@ export function BubbleTeaClient() {
               </label>
             </div>
             <div style={S.stockRow}>
-              <span>{fmtStock(r.stock, r.unite, r.dose)}</span>
+              <span>{fmtStock(r.stock, r.unite, r.dose || 1)}</span>
               {r.alerte && <span style={S.badge}>⚠ sous le seuil ({r.seuil_doses})</span>}
             </div>
             <div style={S.actions}>
@@ -114,27 +106,72 @@ export function BubbleTeaClient() {
     )
   }
 
+  const thes = (rows || []).filter((r) => r.kind === "the")
+  // À racheter : options sirop/perles sous le seuil.
+  const aRacheter = (rows || []).filter((r) => (r.kind === "sirop" || r.kind === "perles") && r.doses_restantes != null && r.doses_restantes < r.seuil_doses)
+
   return (
     <div style={S.page}>
       <AdminBackButton />
       <h1 style={S.h1}>🧋 Bubble Tea</h1>
-      <p style={S.intro}>Stock estimé par parfum et par bubble (−1 dose à chaque Bubble Tea vendu). Corrige par un inventaire quand tu comptes.</p>
+      <p style={S.intro}>Stock estimé par parfum et par bubble (−1 dose à chaque Bubble Tea vendu). Corrige par un inventaire quand tu comptes. Le thé n’est pas suivi : coupe-le s’il n’y en a plus.</p>
       {error && <p style={S.err}>⚠ {error}</p>}
       {!rows && !error && <p style={S.muted}>Chargement…</p>}
-      {rows && sectionBlock("sirop", "Parfums (sirop · 30 ml/dose)")}
-      {rows && sectionBlock("perles", "Bubbles (perles · 78 g/dose)")}
 
-      <h2 style={S.h2}>Mouvements récents</h2>
-      {mvts.length === 0 && <p style={S.muted}>Aucun mouvement.</p>}
-      {mvts.map((m) => (
-        <div key={m.id} style={S.mvt}>
-          <span>{m.bubble_options?.name} · {SOURCE_LABEL[m.source] || m.source}{m.is_test ? " (test)" : ""}</span>
-          <span style={{ color: m.qty < 0 ? "#DC2626" : "var(--accent-2, #5A7F42)", fontWeight: 700 }}>
-            {m.qty > 0 ? "+" : ""}{m.qty} {m.bubble_options?.unite}
-          </span>
-          <span style={S.mvtDate}>{jour(m.created_at)}</span>
+      {/* 🛒 À racheter */}
+      {rows && (
+        <div style={S.block}>
+          <h2 style={S.h2}>🛒 À racheter</h2>
+          {aRacheter.length === 0 && <p style={S.muted}>Rien à racheter 🧋</p>}
+          {aRacheter.map((r) => {
+            const inList = dansListe.includes(r.option_id)
+            return (
+              <div key={r.option_id} style={S.rachat}>
+                <span style={S.rachatNom}>{r.kind === "sirop" ? "Sirop" : "Perles"} {r.name}</span>
+                <span style={S.rachatDoses}>{r.doses_restantes} dose(s)</span>
+                {inList
+                  ? <span style={S.dejaListe}>déjà dans la liste</span>
+                  : <button disabled={busy} style={S.rachatBtn} onClick={() => act({ action: "courses_add", id: r.option_id })}>Ajouter à la liste</button>}
+              </div>
+            )
+          })}
+          {aRacheter.some((r) => !dansListe.includes(r.option_id)) && (
+            <button disabled={busy} style={S.toutAjouter} onClick={() => act({ action: "courses_add_all" })}>Tout ajouter à la liste</button>
+          )}
         </div>
-      ))}
+      )}
+
+      {rows && stockSection("sirop", "Parfums (sirop · 30 ml/dose)")}
+      {rows && stockSection("perles", "Bubbles (perles · 78 g/dose)")}
+
+      {/* Thé : dispo à la main, pas de stock */}
+      {rows && (
+        <div style={S.block}>
+          <h2 style={S.h2}>Thé (noir / vert · dispo à la main)</h2>
+          {thes.map((r) => (
+            <div key={r.option_id} style={{ ...S.card, ...(r.active ? {} : S.cardOff) }}>
+              <div style={S.cardTop}>
+                <span style={S.nom}>{r.name}</span>
+                <label style={S.switch}>
+                  <input type="checkbox" checked={r.active} disabled={busy} onChange={(e) => act({ action: "toggle", id: r.option_id, active: e.target.checked })} />
+                  <span style={S.switchLbl}>{r.active ? "Disponible" : "Épuisé"}</span>
+                </label>
+              </div>
+            </div>
+          ))}
+          <div style={S.addRow}>
+            <input value={newName.the} onChange={(e) => setNewName((n) => ({ ...n, the: e.target.value }))} placeholder="Nouveau thé" style={S.input} />
+            <button disabled={busy || !newName.the.trim()} style={S.add}
+              onClick={async () => { await act({ action: "create", kind: "the", name: newName.the }); setNewName((n) => ({ ...n, the: "" })) }}>
+              + Thé
+            </button>
+          </div>
+        </div>
+      )}
+
+      <p style={{ marginTop: 18 }}>
+        <Link href="/admin/bubble-tea/historique" style={S.histLink}>Historique des mouvements →</Link>
+      </p>
     </div>
   )
 }
@@ -163,6 +200,11 @@ const S: Record<string, React.CSSProperties> = {
   input: { flex: 1, minHeight: 44, padding: "0 10px", borderRadius: 10, border: "1px solid var(--border)", fontSize: 15, background: "var(--bg)", color: "var(--ink)", fontFamily: "inherit" },
   addRow: { display: "flex", gap: 8, marginTop: 4 },
   add: { minHeight: 44, borderRadius: 10, border: "1px solid var(--border)", background: "var(--card,#fff)", color: "var(--accent)", fontSize: 14, fontWeight: 800, fontFamily: "inherit", padding: "0 14px", cursor: "pointer" },
-  mvt: { display: "grid", gridTemplateColumns: "1fr auto auto", gap: 10, alignItems: "center", fontSize: 13, color: "var(--ink)", padding: "6px 0", borderBottom: "1px solid var(--border)" },
-  mvtDate: { color: "var(--ink-soft)", fontSize: 12 },
+  rachat: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, border: "1px solid var(--border)", borderRadius: 12, padding: "10px 12px", marginBottom: 8, background: "var(--card,#fff)" },
+  rachatNom: { fontWeight: 700, fontSize: 15, flex: 1 },
+  rachatDoses: { fontSize: 13, color: "#DC2626", fontWeight: 700 },
+  rachatBtn: { minHeight: 40, borderRadius: 10, border: "none", background: "var(--accent)", color: "#fff", fontSize: 13, fontWeight: 700, fontFamily: "inherit", padding: "0 12px", cursor: "pointer" },
+  dejaListe: { fontSize: 12, color: "var(--ink-soft)", fontStyle: "italic" },
+  toutAjouter: { width: "100%", minHeight: 44, marginTop: 4, borderRadius: 12, border: "1px solid var(--accent)", background: "#FBF0EA", color: "var(--accent)", fontSize: 14, fontWeight: 800, fontFamily: "inherit", cursor: "pointer" },
+  histLink: { color: "var(--ink-soft)", fontSize: 13, textDecoration: "underline" },
 }
