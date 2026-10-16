@@ -9,6 +9,7 @@ import { TrustedDevices } from "@/components/TrustedDevices"
 export function HomeClient() {
   // Date du prochain service pour les tuiles datées (Veille, Étiquettes) ; défaut = aujourd'hui.
   const [date, setDate] = useState(() => new Date().toISOString().split("T")[0])
+  const [aCompter, setACompter] = useState(0)  // PS-24 — clôtures espèces à compter
 
   useEffect(() => {
     let annule = false
@@ -18,6 +19,11 @@ export function HomeClient() {
         const json = await res.json()
         if (!annule && res.ok && json.slot?.service_date) setDate(json.slot.service_date)
       } catch { /* garde la date du jour */ }
+      try {
+        const res = await fetch("/api/admin/caisse/a-compter")
+        const json = await res.json()
+        if (!annule && res.ok) setACompter(json.count || 0)
+      } catch { /* non bloquant */ }
     })()
     return () => { annule = true }
   }, [])
@@ -43,10 +49,14 @@ export function HomeClient() {
               </div>
             )
           }
+          // PS-24 — Caisse : badge rouge « N à compter » + accès direct à l'écran de comptage.
+          const caisseACompter = t.key === "caisse" && aCompter > 0
+          const href = caisseACompter ? "/admin/caisse/compter" : tileHref(t, date)
           return (
-            <Link key={t.key} href={tileHref(t, date)} style={S.tile}>
+            <Link key={t.key} href={href} style={S.tile}>
               <span style={S.emoji}>{t.emoji}</span>
               <span style={S.label}>{t.label}</span>
+              {caisseACompter && <span style={S.badgeRed}>{aCompter} à compter</span>}
             </Link>
           )
         })}
@@ -72,4 +82,5 @@ const S: Record<string, React.CSSProperties> = {
   emoji: { fontSize: 34, lineHeight: 1 },
   label: { fontSize: 15, fontWeight: 700, textAlign: "center" },
   badge: { position: "absolute", top: 8, right: 8, fontSize: 10, fontWeight: 700, color: "var(--ink-soft)", background: "var(--bg)", borderRadius: 999, padding: "2px 8px", border: "1px solid var(--border)" },
+  badgeRed: { position: "absolute", top: 8, right: 8, fontSize: 11, fontWeight: 800, color: "#fff", background: "#DC2626", borderRadius: 999, padding: "3px 9px" },
 }
