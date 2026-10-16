@@ -28,8 +28,14 @@ export async function POST(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: "Service indisponible" }, { status: 503 })
 
   const { data: row, error: rErr } = await admin
-    .from("caisse_clotures").select("cash_expected_cents").eq("id", id).maybeSingle()
+    .from("caisse_clotures").select("cash_expected_cents, cash_counted_at").eq("id", id).maybeSingle()
   if (rErr || !row) return NextResponse.json({ error: "Clôture introuvable" }, { status: 404 })
+
+  // PS-24 — écran de comptage « en un geste » : refuse de recompter une journée déjà comptée
+  // (rejeu → 409). La correction d'un comptage reste possible depuis /admin/caisse/[id] (sans ce flag).
+  if (body?.firstCountOnly === true && row.cash_counted_at) {
+    return NextResponse.json({ error: "Journée déjà comptée", already: true }, { status: 409 })
+  }
 
   const diff = cashDiffCents(counted, row.cash_expected_cents)
   const { data, error } = await admin

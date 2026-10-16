@@ -22,6 +22,18 @@ export function CaisseClient() {
   const [filter, setFilter] = useState<"" | PeriodType>("")
   const [toast, setToast] = useState<string | null>(null)
   const [recon, setRecon] = useState<Record<string, { counted: string; note: string }>>({})
+  const [aCompter, setACompter] = useState(0)  // PS-24 — rappel « à compter »
+  useEffect(() => {
+    let annule = false
+    ;(async () => {
+      try {
+        const res = await fetch("/api/admin/caisse/a-compter")
+        const json = await res.json()
+        if (!annule && res.ok) setACompter(json.count || 0)
+      } catch { /* non bloquant */ }
+    })()
+    return () => { annule = true }
+  }, [])
 
   const load = useCallback(async () => {
     setError(null)
@@ -88,6 +100,12 @@ export function CaisseClient() {
     <div style={S.page}>
       <AdminBackButton />
       <h1 style={S.h1}>💶 Caisse</h1>
+
+      {aCompter > 0 && (
+        <Link href="/admin/caisse/compter" style={{ display: "block", background: "#FDECEC", border: "1px solid #F5B5B5", color: "#991B1B", borderRadius: 12, padding: "12px 14px", fontWeight: 800, fontSize: 15, textDecoration: "none", marginBottom: 14 }}>
+          💶 {aCompter} journée{aCompter > 1 ? "s" : ""} à compter → rapprocher les espèces
+        </Link>
+      )}
 
       {/* Z du jour */}
       <section style={S.card}>
