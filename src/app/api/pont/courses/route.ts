@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: "Service indisponible" }, { status: 503 })
   await admin.rpc("courses_sync_bubble")
   const { data } = await admin.from("courses_items")
-    .select("id, libelle, quantite, unite, statut, source")
+    .select("id, libelle, quantite, unite, statut, source, categorie, fournisseur")
     .in("statut", ["suggere", "a_acheter"]).order("created_at", { ascending: true })
   return NextResponse.json({ items: data || [] })
 }
