@@ -43,6 +43,7 @@ export function TicketsClient() {
   const [tickets, setTickets] = useState<TicketRow[] | null>(null)
   const [sending, setSending] = useState<string | null>(null)
   const [bblOpts, setBblOpts] = useState<{ id: string; name: string; kind: BubbleKind }[]>([])
+  const [bToutViaListe, setBToutViaListe] = useState<string[]>([])  // options achetées via la liste (7 j)
   const keyRef = useRef(1)
 
   useEffect(() => {
@@ -57,6 +58,14 @@ export function TicketsClient() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const p = (json.perles || []).map((o: any) => ({ id: o.id, name: o.name, kind: "perles" as BubbleKind }))
         setBblOpts([...s, ...p])
+      } catch { /* non bloquant */ }
+      // Avertissement règle d'entrée unique : options déjà achetées via la liste de courses (7 j).
+      try {
+        const res = await fetch("/api/admin/courses")
+        const json = await res.json()
+        if (annule || !res.ok) return
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setBToutViaListe((json.achetes || []).map((l: any) => l.bubble_option_id).filter(Boolean))
       } catch { /* non bloquant */ }
     })()
     return () => { annule = true }
@@ -224,6 +233,9 @@ export function TicketsClient() {
                 <option value="libre">Libre (qté = {kind === "sirop" ? "ml" : "g"})</option>
               </select>
             )}
+            {l.bubble_option_id && bToutViaListe.includes(l.bubble_option_id) && (
+              <span style={S.bblWarn}>⚠ déjà compté via la liste de courses</span>
+            )}
           </div>,
         ]
       })}
@@ -295,6 +307,7 @@ const S: Record<string, React.CSSProperties> = {
   del: { minWidth: 36, minHeight: 36, borderRadius: 8, border: "1px solid var(--border)", background: "var(--card, #fff)", color: "var(--ink-soft)", cursor: "pointer" },
   bblLink: { display: "flex", gap: 6, alignItems: "center", margin: "-2px 0 10px", paddingLeft: 4 },
   bblLabel: { fontSize: 12, color: "var(--ink-soft)", fontWeight: 700, whiteSpace: "nowrap" },
+  bblWarn: { fontSize: 11, color: "#B45309", fontWeight: 700 },
   addLigne: { background: "none", border: "none", color: "var(--accent)", fontWeight: 700, fontSize: 14, fontFamily: "inherit", cursor: "pointer", padding: "6px 0" },
   ecart: { fontSize: 13, margin: "4px 0 0" },
   cta: { width: "100%", minHeight: 54, marginTop: 18, borderRadius: 14, border: "none", background: "var(--accent)", color: "#fff", fontSize: 17, fontWeight: 800, fontFamily: "inherit", cursor: "pointer" },

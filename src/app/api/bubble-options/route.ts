@@ -22,8 +22,10 @@ export async function GET() {
     .eq("active", true).order("sort_order")
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rows = (data || []) as any[]
-  const map = (kind: string) => rows.filter((r) => r.kind === kind).map((r) => ({
-    id: r.option_id, name: r.name, epuise: Number(r.doses_restantes) < 1,
+  // Sirop/perles : épuisé = doses_restantes < 1. Thé : non suivi en stock → jamais épuisé (la dispo
+  // du thé est pilotée par active ; un thé inactif n'est tout simplement pas renvoyé ici).
+  const map = (kind: string, tracked: boolean) => rows.filter((r) => r.kind === kind).map((r) => ({
+    id: r.option_id, name: r.name, epuise: tracked ? Number(r.doses_restantes) < 1 : false,
   }))
-  return NextResponse.json({ sirops: map("sirop"), perles: map("perles") })
+  return NextResponse.json({ thes: map("the", false), sirops: map("sirop", true), perles: map("perles", true) })
 }

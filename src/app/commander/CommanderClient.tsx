@@ -161,10 +161,13 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
 
   // PS-23 — Bubble Tea : parfum (sirop) + bubbles (perles) obligatoires. Carte chargée depuis l'API
   // (actifs + épuisé). mf* = dans le Menu Panda ; alc* = Bubble Tea seul.
+  const [bblThes, setBblThes] = useState<{ id: string; name: string; epuise: boolean }[]>([])
   const [bblSirops, setBblSirops] = useState<{ id: string; name: string; epuise: boolean }[]>([])
   const [bblPerles, setBblPerles] = useState<{ id: string; name: string; epuise: boolean }[]>([])
+  const [mfThe, setMfThe] = useState<string | null>(null)
   const [mfSirop, setMfSirop] = useState<string | null>(null)
   const [mfPerles, setMfPerles] = useState<string | null>(null)
+  const [alcThe, setAlcThe] = useState<string | null>(null)
   const [alcSirop, setAlcSirop] = useState<string | null>(null)
   const [alcPerles, setAlcPerles] = useState<string | null>(null)
   useEffect(() => {
@@ -174,12 +177,12 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
         const res = await fetch("/api/bubble-options")
         const json = await res.json()
         if (annule || !res.ok) return
-        setBblSirops(json.sirops || []); setBblPerles(json.perles || [])
+        setBblThes(json.thes || []); setBblSirops(json.sirops || []); setBblPerles(json.perles || [])
       } catch { /* non bloquant */ }
     })()
     return () => { annule = true }
   }, [])
-  const bblName = (id: string | null) => id ? ([...bblSirops, ...bblPerles].find((o) => o.id === id)?.name ?? null) : null
+  const bblName = (id: string | null) => id ? ([...bblThes, ...bblSirops, ...bblPerles].find((o) => o.id === id)?.name ?? null) : null
 
   // PS-02 B — toast « Comment ça marche ? » (auto 2 s après l'arrivée, rappel via pilule) +
   // pulsation du bloc « Choisis ton plat » à la fermeture.
@@ -238,6 +241,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
     isTakeaway?: boolean
     siropId?: string | null
     perlesId?: string | null
+    theId?: string | null
   }, label: string) => {
     if (!selectedSlotId) { alert("Sélectionne un jour de livraison"); return }
     if (addInFlight) return
@@ -260,6 +264,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
           selectedToppings: payload.selectedToppings || [],
           siropId: payload.siropId ?? null,
           perlesId: payload.perlesId ?? null,
+          theId: payload.theId ?? null,
         }),
       })
       const data = await res.json()
@@ -438,7 +443,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
 
   function openMenuFlow(formula: MenuFormula) {
     if (formula.code === "BENTO_PANDA" || formula.code === "BENTO_TOUPITI") { addFormulaDirect(formula); return }
-    setMfFormula(formula); setMfPlat(null); setMfToppings([]); setMfSauce(false); setMfSirop(null); setMfPerles(null); setMfStep("plat"); setMfOpen(true)
+    setMfFormula(formula); setMfPlat(null); setMfToppings([]); setMfSauce(false); setMfThe(null); setMfSirop(null); setMfPerles(null); setMfStep("plat"); setMfOpen(true)
   }
 
   function selectPlat(item: CatalogItem) {
@@ -462,7 +467,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
     if (!mp) return
     setMfFormula(mp)
     // PS-23 — Menu Panda = toujours l'étape garnitures (porte le choix parfum/bubbles obligatoire).
-    setMfPlat(item); setMfToppings([]); setMfSauce(false); setMfSirop(null); setMfPerles(null); setMfStep("garnitures"); setMfOpen(true)
+    setMfPlat(item); setMfToppings([]); setMfSauce(false); setMfThe(null); setMfSirop(null); setMfPerles(null); setMfStep("garnitures"); setMfOpen(true)
   }
 
   function toggleTop(id: string) {
@@ -484,8 +489,8 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
     const sauceOn = mfSauce && sauceCheckboxApplies(plat.sku)
     // PS-23 — le Menu Panda inclut un Bubble Tea → parfum + bubbles obligatoires.
     const isBubble = f.code === "MENU_PANDA"
-    if (isBubble && (!mfSirop || !mfPerles)) return
-    const choice = isBubble ? bubbleChoiceLabel(bblName(mfSirop), bblName(mfPerles)) : null
+    if (isBubble && (!mfThe || !mfSirop || !mfPerles)) return
+    const choice = isBubble ? bubbleChoiceLabel(bblName(mfThe), bblName(mfSirop), bblName(mfPerles)) : null
     const notes = setBubbleInNotes(setSauceInNotes(baseLabel, sauceOn), choice)
     const toast = `${baseLabel}${choice ? ` · 🧋 ${choice}` : ""}${sauceOn ? " + sauce piment" : ""}`
     addToCartAsync({
@@ -495,6 +500,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       notes,
       siropId: isBubble ? mfSirop : null,
       perlesId: isBubble ? mfPerles : null,
+      theId: isBubble ? mfThe : null,
     }, toast)
     setMfOpen(false)
   }
@@ -525,6 +531,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       setAlcItem(item)
       setAlcToppings([])
       setAlcSauce(false)
+      setAlcThe(null)
       setAlcSirop(null)
       setAlcPerles(null)
       setAlcTopOpen(true)
@@ -554,8 +561,8 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
     const baseLabel = `${alcItem.name}${tn.length > 0 ? ` (${tn.join(", ")})` : ""}`
     const sauceOn = alcSauce && sauceCheckboxApplies(alcItem.sku)
     const isBubble = alcItem.sku === BBL_SKU
-    if (isBubble && (!alcSirop || !alcPerles)) return
-    const choice = isBubble ? bubbleChoiceLabel(bblName(alcSirop), bblName(alcPerles)) : null
+    if (isBubble && (!alcThe || !alcSirop || !alcPerles)) return
+    const choice = isBubble ? bubbleChoiceLabel(bblName(alcThe), bblName(alcSirop), bblName(alcPerles)) : null
     const notes = setBubbleInNotes(setSauceInNotes(baseLabel, sauceOn), choice)
     const toast = `${baseLabel}${choice ? ` · 🧋 ${choice}` : ""}${sauceOn ? " + sauce piment" : ""}`
     addToCartAsync({
@@ -564,6 +571,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
       notes,
       siropId: isBubble ? alcSirop : null,
       perlesId: isBubble ? alcPerles : null,
+      theId: isBubble ? alcThe : null,
     }, toast)
     setAlcTopOpen(false)
   }
@@ -1009,12 +1017,13 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
                   )}
                   {mfFormula?.code === "MENU_PANDA" && (
                     <div className="mb-4">
+                      <BubbleChips kind="Thé" opts={bblThes} selected={mfThe} onPick={setMfThe} />
                       <BubbleChips kind="Parfum" opts={bblSirops} selected={mfSirop} onPick={setMfSirop} />
                       <BubbleChips kind="Bubbles" opts={bblPerles} selected={mfPerles} onPick={setMfPerles} />
                     </div>
                   )}
                   <button onClick={() => finishMenu(mfPlat!, mfToppings)}
-                    disabled={mfFormula?.code === "MENU_PANDA" && (!mfSirop || !mfPerles)}
+                    disabled={mfFormula?.code === "MENU_PANDA" && (!mfThe || !mfSirop || !mfPerles)}
                     className="w-full h-12 rounded-xl font-display font-semibold text-white disabled:opacity-50"
                     style={{ background: "var(--accent)" }}>
                     {`Ajouter au panier${mfSauce ? " · 🌶️ Sauce piment" : ""}`}
@@ -1072,12 +1081,13 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
               )}
               {alcItem.sku === BBL_SKU && (
                 <div className="mb-4">
+                  <BubbleChips kind="Thé" opts={bblThes} selected={alcThe} onPick={setAlcThe} />
                   <BubbleChips kind="Parfum" opts={bblSirops} selected={alcSirop} onPick={setAlcSirop} />
                   <BubbleChips kind="Bubbles" opts={bblPerles} selected={alcPerles} onPick={setAlcPerles} />
                 </div>
               )}
               <button onClick={finishAlcItem}
-                disabled={alcItem.sku === BBL_SKU && (!alcSirop || !alcPerles)}
+                disabled={alcItem.sku === BBL_SKU && (!alcThe || !alcSirop || !alcPerles)}
                 className="w-full h-12 rounded-xl font-display font-semibold text-white disabled:opacity-50"
                 style={{ background: "var(--accent)" }}>
                 {`Ajouter au panier${alcSauce ? " · 🌶️ Sauce piment" : ""}`}

@@ -118,8 +118,10 @@ function SaKiNiModal({ hero, item, profils, onClose, onOrdered }: {
   const [needRecharge, setNeedRecharge] = useState(false)
   const [done, setDone] = useState<string | null>(null)
   // PS-23 — le Menu Panda Sa ki ni inclut un Bubble Tea → parfum + bubbles obligatoires.
+  const [bblThes, setBblThes] = useState<{ id: string; name: string; epuise: boolean }[]>([])
   const [bblSirops, setBblSirops] = useState<{ id: string; name: string; epuise: boolean }[]>([])
   const [bblPerles, setBblPerles] = useState<{ id: string; name: string; epuise: boolean }[]>([])
+  const [the, setThe] = useState<string | null>(null)
   const [sirop, setSirop] = useState<string | null>(null)
   const [perles, setPerles] = useState<string | null>(null)
   useEffect(() => {
@@ -128,14 +130,14 @@ function SaKiNiModal({ hero, item, profils, onClose, onOrdered }: {
       try {
         const res = await fetch("/api/bubble-options")
         const json = await res.json()
-        if (!annule && res.ok) { setBblSirops(json.sirops || []); setBblPerles(json.perles || []) }
+        if (!annule && res.ok) { setBblThes(json.thes || []); setBblSirops(json.sirops || []); setBblPerles(json.perles || []) }
       } catch { /* non bloquant */ }
     })()
     return () => { annule = true }
   }, [])
-  const bblName = (id: string | null) => id ? ([...bblSirops, ...bblPerles].find((o) => o.id === id)?.name ?? null) : null
+  const bblName = (id: string | null) => id ? ([...bblThes, ...bblSirops, ...bblPerles].find((o) => o.id === id)?.name ?? null) : null
   const bubbleRequired = mode === "menu"
-  const bubbleMissing = bubbleRequired && (!sirop || !perles)
+  const bubbleMissing = bubbleRequired && (!the || !sirop || !perles)
 
   const total = mode === "menu" ? hero.menu_price_cents : item.price_alone_cents
 
@@ -156,7 +158,8 @@ function SaKiNiModal({ hero, item, profils, onClose, onOrdered }: {
             is_formula: mode === "menu",
             menu_formula_id: mode === "menu" ? hero.menu_formula_id : null,
             profil_id: profilId, prenom_libre: prenom, sauce,
-            notes: mode === "menu" && sirop && perles ? `${item.name} · 🧋 ${bblName(sirop)} / ${bblName(perles)}` : item.name,
+            notes: mode === "menu" && the && sirop && perles ? `${item.name} · 🧋 Thé ${bblName(the)?.toLowerCase()} · ${bblName(sirop)} / ${bblName(perles)}` : item.name,
+            bubble_the_id: mode === "menu" ? the : null,
             bubble_sirop_id: mode === "menu" ? sirop : null,
             bubble_perles_id: mode === "menu" ? perles : null,
           }],
@@ -220,7 +223,7 @@ function SaKiNiModal({ hero, item, profils, onClose, onOrdered }: {
 
             {bubbleRequired && (
               <div className="mt-3">
-                {[{ t: "Parfum", opts: bblSirops, sel: sirop, set: setSirop }, { t: "Bubbles", opts: bblPerles, sel: perles, set: setPerles }].map((r) => (
+                {[{ t: "Thé", opts: bblThes, sel: the, set: setThe }, { t: "Parfum", opts: bblSirops, sel: sirop, set: setSirop }, { t: "Bubbles", opts: bblPerles, sel: perles, set: setPerles }].map((r) => (
                   <div key={r.t} className="mb-2">
                     <div className="text-sm font-bold mb-1" style={{ color: "var(--ink)" }}>{r.t} <span style={{ color: "var(--accent)" }}>(obligatoire)</span></div>
                     <div className="flex flex-wrap gap-2">

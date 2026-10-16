@@ -14,6 +14,7 @@ interface SknItem {
   notes?: string | null
   bubble_sirop_id?: string | null   // PS-23
   bubble_perles_id?: string | null  // PS-23
+  bubble_the_id?: string | null     // PS-23b
 }
 
 // Messages parents pour chaque refus de la RPC (le reste → message générique).
@@ -53,6 +54,7 @@ export async function POST(req: NextRequest) {
       notes: i.notes || null,
       bubble_sirop_id: i.bubble_sirop_id || null,   // PS-23
       bubble_perles_id: i.bubble_perles_id || null, // PS-23
+      bubble_the_id: i.bubble_the_id || null,       // PS-23b
     })),
   }
 

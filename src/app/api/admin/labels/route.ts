@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
       service_slots!inner(service_date, target_source_group, day_type),
       accounts!inner(source_group, nom_compte, is_test),
       order_items(
-        id, profil_id, prenom_libre, formula_choices, topping_ids, takeaway, notes, bubble_sirop_id, bubble_perles_id,
+        id, profil_id, prenom_libre, formula_choices, topping_ids, takeaway, notes, bubble_sirop_id, bubble_perles_id, bubble_the_id,
         menu_formulas(name, dlc_hours),
         catalog_items(name, sku, allergens, dlc_hours),
         profils(prenom, classe)
@@ -145,6 +145,7 @@ export async function GET(req: NextRequest) {
         platName: it.catalog_items?.name || null,
         toppingNames,
         hasSauce,
+        theName: it.bubble_the_id ? (bblName[it.bubble_the_id] || null) : null,
         siropName: it.bubble_sirop_id ? (bblName[it.bubble_sirop_id] || null) : null,
         perlesName: it.bubble_perles_id ? (bblName[it.bubble_perles_id] || null) : null,
       })
