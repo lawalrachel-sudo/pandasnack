@@ -59,6 +59,7 @@ Deno.serve(async (req) => {
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!)
     const { data: t } = await admin.from("tickets_achats").select("*").eq("id", ticket_id).maybeSingle()
     if (!t) return json({ error: "Ticket introuvable" }, 404)
+    if (t.source === "import_pennylane") return json({ error: "Ticket importé de Pennylane : jamais renvoyé." }, 400)  // PS-26c GARDE
     if (t.categorie === "perso") return json({ error: "Ticket perso : jamais envoyé à Pennylane." }, 400)
     if (t.pennylane_invoice_id) return json({ skipped: true, reason: "déjà envoyé", invoice_id: t.pennylane_invoice_id })
     if (!t.photo_path) return json({ error: "Aucune photo à joindre." }, 400)
