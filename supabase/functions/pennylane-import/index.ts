@@ -17,7 +17,9 @@ function dansPerimetre(sn: string, label: string, num: string) {
   const hay = `${norm(sn)} ${norm(label)}`
   if (EXCLUS.some((x) => hay.includes(norm(x)))) return false
   if (PERIMETRE.some((f) => hay.includes(norm(f)))) return true
-  return (num || "").includes("8658") || (label || "").includes("8658")
+  // Facture SANS fournisseur n° 8658 uniquement (pas un faux positif « 8658 » d'un autre n°).
+  if (!(sn || "").trim() && ((num || "").includes("8658") || (label || "").includes("8658"))) return true
+  return false
 }
 function categoriePour(sn: string, label: string, date: string) {
   const hay = `${norm(sn)} ${norm(label)}`

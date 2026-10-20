@@ -11,6 +11,9 @@ describe("ticket-import — périmètre (PS-26c)", () => {
     expect(dansPerimetre({ supplier_name: "MG STORE", date: "2026-09-18" })).toBe(true)
     expect(dansPerimetre({ label: "Facture sans fournisseur n° 8658", date: "2026-05-01" })).toBe(true)
   })
+  it("« 8658 » dans le n° d'un AUTRE fournisseur → hors périmètre (faux positif Envato)", () => {
+    expect(dansPerimetre({ supplier_name: "Envato Elements", invoice_number: "INV-8658-2025", date: "2025-11-05" })).toBe(false)
+  })
   it("hors périmètre exclu", () => {
     expect(dansPerimetre({ supplier_name: "ANTHROPIC", label: "Claude Max", date: "2026-07-17" })).toBe(false)
   })

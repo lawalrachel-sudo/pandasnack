@@ -24,7 +24,10 @@ export function dansPerimetre(inv: InvoiceRef): boolean {
   const hay = `${norm(inv.supplier_name)} ${norm(inv.label)}`
   if (FOURNISSEURS_EXCLUS.some((x) => hay.includes(norm(x)))) return false
   if (FOURNISSEURS_PERIMETRE.some((f) => hay.includes(norm(f)))) return true
-  if ((inv.invoice_number || "").includes(NUMERO_SANS_FOURNISSEUR) || (inv.label || "").includes(NUMERO_SANS_FOURNISSEUR)) return true
+  // Facture SANS fournisseur n° 8658 : uniquement si aucun fournisseur (évite un faux positif
+  // quand « 8658 » apparaît dans le n° d'une facture d'un autre fournisseur, ex. Envato).
+  const sansFournisseur = !(inv.supplier_name || "").trim()
+  if (sansFournisseur && ((inv.invoice_number || "").includes(NUMERO_SANS_FOURNISSEUR) || (inv.label || "").includes(NUMERO_SANS_FOURNISSEUR))) return true
   return false
 }
 
