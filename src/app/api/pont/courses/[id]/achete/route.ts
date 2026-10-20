@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase/admin"
 import { checkPontBearer } from "@/lib/pont-secret"
+import { cocherCourse } from "@/lib/courses-server"
 
 export const dynamic = "force-dynamic"
 
@@ -11,7 +12,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const admin: any = getSupabaseAdmin()
   if (!admin) return NextResponse.json({ error: "Service indisponible" }, { status: 503 })
   const { id } = await ctx.params
-  const { error } = await admin.rpc("courses_mark_achete", { p_id: id })
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  // PS-28 : même cochage que l'écran (coche_at + dernier_achat du catalogue).
+  const { error } = await cocherCourse(admin, id)
+  if (error) return NextResponse.json({ error }, { status: 500 })
   return NextResponse.json({ ok: true })
 }
