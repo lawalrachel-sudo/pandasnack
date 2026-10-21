@@ -1,38 +1,38 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { AdminBackButton } from "../AdminBackButton"
-import { RAYONS, rayonLabel, rayonOrdre, pilules } from "@/lib/courses-rayons"
+import { RAYONS, rayonLabel } from "@/lib/courses-rayons"
+import { PASTILLES, pastille, quantiteAffichee, trierListe } from "@/lib/courses-liste"
+import { listePdf, type PdfGroupe } from "@/lib/courses-pdf"
+import { martiniqueToday } from "@/lib/caisse-date"
+
+// PS-28 — Liste de courses cochable : une ligne par article, groupée rayon → fournisseur → alpha.
+// Cocher = barré (coche_at + dernier_achat). Préparer / Imprimer (A4, 3 colonnes) / Partager en PDF.
+// L'ancienne vue cartes + stepper (PS-25) reste sur /admin/courses/cartes.
 
 interface Item {
-  id: string; libelle: string; quantite: number; unite: string | null
-  source: string; bubble_option_id: string | null; categorie: string; fournisseur: string | null
-  statut: string; archived_at: string | null
+  id: string; libelle: string; quantite: number; unite: string | null; quantite_texte: string | null
+  categorie: string; fournisseur: string | null; statut: string; archived_at: string | null
 }
-interface Fav { id: string; libelle: string; categorie: string; fournisseur: string | null; unite: string | null; quantite_defaut: number }
+type Ligne = Item & { coche: boolean }
 
-type Undo = { label: string; run: () => Promise<void> } | null
+const RAYON_CLES = new Set(RAYONS.map((r) => r.key))
+const rayonDe = (cat: string) => (RAYON_CLES.has(cat) ? cat : "autre")
 
 export function CoursesClient() {
   const [items, setItems] = useState<Item[] | null>(null)
-  const [retires, setRetires] = useState<Item[]>([])
-  const [historique, setHistorique] = useState<Item[]>([])
-  const [catalogue, setCatalogue] = useState<Fav[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [filtre, setFiltre] = useState<string | null>(null)
-  const [undo, setUndo] = useState<Undo>(null)
-  const [addOpen, setAddOpen] = useState(false)
-  const [showRetires, setShowRetires] = useState(false)
-  const [showHisto, setShowHisto] = useState(false)
-  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [info, setInfo] = useState<string | null>(null)
+  const [saisies, setSaisies] = useState<Record<string, string>>({})
 
   async function load() {
     const res = await fetch("/api/admin/courses")
     const json = await res.json()
     if (!res.ok) throw new Error(json.error || "Erreur")
-    setItems(json.items || []); setRetires(json.retires || []); setHistorique(json.historique || []); setCatalogue(json.catalogue || [])
+    setItems(json.items || [])
   }
   useEffect(() => {
     let annule = false
@@ -42,7 +42,7 @@ export function CoursesClient() {
         const json = await res.json()
         if (annule) return
         if (!res.ok) throw new Error(json.error || "Erreur")
-        setItems(json.items || []); setRetires(json.retires || []); setHistorique(json.historique || []); setCatalogue(json.catalogue || [])
+        setItems(json.items || [])
       } catch (e) { if (!annule) setError((e as Error).message) }
     })()
     return () => { annule = true }
@@ -54,198 +54,193 @@ export function CoursesClient() {
     if (!res.ok) throw new Error(json.error || "Erreur")
     return json
   }
-  async function run(body: Record<string, unknown>, undoAction?: Undo) {
-    setBusy(true); setError(null)
-    try { await act(body); await load(); if (undoAction !== undefined) armUndo(undoAction) }
+
+  const lignes: Ligne[] = useMemo(
+    () => trierListe((items || []).map((i) => ({ ...i, categorie: rayonDe(i.categorie), coche: i.statut === "achete" }))),
+    [items],
+  )
+  const parRayon = useMemo(() => {
+    const m = new Map<string, Ligne[]>()
+    for (const l of lignes) { const g = m.get(l.categorie) || []; g.push(l); m.set(l.categorie, g) }
+    return m
+  }, [lignes])
+  const restants = lignes.filter((l) => !l.coche)
+  const nbCoches = lignes.length - restants.length
+
+  // Cochage optimiste : la ligne se barre tout de suite, rechargement en cas d'erreur.
+  async function basculer(l: Ligne) {
+    const statut = l.coche ? "a_acheter" : "achete"
+    setItems((prev) => (prev || []).map((i) => (i.id === l.id ? { ...i, statut } : i)))
+    try { await act(l.coche ? { action: "decocher", id: l.id, reverse: true } : { action: "achete", id: l.id }) }
+    catch (e) { setError((e as Error).message); load().catch(() => {}) }
+  }
+
+  async function lancer(body: Record<string, unknown>, ok?: (json: Record<string, unknown>) => string | null) {
+    setBusy(true); setError(null); setInfo(null)
+    try { const json = await act(body); await load(); if (ok) setInfo(ok(json)) }
     catch (e) { setError((e as Error).message) }
     finally { setBusy(false) }
   }
-  function armUndo(u: Undo) {
-    if (undoTimer.current) clearTimeout(undoTimer.current)
-    setUndo(u)
-    if (u) undoTimer.current = setTimeout(() => setUndo(null), 5000)
+
+  function preparer() {
+    lancer({ action: "preparer" }, (j) => {
+      const n = Number(j.ajoutes) || 0
+      return n === 0 ? "Rien de plus à ajouter : la liste est à jour." : `${n} article${n > 1 ? "s" : ""} ajouté${n > 1 ? "s" : ""}.`
+    })
   }
 
-  const actifs = items || []
-  const vus = filtre ? actifs.filter((i) => i.categorie === filtre) : actifs
-  const tri = [...vus].sort((a, b) => rayonOrdre(a.categorie) - rayonOrdre(b.categorie))
-  const coche = (i: Item) => i.statut === "achete"
-  const { tout, rayons } = useMemo(() => pilules(actifs.map((i) => ({ id: i.id, categorie: i.categorie, coche: coche(i) }))), [actifs])
-  const nbRayons = new Set(actifs.filter((i) => !coche(i)).map((i) => i.categorie)).size
-
-  function cocher(i: Item) {
-    run({ action: "achete", id: i.id }, { label: `${i.libelle} coché`, run: async () => { await act({ action: "decocher", id: i.id, reverse: true }); await load() } })
-  }
-  function decocher(i: Item) { run({ action: "decocher", id: i.id, reverse: false }) }
-  function step(i: Item, delta: number) {
-    const q = i.quantite + delta
-    if (q < 1) { run({ action: "retirer", id: i.id }, { label: `${i.libelle} retiré`, run: async () => { await act({ action: "remettre", id: i.id, quantite: i.quantite }); await load() } }); return }
-    run({ action: "quantite", id: i.id, quantite: q })
-  }
-  function terminer() {
-    const ids = actifs.filter(coche).map((i) => i.id)
-    if (ids.length === 0) return
-    run({ action: "terminer" }, { label: `${ids.length} article(s) rangé(s)`, run: async () => { for (const id of ids) await act({ action: "decocher", id, reverse: false }); await load() } })
+  function ajouter(rayon: string) {
+    const libelle = (saisies[rayon] || "").trim()
+    if (!libelle || busy) return
+    setSaisies((s) => ({ ...s, [rayon]: "" }))
+    lancer({ action: "ajouter", libelle, categorie: rayon })
   }
 
-  function partager() {
-    const parRayon = new Map<string, Item[]>()
-    for (const i of actifs.filter((x) => !coche(x))) { const l = parRayon.get(i.categorie) || []; l.push(i); parRayon.set(i.categorie, l) }
-    const txt = [...parRayon.entries()].sort((a, b) => rayonOrdre(a[0]) - rayonOrdre(b[0]))
-      .map(([r, ls]) => `${rayonLabel(r)}\n` + ls.map((i) => `- ${i.quantite > 1 ? `${i.quantite} ` : ""}${i.libelle}${i.unite ? ` (${i.unite})` : ""}`).join("\n")).join("\n\n")
-    navigator.clipboard?.writeText(txt).catch(() => {})
+  const jour = martiniqueToday()
+  const titre = `Courses Panda Snack — ${jour.slice(8, 10)}/${jour.slice(5, 7)}`
+  const groupesImpression = RAYONS
+    .map((r) => ({ key: r.key, titre: r.label, lignes: (parRayon.get(r.key) || []).filter((l) => !l.coche) }))
+    .filter((g) => g.lignes.length > 0)
+
+  async function partagerPdf() {
+    const groupes: PdfGroupe[] = groupesImpression.map((g) => ({
+      titre: g.titre,
+      lignes: g.lignes.map((l) => ({ libelle: l.libelle, quantite: quantiteAffichee(l.quantite, l.unite, l.quantite_texte), couleur: pastille(l.fournisseur).couleur })),
+    }))
+    const nom = `courses-panda-snack-${jour.slice(8, 10)}-${jour.slice(5, 7)}.pdf`
+    const file = new File([listePdf(titre, groupes)], nom, { type: "application/pdf" })
+    if (typeof navigator !== "undefined" && navigator.canShare?.({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: titre }); return }
+      catch (e) { if ((e as Error).name === "AbortError") return }
+    }
+    // Repli : téléchargement du PDF.
+    const url = URL.createObjectURL(file)
+    const a = document.createElement("a")
+    a.href = url; a.download = nom
+    document.body.appendChild(a); a.click(); a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 5000)
   }
 
-  if (error) return <div style={S.page}><AdminBackButton /><p style={S.err}>{error}</p></div>
+  if (error && !items) return <div style={S.page}><AdminBackButton /><p style={S.err}>{error}</p></div>
   if (!items) return <div style={S.page}><AdminBackButton /><p style={S.muted}>Chargement…</p></div>
 
   return (
-    <div style={S.page}>
-      <AdminBackButton />
-      <h1 style={S.h1}>Courses</h1>
-      <p style={S.count}>{tout} articles · {nbRayons} rayon{nbRayons > 1 ? "s" : ""}</p>
+    <>
+      <style>{PRINT_CSS}</style>
+      <div style={S.page} className="ps28-ecran">
+        <AdminBackButton />
+        <h1 style={S.h1}>Courses</h1>
+        <p style={S.count}>{restants.length} à acheter{nbCoches > 0 ? ` · ${nbCoches} dans le caddie` : ""}</p>
+        <p style={S.legende}>
+          {PASTILLES.map((p) => (
+            <span key={p.cle} style={S.legItem}><span style={{ ...S.dot, background: p.couleur }} />{p.nom}</span>
+          ))}
+        </p>
 
-      {/* Pilules rayon */}
-      <div style={S.pills}>
-        <button onClick={() => setFiltre(null)} style={{ ...S.pill, ...(filtre === null ? S.pillOn : {}) }}>Tout ({tout})</button>
-        {rayons.map((r) => (
-          <button key={r.key} onClick={() => setFiltre(r.key)} disabled={r.restants === 0}
-            style={{ ...S.pill, ...(filtre === r.key ? S.pillOn : {}), ...(r.restants === 0 ? S.pillOff : {}) }}>
-            {r.label} ({r.restants})
-          </button>
-        ))}
-      </div>
-
-      {/* Cartes 2 colonnes */}
-      <div style={S.grid}>
-        {tri.map((i) => (
-          <div key={i.id} style={{ ...S.card, ...(coche(i) ? S.cardDone : {}) }}>
-            <label style={S.cardTop}>
-              <input type="checkbox" checked={coche(i)} disabled={busy}
-                onChange={(e) => e.target.checked ? cocher(i) : decocher(i)} style={S.check} />
-              <span style={S.lib}>{i.libelle}{i.source === "auto_bubble" && <span style={S.auto}> auto</span>}</span>
-            </label>
-            {i.fournisseur && <span style={S.four}>{i.fournisseur}</span>}
-            {!coche(i) && (
-              <div style={S.stepper}>
-                <button onClick={() => step(i, -1)} disabled={busy} style={S.stepBtn} aria-label="moins">−</button>
-                <span style={S.qte}>{i.quantite}{i.unite ? <span style={S.unite}> {i.unite}</span> : null}</span>
-                <button onClick={() => step(i, +1)} disabled={busy} style={S.stepBtn} aria-label="plus">+</button>
-              </div>
-            )}
-          </div>
-        ))}
-        {tri.length === 0 && <p style={S.muted}>Rien à acheter ici.</p>}
-      </div>
-
-      <button onClick={partager} style={S.partager}>Partager la liste</button>
-      <button onClick={terminer} disabled={busy || actifs.filter(coche).length === 0} style={S.terminer}>
-        Terminer les courses ({actifs.filter(coche).length})
-      </button>
-
-      <div style={S.liens}>
-        {retires.length > 0 && <button style={S.lien} onClick={() => setShowRetires((v) => !v)}>Retirés ({retires.length})</button>}
-        <button style={S.lien} onClick={() => setShowHisto((v) => !v)}>Historique 7 j</button>
-        <Link href="/admin/courses/catalogue" style={S.lien}>Catalogue</Link>
-      </div>
-      {showRetires && retires.map((i) => (
-        <div key={i.id} style={S.ligneMini}><span>{i.libelle}</span>
-          <button style={S.remettre} disabled={busy} onClick={() => run({ action: "remettre", id: i.id })}>Remettre</button></div>
-      ))}
-      {showHisto && historique.map((i) => <div key={i.id} style={{ ...S.ligneMini, opacity: 0.6 }}><span>{i.libelle}</span></div>)}
-
-      {/* FAB ajouter */}
-      <button onClick={() => setAddOpen(true)} style={S.fab} aria-label="Ajouter un article">+</button>
-
-      {addOpen && <AddPanel catalogue={catalogue} busy={busy} onClose={() => setAddOpen(false)}
-        onPick={(id) => run({ action: "from_catalogue", catalogue_id: id })}
-        onFree={(libelle, categorie, unite) => run({ action: "manuel", libelle, categorie, unite })} />}
-
-      {/* Bandeau annuler */}
-      {undo && (
-        <div style={S.undoBar}>
-          <span>{undo.label}</span>
-          <button style={S.undoBtn} disabled={busy} onClick={async () => { setBusy(true); try { await undo.run() } finally { setBusy(false); setUndo(null) } }}>Annuler</button>
+        <div style={S.actions}>
+          <button onClick={preparer} disabled={busy} style={{ ...S.btn, ...S.btnMain }}>Préparer la liste</button>
+          <button onClick={() => window.print()} disabled={restants.length === 0} style={S.btn}>Imprimer</button>
+          <button onClick={partagerPdf} disabled={restants.length === 0} style={S.btn}>Partager en PDF</button>
         </div>
-      )}
-    </div>
-  )
-}
+        {info && <p style={S.info}>{info}</p>}
+        {error && <p style={S.err}>{error}</p>}
 
-function AddPanel({ catalogue, busy, onClose, onPick, onFree }: {
-  catalogue: Fav[]; busy: boolean; onClose: () => void
-  onPick: (id: string) => void; onFree: (libelle: string, categorie: string, unite: string) => void
-}) {
-  const [q, setQ] = useState("")
-  const [lib, setLib] = useState(""); const [cat, setCat] = useState("autre"); const [unite, setUnite] = useState("")
-  const needle = q.trim().toLowerCase()
-  const filtered = catalogue.filter((f) => !needle || f.libelle.toLowerCase().includes(needle))
-  const parRayon = new Map<string, Fav[]>()
-  for (const f of filtered) { const l = parRayon.get(f.categorie) || []; l.push(f); parRayon.set(f.categorie, l) }
-  return (
-    <div style={S.overlay} onClick={onClose}>
-      <div style={S.sheet} onClick={(e) => e.stopPropagation()}>
-        <div style={S.sheetHead}><strong>Ajouter un article</strong><button onClick={onClose} style={S.close}>×</button></div>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Chercher dans les favoris" style={S.input} />
-        <div style={S.favList}>
-          {[...parRayon.entries()].sort((a, b) => rayonOrdre(a[0]) - rayonOrdre(b[0])).map(([r, fs]) => (
-            <div key={r}>
-              <p style={S.favRayon}>{rayonLabel(r)}</p>
-              {fs.map((f) => <button key={f.id} disabled={busy} style={S.favBtn} onClick={() => { onPick(f.id); onClose() }}>{f.libelle}</button>)}
+        {RAYONS.map((r) => {
+          const ls = parRayon.get(r.key) || []
+          return (
+            <section key={r.key} style={S.rayon}>
+              <h2 style={S.h2}>{r.label}{ls.length > 0 && <span style={S.h2n}> {ls.filter((l) => !l.coche).length}</span>}</h2>
+              {ls.map((l) => (
+                <label key={l.id} style={S.ligne}>
+                  <input type="checkbox" checked={l.coche} onChange={() => basculer(l)} style={S.check} />
+                  <span style={{ ...S.dot, background: pastille(l.fournisseur).couleur }} />
+                  <span style={{ ...S.lib, ...(l.coche ? S.barre : {}) }}>{l.libelle}</span>
+                  <span style={{ ...S.qte, ...(l.coche ? S.barre : {}) }}>{quantiteAffichee(l.quantite, l.unite, l.quantite_texte)}</span>
+                </label>
+              ))}
+              <input
+                value={saisies[r.key] || ""} placeholder="+ ajouter…" enterKeyHint="done" aria-label={`Ajouter dans ${r.label}`}
+                onChange={(e) => setSaisies((s) => ({ ...s, [r.key]: e.target.value }))}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); ajouter(r.key) } }}
+                style={S.ajout}
+              />
+            </section>
+          )
+        })}
+
+        {nbCoches > 0 && (
+          <button onClick={() => lancer({ action: "terminer" })} disabled={busy} style={S.terminer}>
+            Terminer les courses ({nbCoches})
+          </button>
+        )}
+        <div style={S.liens}>
+          <Link href="/admin/courses/cartes" style={S.lien}>Vue cartes (quantités)</Link>
+          <Link href="/admin/courses/catalogue" style={S.lien}>Catalogue</Link>
+        </div>
+      </div>
+
+      {/* Feuille imprimée : A4, 3 colonnes, non cochés uniquement. */}
+      <div className="ps28-print" aria-hidden="true">
+        <h1>{titre}</h1>
+        <div className="ps28-cols">
+          {groupesImpression.map((g) => (
+            <div key={g.key}>
+              <h2>{rayonLabel(g.key)}</h2>
+              {g.lignes.map((l) => (
+                <div key={l.id} className="ps28-ligne">
+                  <span className="ps28-case" />
+                  <span className="ps28-dot" style={{ background: pastille(l.fournisseur).couleur }} />
+                  <span>{l.libelle} <span className="ps28-qte">{quantiteAffichee(l.quantite, l.unite, l.quantite_texte)}</span></span>
+                </div>
+              ))}
             </div>
           ))}
         </div>
-        <div style={S.freeBox}>
-          <p style={S.favRayon}>Saisie libre</p>
-          <input value={lib} onChange={(e) => setLib(e.target.value)} placeholder="Libellé" style={S.input} />
-          <select value={cat} onChange={(e) => setCat(e.target.value)} style={S.input}>
-            {RAYONS.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
-          </select>
-          <input value={unite} onChange={(e) => setUnite(e.target.value)} placeholder="Unité (lot, kg…)" style={S.input} />
-          <button disabled={busy || !lib.trim()} style={S.addBtn} onClick={() => { onFree(lib.trim(), cat, unite.trim()); onClose() }}>Ajouter</button>
-        </div>
       </div>
-    </div>
+    </>
   )
 }
 
+const PRINT_CSS = `
+.ps28-print { display: none; }
+@media print {
+  @page { size: A4; margin: 10mm; }
+  body * { visibility: hidden; }
+  .ps28-ecran { display: none !important; }
+  .ps28-print, .ps28-print * { visibility: visible; }
+  .ps28-print { display: block; position: absolute; left: 0; top: 0; width: 100%; color: #000; background: #fff; font-family: Helvetica, Arial, sans-serif; }
+  .ps28-print h1 { font-size: 13pt; margin: 0 0 3mm; }
+  .ps28-cols { column-count: 3; column-gap: 6mm; }
+  .ps28-print h2 { font-size: 8pt; text-transform: uppercase; letter-spacing: .03em; color: #555; margin: 2mm 0 1mm; break-after: avoid; }
+  .ps28-ligne { display: flex; align-items: center; gap: 1.6mm; font-size: 9.5pt; line-height: 1.25; padding: .5mm 0; break-inside: avoid; }
+  .ps28-case { flex: 0 0 auto; width: 2.8mm; height: 2.8mm; border: .25mm solid #000; }
+  .ps28-dot { flex: 0 0 auto; width: 2.5mm; height: 2.5mm; border-radius: 50%; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .ps28-qte { color: #555; }
+}
+`
+
 const S: Record<string, React.CSSProperties> = {
-  page: { maxWidth: 560, margin: "0 auto", padding: "16px 14px 90px", fontFamily: "var(--font-display, Fredoka), system-ui, sans-serif", color: "var(--ink)" },
+  page: { maxWidth: 560, margin: "0 auto", padding: "16px 14px 60px", fontFamily: "var(--font-display, Fredoka), system-ui, sans-serif", color: "var(--ink)" },
   h1: { fontSize: 22, fontWeight: 800, margin: "12px 0 2px" },
-  count: { fontSize: 13, color: "var(--ink-soft)", margin: "0 0 10px" },
+  count: { fontSize: 13, color: "var(--ink-soft)", margin: "0 0 4px" },
+  legende: { display: "flex", gap: 14, fontSize: 12, color: "var(--ink-soft)", margin: "0 0 10px" },
+  legItem: { display: "inline-flex", alignItems: "center", gap: 5 },
   err: { color: "#DC2626", fontSize: 14 }, muted: { color: "var(--ink-soft)", fontSize: 14 },
-  pills: { position: "sticky", top: "env(safe-area-inset-top, 0px)", zIndex: 10, display: "flex", gap: 8, overflowX: "auto", padding: "6px 0", background: "var(--bg)", marginBottom: 10 },
-  pill: { flex: "0 0 auto", minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px solid var(--border)", background: "var(--card,#fff)", color: "var(--ink)", fontSize: 14, fontWeight: 700, fontFamily: "inherit", cursor: "pointer", whiteSpace: "nowrap" },
-  pillOn: { background: "var(--accent)", color: "#fff", borderColor: "var(--accent)" },
-  pillOff: { opacity: 0.4, cursor: "not-allowed" },
-  grid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 },
-  card: { border: "1px solid var(--border)", borderRadius: 14, padding: 10, background: "var(--card,#fff)", display: "flex", flexDirection: "column", gap: 6 },
-  cardDone: { opacity: 0.5, background: "var(--bg-alt)" },
-  cardTop: { display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer" },
-  check: { width: 24, height: 24, flex: "0 0 auto", marginTop: 2, accentColor: "var(--accent)" },
-  lib: { fontSize: 14, fontWeight: 700, lineHeight: 1.25, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" },
-  auto: { fontSize: 10, fontWeight: 700, color: "var(--accent)" },
-  four: { fontSize: 11, color: "var(--ink-soft)" },
-  stepper: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4, marginTop: "auto" },
-  stepBtn: { width: 40, height: 40, borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)", fontSize: 20, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" },
-  qte: { fontSize: 15, fontWeight: 800 }, unite: { fontSize: 11, fontWeight: 600, color: "var(--ink-soft)" },
-  partager: { width: "100%", minHeight: 46, marginTop: 16, borderRadius: 12, border: "1px solid var(--border)", background: "var(--card,#fff)", color: "var(--ink)", fontSize: 14, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" },
-  terminer: { width: "100%", minHeight: 52, marginTop: 10, borderRadius: 14, border: "none", background: "var(--accent-2, #5A7F42)", color: "#fff", fontSize: 16, fontWeight: 800, fontFamily: "inherit", cursor: "pointer" },
+  info: { fontSize: 13, color: "var(--accent-2, #5A7F42)", fontWeight: 700, margin: "4px 0 0" },
+  actions: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 },
+  btn: { minHeight: 44, borderRadius: 12, border: "1px solid var(--border)", background: "var(--card,#fff)", color: "var(--ink)", fontSize: 13, fontWeight: 700, fontFamily: "inherit", cursor: "pointer", padding: "0 6px" },
+  btnMain: { background: "var(--accent)", borderColor: "var(--accent)", color: "#fff" },
+  rayon: { marginTop: 14 },
+  h2: { fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".03em", color: "var(--ink-soft)", margin: "0 0 2px", padding: "0 2px" },
+  h2n: { fontWeight: 600 },
+  ligne: { display: "flex", alignItems: "center", gap: 10, minHeight: 44, padding: "0 2px", borderBottom: "1px solid var(--border)", cursor: "pointer" },
+  check: { width: 20, height: 20, flex: "0 0 auto", margin: 0, accentColor: "var(--accent)" },
+  dot: { display: "inline-block", width: 8, height: 8, borderRadius: 999, flex: "0 0 auto" },
+  lib: { flex: 1, minWidth: 0, fontSize: 15, fontWeight: 600, lineHeight: 1.25 },
+  qte: { flex: "0 0 auto", maxWidth: "45%", textAlign: "right", fontSize: 13, color: "var(--ink-soft)", lineHeight: 1.2 },
+  barre: { textDecoration: "line-through", opacity: 0.45 },
+  ajout: { width: "100%", minHeight: 40, border: "none", borderBottom: "1px dashed var(--border)", background: "transparent", color: "var(--ink)", fontSize: 14, fontFamily: "inherit", padding: "0 2px", outline: "none" },
+  terminer: { width: "100%", minHeight: 48, marginTop: 18, borderRadius: 14, border: "none", background: "var(--accent-2, #5A7F42)", color: "#fff", fontSize: 15, fontWeight: 800, fontFamily: "inherit", cursor: "pointer" },
   liens: { display: "flex", gap: 16, justifyContent: "center", marginTop: 14 },
-  lien: { background: "none", border: "none", color: "var(--ink-soft)", fontSize: 13, fontWeight: 700, textDecoration: "underline", cursor: "pointer", fontFamily: "inherit" },
-  ligneMini: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "8px 2px", borderBottom: "1px solid var(--border)", fontSize: 14 },
-  remettre: { minHeight: 36, borderRadius: 8, border: "1px solid var(--accent)", background: "#FBF0EA", color: "var(--accent)", fontSize: 13, fontWeight: 700, padding: "0 12px", cursor: "pointer", fontFamily: "inherit" },
-  fab: { position: "fixed", right: "calc(16px + env(safe-area-inset-right, 0px))", bottom: "calc(16px + env(safe-area-inset-bottom, 0px))", width: 58, height: 58, borderRadius: 999, border: "none", background: "var(--accent)", color: "#fff", fontSize: 30, fontWeight: 800, cursor: "pointer", boxShadow: "0 8px 24px rgba(200,90,60,.35)", zIndex: 20 },
-  overlay: { position: "fixed", inset: 0, background: "rgba(40,28,20,.45)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 40, padding: 12 },
-  sheet: { width: "100%", maxWidth: 480, maxHeight: "85vh", overflowY: "auto", background: "var(--card,#fff)", borderRadius: 18, padding: "16px 16px calc(16px + env(safe-area-inset-bottom, 0px))" },
-  sheetHead: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
-  close: { background: "none", border: "none", fontSize: 26, cursor: "pointer", color: "var(--ink-soft)" },
-  input: { width: "100%", minHeight: 44, padding: "0 12px", borderRadius: 10, border: "1px solid var(--border)", fontSize: 15, background: "var(--bg)", color: "var(--ink)", fontFamily: "inherit", marginBottom: 8 },
-  favList: { marginBottom: 10 },
-  favRayon: { fontSize: 12, fontWeight: 800, textTransform: "uppercase", color: "var(--ink-soft)", margin: "8px 0 4px" },
-  favBtn: { display: "block", width: "100%", textAlign: "left", minHeight: 42, borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)", fontSize: 14, fontWeight: 600, padding: "0 12px", marginBottom: 6, cursor: "pointer", fontFamily: "inherit" },
-  freeBox: { borderTop: "1px solid var(--border)", paddingTop: 10 },
-  addBtn: { width: "100%", minHeight: 48, borderRadius: 12, border: "none", background: "var(--accent)", color: "#fff", fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" },
-  undoBar: { position: "fixed", left: 12, right: 12, bottom: "calc(16px + env(safe-area-inset-bottom, 0px))", maxWidth: 480, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, background: "var(--ink)", color: "#fff", borderRadius: 12, padding: "10px 14px", zIndex: 30 },
-  undoBtn: { background: "none", border: "none", color: "#FFB38A", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" },
+  lien: { color: "var(--ink-soft)", fontSize: 13, fontWeight: 700, textDecoration: "underline" },
 }
