@@ -9,6 +9,13 @@ describe("courses-rayons (PS-25)", () => {
     expect(rayonOrdre("autre")).toBe(RAYONS.length - 1)
     expect(rayonOrdre("fruits_legumes")).toBeLessThan(rayonOrdre("hygiene"))
   })
+  it("rayons PS-29 : Boucherie, Épices & sauces, Surgelés", () => {
+    expect(rayonLabel("boucherie")).toBe("Boucherie")
+    expect(rayonLabel("epices_sauces")).toBe("Épices & sauces")
+    expect(rayonLabel("surgeles")).toBe("Surgelés")
+    expect(rayonOrdre("boucherie")).toBeLessThan(rayonOrdre("frais"))
+    expect(rayonOrdre("surgeles")).toBeGreaterThan(rayonOrdre("gouter"))
+  })
   it("tri par rayon (ordre de visite)", () => {
     const sorted = trierParRayon([
       { id: "1", categorie: "hygiene" }, { id: "2", categorie: "pain" }, { id: "3", categorie: "fruits_legumes" },

@@ -41,20 +41,31 @@ export function articlesDus<T extends ArticleCatalogue>(catalogue: T[], aujourdH
 }
 
 // Pastilles fournisseur : un repère de couleur, rien de plus. Socopoint s'affiche « Leclerc ».
-export interface Pastille { cle: "carrefour" | "gerembale" | "leclerc" | "autre"; couleur: string; nom: string; ordre: number }
+export interface Pastille { cle: "carrefour" | "gerembale" | "leclerc" | "mgstore" | "autre"; couleur: string; nom: string; ordre: number }
 export const PASTILLES: Pastille[] = [
   { cle: "carrefour", couleur: "#DC2626", nom: "Carrefour", ordre: 0 },
   { cle: "gerembale", couleur: "#16A34A", nom: "Gerembale", ordre: 1 },
   { cle: "leclerc", couleur: "#2563EB", nom: "Leclerc", ordre: 2 },
+  { cle: "mgstore", couleur: "#9333EA", nom: "MG Store", ordre: 3 },
 ]
-const AUTRE: Pastille = { cle: "autre", couleur: "#9CA3AF", nom: "", ordre: 3 }
+const AUTRE: Pastille = { cle: "autre", couleur: "#9CA3AF", nom: "", ordre: 4 }
 
 export function pastille(fournisseur: string | null | undefined): Pastille {
   const f = (fournisseur || "").toLowerCase()
   if (f.includes("carrefour")) return PASTILLES[0]
   if (f.includes("gerembal")) return PASTILLES[1]
   if (f.includes("socopoint") || f.includes("leclerc")) return PASTILLES[2]
+  if (f.replace(/\s+/g, "").includes("mgstore")) return PASTILLES[3]
   return { ...AUTRE, nom: fournisseur || "" }
+}
+
+// PS-29 — Rachel choisit elle-même le fournisseur préféré en tapant la pastille : cycle
+// Carrefour → Gerembale → Leclerc (stocké « Socopoint ») → MG Store → aucun → Carrefour.
+export const CYCLE_FOURNISSEURS: (string | null)[] = ["Carrefour", "Gerembale", "Socopoint", "MG Store", null]
+export function prochainFournisseur(actuel: string | null | undefined): string | null {
+  const cle = pastille(actuel).cle
+  const i = cle === "autre" ? CYCLE_FOURNISSEURS.length - 1 : PASTILLES.findIndex((p) => p.cle === cle)
+  return CYCLE_FOURNISSEURS[(i + 1) % CYCLE_FOURNISSEURS.length]
 }
 
 /** Nom affiché d'un fournisseur (Socopoint → « Leclerc »). */

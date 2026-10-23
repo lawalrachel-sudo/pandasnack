@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { articlesDus, joursEntre, pastille, nomFournisseur, quantiteAffichee, trierListe, grouperParRayon, type ArticleCatalogue } from "./courses-liste"
+import { prochainFournisseur, articlesDus, joursEntre, pastille, nomFournisseur, quantiteAffichee, trierListe, grouperParRayon, type ArticleCatalogue } from "./courses-liste"
 import { listePdf, paginer, couper, largeur } from "./courses-pdf"
 
 const A = (id: string, cadence: string, dernier_achat: string | null, actif = true): ArticleCatalogue => ({ id, cadence, dernier_achat, actif })
@@ -50,7 +50,9 @@ describe("pastilles fournisseur (PS-28)", () => {
     expect(pastille("Gerembale").couleur).toBe("#16A34A")
     expect(pastille("Socopoint").couleur).toBe("#2563EB")
     expect(pastille("Leclerc La Galleria").cle).toBe("leclerc")
-    expect(pastille("MG Store").cle).toBe("autre")
+    expect(pastille("MG Store").cle).toBe("mgstore")
+    expect(pastille("MG STORE - 2026143972").couleur).toBe("#9333EA")
+    expect(pastille("Le Spécialiste de l'Emballage").cle).toBe("autre")
     expect(pastille(null).couleur).toBe("#9CA3AF")
   })
   it("Socopoint s'affiche « Leclerc »", () => {
@@ -58,6 +60,17 @@ describe("pastilles fournisseur (PS-28)", () => {
     expect(nomFournisseur("SOCOPOINT")).toBe("Leclerc")
     expect(nomFournisseur("MG Store")).toBe("MG Store")
     expect(nomFournisseur(null)).toBe("")
+  })
+})
+
+describe("pastille cliquable (PS-29)", () => {
+  it("cycle Carrefour → Gerembale → Leclerc → MG Store → aucun → Carrefour", () => {
+    expect(prochainFournisseur("Carrefour")).toBe("Gerembale")
+    expect(prochainFournisseur("Gerembale")).toBe("Socopoint")
+    expect(prochainFournisseur("Leclerc La Galleria")).toBe("MG Store")
+    expect(prochainFournisseur("MG Store")).toBe(null)
+    expect(prochainFournisseur(null)).toBe("Carrefour")
+    expect(prochainFournisseur("Equip Commerce")).toBe("Carrefour")
   })
 })
 

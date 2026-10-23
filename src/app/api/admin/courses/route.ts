@@ -101,6 +101,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, quantite: q })
   }
 
+  // PS-29 — fournisseur préféré choisi par Rachel (pastille). Mémorisé sur la ligne ET au
+  // catalogue (lien catalogue_id, sinon libellé identique) pour les listes suivantes.
+  if (action === "fournisseur") {
+    const f = typeof body.fournisseur === "string" && body.fournisseur.trim() ? body.fournisseur.trim() : null
+    const { data: l, error } = await admin.from("courses_items").update({ fournisseur: f, updated_at: now }).eq("id", body.id).select("libelle, catalogue_id").maybeSingle()
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (l?.catalogue_id) await admin.from("courses_catalogue").update({ fournisseur: f, updated_at: now }).eq("id", l.catalogue_id)
+    else if (l?.libelle) await admin.from("courses_catalogue").update({ fournisseur: f, updated_at: now }).ilike("libelle", l.libelle)
+    return NextResponse.json({ ok: true, fournisseur: f })
+  }
+
   if (action === "retirer") {
     const { error } = await admin.from("courses_items").update({ statut: "ignore", updated_at: now }).eq("id", body.id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
