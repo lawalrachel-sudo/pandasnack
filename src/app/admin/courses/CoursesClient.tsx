@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { AdminBackButton } from "../AdminBackButton"
 import { RAYONS, rayonLabel } from "@/lib/courses-rayons"
-import { PASTILLES, pastille, quantiteAffichee, trierListe } from "@/lib/courses-liste"
+import { PASTILLES, pastille, prochainFournisseur, quantiteAffichee, trierListe } from "@/lib/courses-liste"
 import { listePdf, type PdfGroupe } from "@/lib/courses-pdf"
 import { martiniqueToday } from "@/lib/caisse-date"
 
@@ -72,6 +72,14 @@ export function CoursesClient() {
     const statut = l.coche ? "a_acheter" : "achete"
     setItems((prev) => (prev || []).map((i) => (i.id === l.id ? { ...i, statut } : i)))
     try { await act(l.coche ? { action: "decocher", id: l.id, reverse: true } : { action: "achete", id: l.id }) }
+    catch (e) { setError((e as Error).message); load().catch(() => {}) }
+  }
+
+  // PS-29 — tap sur la pastille = fournisseur suivant (optimiste), mémorisé au catalogue.
+  async function changerFournisseur(l: Ligne) {
+    const fournisseur = prochainFournisseur(l.fournisseur)
+    setItems((prev) => (prev || []).map((i) => (i.id === l.id ? { ...i, fournisseur } : i)))
+    try { await act({ action: "fournisseur", id: l.id, fournisseur }) }
     catch (e) { setError((e as Error).message); load().catch(() => {}) }
   }
 
@@ -153,7 +161,13 @@ export function CoursesClient() {
               {ls.map((l) => (
                 <label key={l.id} style={S.ligne}>
                   <input type="checkbox" checked={l.coche} onChange={() => basculer(l)} style={S.check} />
-                  <span style={{ ...S.dot, background: pastille(l.fournisseur).couleur }} />
+                  <button
+                    type="button" style={S.dotBtn}
+                    aria-label={`Fournisseur : ${pastille(l.fournisseur).nom || "aucun"} — changer`}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); changerFournisseur(l) }}
+                  >
+                    <span style={{ ...S.dot, background: pastille(l.fournisseur).couleur }} />
+                  </button>
                   <span style={{ ...S.lib, ...(l.coche ? S.barre : {}) }}>{l.libelle}</span>
                   <span style={{ ...S.qte, ...(l.coche ? S.barre : {}) }}>{quantiteAffichee(l.quantite, l.unite, l.quantite_texte)}</span>
                 </label>
@@ -236,6 +250,7 @@ const S: Record<string, React.CSSProperties> = {
   ligne: { display: "flex", alignItems: "center", gap: 10, minHeight: 44, padding: "0 2px", borderBottom: "1px solid var(--border)", cursor: "pointer" },
   check: { width: 20, height: 20, flex: "0 0 auto", margin: 0, accentColor: "var(--accent)" },
   dot: { display: "inline-block", width: 8, height: 8, borderRadius: 999, flex: "0 0 auto" },
+  dotBtn: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, margin: "-8px -4px", padding: 0, border: "none", background: "transparent", cursor: "pointer", flex: "0 0 auto" },
   lib: { flex: 1, minWidth: 0, fontSize: 15, fontWeight: 600, lineHeight: 1.25 },
   qte: { flex: "0 0 auto", maxWidth: "45%", textAlign: "right", fontSize: 13, color: "var(--ink-soft)", lineHeight: 1.2 },
   barre: { textDecoration: "line-through", opacity: 0.45 },
