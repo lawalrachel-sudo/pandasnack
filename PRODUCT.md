@@ -69,7 +69,7 @@ product
   généreuses (≥44px), contraste sans hésitation, hiérarchie typographique
   qui guide sans annoter.
 - **Zéro friction panier → checkout.** Un parent qui hésite ne paie pas.
-  Wallet visible en permanence. Cutoff (heure limite veille 20h) clair sans
+  Wallet visible en permanence. Cutoff (heure limite veille 22h) clair sans
   être anxiogène.
 - **Admin lisible sans formation.** Rachel n'a pas de manuel. L'interface
   admin doit être autopédagogique. Étiquettes : zéro réglage manuel, ça

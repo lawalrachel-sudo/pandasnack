@@ -29,7 +29,7 @@ export default async function Home() {
         Sandwichs, croques, pasta box, salades et boissons maison.
       </p>
 
-      {/* PS-04 — Info parents (commande la veille avant 20h), visible à chaque visite */}
+      {/* PS-04 — Info parents (commande la veille avant 22h), visible à chaque visite */}
       <div className="w-full mb-4"><InfoParentsBanner /></div>
 
       <div className="flex flex-col gap-3 w-full max-w-xs">

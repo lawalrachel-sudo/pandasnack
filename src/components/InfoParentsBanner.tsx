@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 
-// PS-04 — Bandeau « Info parents » : commande la veille avant 20h. Visible par TOUS les parents à
+// PS-04 — Bandeau « Info parents » : commande la veille avant 22h. Visible par TOUS les parents à
 // chaque visite (aucun bouton fermer, aucun localStorage), juste sous le bandeau horaires (PS-03).
 // Même famille visuelle que RENTREE_BANNER ; la distinction = icône ⏰ + contenu.
 // PS-04c — contraste : le couple du bandeau horaires (--accent #C85A3C / blanc) vaut 4,21:1 (< 4,5 AA),
@@ -11,7 +11,7 @@ import { useEffect, useState } from "react"
 export const INFO_PARENTS_UNTIL = "2026-10-07"
 
 const INFO_PARENTS = {
-  title: "Merci de commander la veille avant 20h.",
+  title: "Merci de commander la veille avant 22h.",
   body: "Je ne peux plus assurer les commandes de dernière minute, et encore moins le jour même, 5 minutes avant les cours. Panda Snack est là pour vous faciliter la vie de parent — en s'organisant ensemble, ce sera parfait pour vos enfants !",
 } as const
 
