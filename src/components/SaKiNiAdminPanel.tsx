@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react"
 
 // PS-14 — Panneau « 🍽️ Sa ki ni » du Service du jour : pour la date affichée, liste les plats
 // éligibles présents dans les commandes du jour et permet d'ouvrir X portions EN PLUS (+/–).
-// Utilisable de la clôture (veille 20h) à 10h30 le jour J. Remettre à 0 = fermer.
+// Utilisable de la clôture (veille 22h) à 10h30 le jour J. Remettre à 0 = fermer.
 interface Plat { catalog_item_id: string; name: string; qty_ouverte: number; qty_vendue: number }
 interface Panel { slot_id: string | null; service_date: string; plats: Plat[] }
 

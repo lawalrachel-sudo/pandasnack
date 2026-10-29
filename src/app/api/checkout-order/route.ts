@@ -29,7 +29,7 @@ function mapRpcError(message: string): { status: number; error: string; code: st
   if (message.includes("CUTOFF_PASSED")) {
     return {
       status: 400,
-      error: "L'heure limite de commande pour ce jour est passée (veille 20h).",
+      error: "L'heure limite de commande pour ce jour est passée (veille 22h).",
       code: "CUTOFF_PASSED",
     }
   }

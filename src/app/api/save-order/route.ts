@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
       const cutoff = new Date(slot.orders_cutoff_at)
       if (new Date() >= cutoff) {
         return NextResponse.json({
-          error: "L'heure limite de commande pour ce jour est passée (veille 20h). Cette commande n'est plus disponible."
+          error: "L'heure limite de commande pour ce jour est passée (veille 22h). Cette commande n'est plus disponible."
         }, { status: 400 })
       }
     }

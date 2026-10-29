@@ -7,7 +7,7 @@ import { getSaKiNiAdminPanel } from "@/lib/sa-ki-ni-server"
 export const dynamic = "force-dynamic"
 
 // GET /api/admin/sa-ki-ni?date=YYYY-MM-DD — plats sa_ki_ni_ok présents dans les commandes du jour
-// + état des offres (ouvertes / prises). Utilisable de la clôture (veille 20h) à 10h30 le jour J.
+// + état des offres (ouvertes / prises). Utilisable de la clôture (veille 22h) à 10h30 le jour J.
 export async function GET(req: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const ssr: any = await createServerSupabase()

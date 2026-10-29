@@ -26,7 +26,7 @@ export interface SaKiNiHeroData {
 interface Profil { id: string; prenom: string }
 
 const TOAST_KEY = "ps_skn_toast_seen"
-const TOAST = "Les commandes de ce jour sont fermées depuis hier 20h. SA KI NI, c'est ce qu'il reste en cuisine aujourd'hui : jusqu'à 10h30, dans la limite des quantités, payé avec ton Panda Wallet."
+const TOAST = "Les commandes de ce jour sont fermées depuis hier 22h. SA KI NI, c'est ce qu'il reste en cuisine aujourd'hui : jusqu'à 10h30, dans la limite des quantités, payé avec ton Panda Wallet."
 
 function euro(c: number | null): string {
   if (c == null) return "—"

@@ -604,7 +604,7 @@ export function CommanderClient({ account, profils, wallet, categories, menuForm
           <p className="text-sm mt-1.5 opacity-95">{stageWeekNow ? STAGE_HORAIRES : RENTREE_BANNER.subtitle}</p>
         </div>
       </section>
-      {/* PS-04 — Info parents (commande la veille avant 20h), juste sous le bandeau horaires */}
+      {/* PS-04 — Info parents (commande la veille avant 22h), juste sous le bandeau horaires */}
       <InfoParentsBanner />
       <section aria-label="Aide" className="px-4 pb-4">
         {/* PS-02 — pilule discrète de rappel du toast pédagogique, à droite sous le bandeau */}

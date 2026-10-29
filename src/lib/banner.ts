@@ -25,7 +25,7 @@ export const HOWTO_STEPS: ReadonlyArray<{ icon: string; text: string; key?: bool
   { icon: "📅", text: "Choisis le JOUR de ton repas (mercredi ou samedi).", key: true },
   { icon: "🍱", text: "Choisis ton plat : Menu Panda (plat + Bubble Tea + dessert) ou un article seul." },
   { icon: "🥗", text: "Pour un sandwich ou un club : choisis tes crudités." },
-  { icon: "⏰", text: "Commande avant la veille 20h ; paiement en ligne ou sur place." },
+  { icon: "⏰", text: "Commande avant la veille 22h ; paiement en ligne ou sur place." },
 ]
 
 // PS-17 — Hero temporel « Stage de Toussaint » (affiché sur / et /commander tant qu'un créneau
@@ -36,4 +36,4 @@ export const STAGE_HERO = {
   subtitle: "Tes cours reprennent le mercredi 4 novembre — tes créneaux habituels sont déjà ouverts.",
 } as const
 
-export const STAGE_HORAIRES = "Semaine de stage : Panda Snack sert le midi, précommande la veille avant 20h ; boutique au comptoir toute la journée."
+export const STAGE_HORAIRES = "Semaine de stage : Panda Snack sert le midi, précommande la veille avant 22h ; boutique au comptoir toute la journée."

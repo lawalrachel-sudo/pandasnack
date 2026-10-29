@@ -1,6 +1,6 @@
 // PS-14 — SA KI NI (« ce qu'il y a ») : logique pure partagée serveur/front.
 //
-// Après la clôture (veille 20h = orders_cutoff_at du créneau), Rachel ouvre quelques portions en
+// Après la clôture (veille 22h = orders_cutoff_at du créneau), Rachel ouvre quelques portions en
 // plus ; les parents peuvent les prendre le jour J jusqu'à 10h30 Martinique, dans la limite des
 // quantités, payées au Panda Wallet. Fermé par défaut : sans offre, rien ne s'affiche.
 //
