@@ -41,7 +41,7 @@ export function LayoutClient({ children }: { children: React.ReactNode }) {
 
   const footer = (
     <footer
-      className="text-center text-xs py-3 px-4 border-t mb-16"
+      className="text-center text-xs py-3 px-4 border-t mb-16 print:hidden"
       style={{
         borderColor: "var(--border)",
         color: "var(--ink-soft)",
@@ -62,10 +62,9 @@ export function LayoutClient({ children }: { children: React.ReactNode }) {
   return (
     <CartProvider>
       {isAdmin ? (
-        <>
-          {children}
-          {footer}
-        </>
+        // PS-30 — admin : pas de pied de page CGV/CGU (il sortait en page imprimée en plus
+        // des planches d'étiquettes et gâchait une feuille autocollante).
+        <>{children}</>
       ) : (
         <div className="ps-outer">
           <div className="ps-shell">
@@ -76,7 +75,7 @@ export function LayoutClient({ children }: { children: React.ReactNode }) {
       )}
       <BottomNav />
       {/* Modal bloquante affichée si user connecté + cgu_version DB ≠ CURRENT_CGU_VERSION */}
-      <LegalAcceptanceGate />
+      {!isAdmin && <LegalAcceptanceGate />}
     </CartProvider>
   )
 }
